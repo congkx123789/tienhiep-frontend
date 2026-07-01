@@ -1,0 +1,12 @@
+# Underthesea User Dictionary
+# Format: one word/phrase per line
+# Used to enforce custom tokenization for Vietnamese terms
+
+cú pháp học
+phân tích cấu trúc
+mô hình ngôn ngữ
+phát triển phần mềm
+trí tuệ nhân tạo
+học máy sâu
+đặc tả cú pháp
+phân tích cú pháp phụ thuộc

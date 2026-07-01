@@ -1,0 +1,113 @@
+{
+  "name": "frontend-web",
+  "private": true,
+  "version": "1.0.18",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite --mode electron\" \"wait-on http://localhost:3532 && electron . --no-sandbox --remote-debugging-port=9222\"",
+    "electron:build": "vite build --mode electron && electron-builder --win",
+    "build:all": "npm run build && npm run electron:build",
+    "build:full": "powershell -ExecutionPolicy Bypass -File ../build_all.ps1",
+    "cap:sync": "npx cap sync",
+    "cap:build:android": "npm run build && npx cap sync && npx cap open android",
+    "cap:build:ios": "npm run build && npx cap sync && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^7.6.7",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "axios": "^1.17.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.17.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^8.2.2",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.0",
+    "vite": "^8.0.12",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.tienhiepai.app",
+    "productName": "TienHiepAI",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "dist-electron-build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ],
+      "extraResources": [
+        {
+          "from": "../TTS_ONNX_Deploy",
+          "to": "bin",
+          "filter": [
+            "*.onnx",
+            "windows_cpu.zip"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TienHiepAI",
+      "uninstallDisplayName": "Tiên Hiệp AI - Đọc Truyện",
+      "include": "build/installer.nsh"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "executableArgs": [
+        "--no-sandbox"
+      ],
+      "target": [
+        "AppImage"
+      ],
+      "extraResources": [
+        {
+          "from": "../TTS_ONNX_Deploy",
+          "to": "bin",
+          "filter": [
+            "*.onnx",
+            "linux_cpu.zip"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "build/icon.png"
+    }
+  }
+}

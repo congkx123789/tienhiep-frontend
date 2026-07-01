@@ -1,0 +1,8 @@
+Vercel CLI 54.18.6 (Node.js 20.20.2)
+Retrieving project…
+Deploying havucong25-8643s-projects/frontend-web
+Uploading [--------------------] (0.0B/2.8MB)
+Uploading [=====---------------] (716.5KB/2.8MB)
+Uploading [==========----------] (1.4MB/2.8MB)
+Uploading [===============-----] (2.1MB/2.8MB)
+Uploading [====================] (2.8MB/2.8MB)

@@ -1,0 +1,29 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://cong123779-tienhiep-api.hf.space/api/:path*"
+    },
+    {
+      "source": "/translate",
+      "destination": "https://cong123779-tienhiep-api.hf.space/translate"
+    },
+    {
+      "source": "/translate_stream",
+      "destination": "https://cong123779-tienhiep-api.hf.space/translate_stream"
+    },
+    {
+      "source": "/v1/:path*",
+      "destination": "https://cong123779-tienhiep-api.hf.space/v1/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://cong123779-tienhiep-api.hf.space/health"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

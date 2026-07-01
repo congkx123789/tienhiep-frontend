@@ -1,0 +1,16 @@
+dist-electron-build/
+linux-unpacked/
+win-unpacked/
+node_modules/
+dist/
+dist-electron/
+dist-electron-build-new/
+dist-electron-build-temp/
+dist-electron-old/
+dist-old/
+dist_old_*
+dist-temp-to-delete/
+*.AppImage
+*.exe
+*.zip
+*.log

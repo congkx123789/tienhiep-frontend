@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Automatically handle Vite dynamic chunk load errors by doing a hard reload
+      window.addEventListener('error', function(e) {
+        if (e.message && (e.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.message.indexOf('chunk') !== -1)) {
+          console.warn('Chunk load error detected, reloading page to fetch latest version...', e);
+          const lastReload = localStorage.getItem('last_chunk_reload');
+          const now = Date.now();
+          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+            localStorage.setItem('last_chunk_reload', now.toString());
+            window.location.reload();
+          }
+        }
+      }, true);
+      
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e.reason && e.reason.message && (e.reason.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.reason.message.indexOf('chunk') !== -1)) {
+          console.warn('Unhandled promise rejection (chunk error), reloading page...', e);
+          const lastReload = localStorage.getItem('last_chunk_reload');
+          const now = Date.now();
+          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+            localStorage.setItem('last_chunk_reload', now.toString());
+            window.location.reload();
+          }
+        }
+      });
+    </script>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- SEO Meta Tags -->
+    <title>Tiên Hiệp AI - Kho Truyện Dịch & Nghe Đọc AI Đỉnh Cao</title>
+    <meta name="description" content="Nền tảng dịch truyện chữ Trung Quốc sang tiếng Việt siêu tốc bằng AI. Tích hợp công nghệ Text-to-Speech (TTS) đọc truyện tự động với giọng đọc AI truyền cảm, mượt mà." />
+    <meta name="keywords" content="dịch truyện, dịch truyện ai, nghe đọc truyện, tts truyện, tiên hiệp ai, dịch hán việt, convert truyện" />
+    <meta name="author" content="Tiên Hiệp AI" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tienhiep.lyvuha.com/" />
+    <meta property="og:title" content="Tiên Hiệp AI - Kho Truyện Dịch & Nghe Đọc AI Đỉnh Cao" />
+    <meta property="og:description" content="Nền tảng dịch truyện chữ Trung Quốc sang tiếng Việt siêu tốc bằng AI. Tích hợp giọng đọc AI thông minh, tự động chuyển chương." />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://tienhiep.lyvuha.com/" />
+    <meta property="twitter:title" content="Tiên Hiệp AI - Kho Truyện Dịch & Nghe Đọc AI Đỉnh Cao" />
+    <meta property="twitter:description" content="Nền tảng dịch truyện chữ Trung Quốc sang tiếng Việt siêu tốc bằng AI. Tích hợp giọng đọc AI thông minh, tự động chuyển chương." />
+    <meta property="twitter:image" content="/og-image.png" />
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google AdSense Verification -->
+    <script id="google-adsense-script" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9548504602542886" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <!-- Cloudflare Web Analytics -->
+    <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "8c6f444f31514590958c9beb0c059b3d"}'></script>
+    <!-- End Cloudflare Web Analytics -->
+  </body>
+</html>

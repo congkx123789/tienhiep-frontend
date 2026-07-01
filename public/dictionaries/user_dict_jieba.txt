@@ -1,0 +1,14 @@
+# Jieba User Dictionary
+# Format: <word> <weight> <pos_tag> (separated by space)
+# Use this to force Jieba to group words/phrases correctly (e.g., compound words, names)
+
+人工智能 1000 n
+结构分析 1000 n
+虽然 1000 c
+但是 1000 c
+因为 1000 c
+所以 1000 c
+不仅 1000 c
+而且 1000 c
+比起 1000 c
+giao diện người dùng 1000 n

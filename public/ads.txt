@@ -1,0 +1,3 @@
+# Google AdSense ads.txt template
+# Thay thế ca-pub-9548504602542886 bằng mã nhà xuất bản (Publisher ID) thực tế của bạn
+google.com, pub-9548504602542886, DIRECT, f08c47fec0942fa0

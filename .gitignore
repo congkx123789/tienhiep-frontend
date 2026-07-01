@@ -40,3 +40,4 @@ dist_old_*
 *.exe
 *.zip
 *.asar
+.git_token

@@ -32,7 +32,7 @@ async function pingServer(url, timeoutMs = HEALTH_TIMEOUT) {
 async function getBestServer() {
   // Web Mode (cả Prod trên Vercel và Dev trên local browser):
   // Luôn trả về rỗng để sử dụng cùng nguồn (same-origin proxy: Vercel rewrites trong prod, Vite proxy trong dev)
-  if (!window.electron) {
+  if (!window.electron && !window.Capacitor) {
     return '';
   }
 

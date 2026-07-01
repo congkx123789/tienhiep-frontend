@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite --mode electron\" \"wait-on http://localhost:3532 && electron . --no-sandbox --remote-debugging-port=9222\"",
     "electron:build": "vite build --mode electron && electron-builder --win",
+    "electron:build:linux": "vite build --mode electron && electron-builder --linux",
     "build:all": "npm run build && npm run electron:build",
     "build:full": "powershell -ExecutionPolicy Bypass -File ../build_all.ps1",
     "cap:sync": "npx cap sync",

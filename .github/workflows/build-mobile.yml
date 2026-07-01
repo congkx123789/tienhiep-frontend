@@ -50,18 +50,18 @@ jobs:
                      -scheme App \
                      -sdk iphonesimulator \
                      -configuration Debug \
+                     -derivedDataPath build \
                      CODE_SIGNING_ALLOWED=NO \
                      clean build
 
       - name: Compress iOS App Bundle
         run: |
-          cd ios/App/build/Release-iphonesimulator
-          zip -r TienHiepAI_Simulator.zip App.app || echo "Skipping zip, build location might differ"
+          cd ios/App/build/Build/Products/Debug-iphonesimulator
+          zip -r TienHiepAI_Simulator.zip App.app
 
       - name: Upload iOS App Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tts-ios-simulator-app
-          path: ios/App/build/Release-iphonesimulator/TienHiepAI_Simulator.zip
-          if-no-files-found: warn
+          path: ios/App/build/Build/Products/Debug-iphonesimulator/TienHiepAI_Simulator.zip
           retention-days: 7

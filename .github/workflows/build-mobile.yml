@@ -54,14 +54,9 @@ jobs:
                      CODE_SIGNING_ALLOWED=NO \
                      clean build
 
-      - name: Compress iOS App Bundle
-        run: |
-          cd ios/App/build/Build/Products/Debug-iphonesimulator
-          zip -r TienHiepAI_Simulator.zip App.app
-
       - name: Upload iOS App Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tts-ios-simulator-app
-          path: ios/App/build/Build/Products/Debug-iphonesimulator/TienHiepAI_Simulator.zip
+          path: ios/App/build/Build/Products/Debug-iphonesimulator/App.app
           retention-days: 7

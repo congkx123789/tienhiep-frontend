@@ -99,6 +99,11 @@ def upload_to_appetize():
         print(f"🎉 Appetize.io upload successful!")
         print(f"👉 Play your iOS App online here: {app_url}")
         
+        # Open in default system browser
+        import webbrowser
+        print("🌐 Opening iOS Simulator in your browser...")
+        webbrowser.open(app_url)
+        
         if not public_key and new_public_key:
             print(f"📝 Saving Appetize public key ({new_public_key}) in .env.local...")
             with open(".env.local", "a") as f:

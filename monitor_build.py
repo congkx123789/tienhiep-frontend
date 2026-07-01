@@ -6,16 +6,27 @@ import sys
 import subprocess
 import os
 
-# Load token from file or env
-TOKEN = ""
-if os.path.exists(".git_token"):
+# Function to load .env variables manually
+def load_env():
+    for env_file in [".env", ".env.local"]:
+        if os.path.exists(env_file):
+            with open(env_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        os.environ[key.strip()] = val.strip()
+
+load_env()
+
+# Load token from env or file
+TOKEN = os.environ.get("GITHUB_TOKEN", "")
+if not TOKEN and os.path.exists(".git_token"):
     with open(".git_token", "r") as f:
         TOKEN = f.read().strip()
-else:
-    TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 if not TOKEN:
-    print("❌ Error: GitHub Token not found in .git_token or GITHUB_TOKEN environment variable!")
+    print("❌ Error: GitHub Token not found in .env.local, .env, .git_token, or environment variable!")
     sys.exit(1)
 
 REPO = "congkx123789/tienhiep-frontend"

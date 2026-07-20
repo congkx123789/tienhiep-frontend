@@ -21,7 +21,7 @@
       "destination": "https://cong123779-tienhiep-api.hf.space/health"
     },
     {
-      "source": "/((?!api|translate|translate_stream|v1|health|assets|static|.*\\.).*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ]

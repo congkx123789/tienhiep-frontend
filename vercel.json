@@ -1,5 +1,4 @@
 {
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -22,7 +21,7 @@
       "destination": "https://cong123779-tienhiep-api.hf.space/health"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api|translate|translate_stream|v1|health|assets|static|.*\\.).*)",
       "destination": "/index.html"
     }
   ]

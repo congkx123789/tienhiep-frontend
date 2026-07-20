@@ -2,9 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, X, Music, Volume2, Settings, Minimize2, SkipForward, SkipBack, Loader, BookOpen, Timer } from 'lucide-react';
 import api from '../services/api';
 
+// Resolve đúng địa chỉ host cho Local TTS server
+// - Electron/Web: 127.0.0.1:8001
+// - Capacitor Android emulator: 10.0.2.2:8001 (host loopback của emulator)
+function getLocalTtsHost() {
+  if (window.Capacitor) return 'http://10.0.2.2:8001';
+  return 'http://127.0.0.1:8001';
+}
 
 export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapter }) {
   const [isPlaying, setIsPlaying] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -252,12 +260,13 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
   const ensureLocalEngineRunning = async () => {
     if (ttsEngine !== 'local') return true;
+    const host = getLocalTtsHost();
 
     // 1. Thử ping /health trước với timeout 1 giây
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1000);
-      const response = await fetch('http://127.0.0.1:8001/health', { signal: controller.signal });
+      const response = await fetch(`${host}/health`, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (response.ok) {
         logTrace("[ensureLocalEngineRunning] Local TTS Server đang chạy và phản hồi tốt.");
@@ -279,14 +288,14 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 800);
-            const checkRes = await fetch('http://127.0.0.1:8001/health', { signal: controller.signal });
+            const checkRes = await fetch(`${host}/health`, { signal: controller.signal });
             clearTimeout(timeoutId);
             if (checkRes.ok) {
               logTrace("[ensureLocalEngineRunning] Engine chạy ngầm đã khởi động thành công và phản hồi!");
               
               // Đồng bộ cấu hình thiết bị phần cứng sau khi khởi động thành công
               const pref = localStorage.getItem('tts_device_pref') || 'auto';
-              fetch('http://127.0.0.1:8001/set_device', {
+              fetch(`${host}/set_device`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ device: pref })
@@ -309,8 +318,9 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
   // Đồng bộ cấu hình CPU/GPU (device) từ localStorage với Local TTS Server khi khởi động trình phát
   useEffect(() => {
+    const host = getLocalTtsHost();
     const pref = localStorage.getItem('tts_device_pref') || 'auto';
-    fetch('http://127.0.0.1:8001/set_device', {
+    fetch(`${host}/set_device`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device: pref })
@@ -433,12 +443,11 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         let audioUrl;
         
         if (ttsEngine === 'local') {
-          // Gọi API offline chạy cục bộ
-          const response = await fetch('http://127.0.0.1:8001/synthesize', {
+          // Gọi API offline chạy cục bộ (tự detect host cho Android emulator vs Desktop)
+          const host = getLocalTtsHost();
+          const response = await fetch(`${host}/synthesize`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: text,
               speed: 1.0 // Client control playbackRate
@@ -1390,21 +1399,21 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
               <button
                 type="button"
                 onClick={() => handleSaveEngine('browser')}
-                className={`py-1 rounded-md text-[8px] font-bold transition-all ${ttsEngine === 'browser' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`py-1.5 rounded-md text-[11px] font-bold transition-all ${ttsEngine === 'browser' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 Trình duyệt
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveEngine('matcha')}
-                className={`py-1 rounded-md text-[8px] font-bold transition-all ${ttsEngine === 'matcha' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`py-1.5 rounded-md text-[11px] font-bold transition-all ${ttsEngine === 'matcha' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 Matcha (Cloud)
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveEngine('local')}
-                className={`py-1 rounded-md text-[8px] font-bold transition-all ${ttsEngine === 'local' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`py-1.5 rounded-md text-[11px] font-bold transition-all ${ttsEngine === 'local' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 Local (Offline)
               </button>

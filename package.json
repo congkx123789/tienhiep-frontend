@@ -16,10 +16,16 @@
     "build:full": "powershell -ExecutionPolicy Bypass -File ../build_all.ps1",
     "cap:sync": "npx cap sync",
     "cap:build:android": "npm run build && npx cap sync && npx cap open android",
-    "cap:build:ios": "npm run build && npx cap sync && npx cap open ios"
+    "cap:build:ios": "npm run build && npx cap sync && npx cap open ios",
+    "android:build": "npm run build && npx cap sync && export JAVA_HOME=/snap/android-studio/current/jbr && cd android && ./gradlew clean assembleDebug",
+    "android:upload": "python3 upload_android.py",
+    "android:run": "./run_android_device.sh",
+    "emulator": "../chay_emulator.sh"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^7.6.7",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",

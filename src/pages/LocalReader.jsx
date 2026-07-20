@@ -149,10 +149,10 @@ export default function LocalReader() {
   };
 
   // Form states
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
+  const [title, setTitle] = useState('Truyện Test Offline');
+  const [author, setAuthor] = useState('Antigravity');
   const [coverUrl, setCoverUrl] = useState('');
-  const [rawText, setRawText] = useState('');
+  const [rawText, setRawText] = useState('Chương 1: Khởi Đầu\nĐây là nội dung chương 1.\nChương 2: Bước Ngoặt\nĐây là nội dung chương 2.');
   const [importMode, setImportMode] = useState('auto'); // 'auto' or 'json'
   const [parseLogs, setParseLogs] = useState('');
   const [fileError, setFileError] = useState('');
@@ -1192,7 +1192,15 @@ export default function LocalReader() {
           {showImportForm && (
             <div className="bg-[#12122b]/90 border border-purple-500/20 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl relative animate-slideUp">
               <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                <h3 
+                  onClick={() => {
+                    setTitle("Truyện Test Offline");
+                    setAuthor("Antigravity");
+                    setRawText("Chương 1: Khởi Đầu\nĐây là nội dung chương 1.\nChương 2: Bước Ngoặt\nĐây là nội dung chương 2.");
+                  }}
+                  title="Click to auto-fill (developer helper)"
+                  className="font-extrabold text-white text-base flex items-center gap-2 cursor-pointer select-none active:text-purple-400"
+                >
                   <BookOpen className="w-5 h-5 text-purple-400" /> {curT.importTitle}
                 </h3>
                 <button 
@@ -1210,6 +1218,7 @@ export default function LocalReader() {
                     <input 
                       type="text" 
                       required 
+                      id="local-title-input"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder={curT.bookTitlePlaceholder}
@@ -1222,6 +1231,7 @@ export default function LocalReader() {
                     <input 
                       type="text" 
                       required
+                      id="local-author-input"
                       value={author}
                       onChange={(e) => setAuthor(e.target.value)}
                       placeholder={curT.authorPlaceholder}
@@ -1233,6 +1243,7 @@ export default function LocalReader() {
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">{curT.coverUrlLabel}</label>
                     <input 
                       type="url" 
+                      id="local-cover-input"
                       value={coverUrl}
                       onChange={(e) => setCoverUrl(e.target.value)}
                       placeholder="https://example.com/cover.jpg"
@@ -1311,6 +1322,7 @@ export default function LocalReader() {
                   </label>
                   <textarea
                     required
+                    id="local-content-textarea"
                     value={rawText}
                     onChange={(e) => setRawText(e.target.value)}
                     placeholder={
@@ -1332,6 +1344,7 @@ export default function LocalReader() {
                   </button>
                   <button
                     type="submit"
+                    id="local-submit-btn"
                     className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-purple-600/25 transition-all"
                   >
                     {curT.parseAddBtn}

@@ -5,22 +5,63 @@ import MainLayout from '../layouts/MainLayout';
 import api, { getBestServer } from '../services/api';
 import { isElectron, getElectronAPI } from '../utils/electron';
 import { useAutoUpdate } from '../hooks/useAutoUpdate';
+import { useNavigate } from 'react-router-dom';
 
 import { 
   Shield, Lock, Mail, User, CheckCircle, AlertTriangle, KeyRound,
   Award, Coins, Smartphone, Sparkles, Check, RefreshCw, LogOut,
   BookOpen, Settings as SettingsIcon, Sliders, Bell, Compass, Calendar, 
   ChevronRight, Laptop, Tablet, Smartphone as PhoneIcon, Trash2, HelpCircle,
-  BarChart3, Clock, Globe, Tv, Wifi, WifiOff, X
+  BarChart3, Clock, Globe, Tv, Wifi, WifiOff, X,
+  BrainCircuit, Crown, MessageSquare, Terminal
 } from 'lucide-react';
 import DownloadIcon from '../components/DownloadIcon';
 
 export default function Settings() {
   const { user, setUser } = useAuth();
   const { lang, t } = useLang();
+  const navigate = useNavigate();
+  
+  const isCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
 
   // Tab State: 'profile' | 'security' | 'preferences' | 'wallet'
   const [activeTab, setActiveTab] = useState('profile');
+
+  const [translationSettings, setTranslationSettings] = useState({
+    engineType: 'browser', 
+    mode: 'vietphrase', 
+    serverUrl: 'https://cong123779-tienhiep-api.hf.space',
+    vipKey: '',
+    scrollSpeed: 30,
+    audioSpeed: 1.0,
+    continuousClean: true,
+    typewriterEffect: false
+  });
+
+  useEffect(() => {
+    const stored = localStorage.getItem('translationSettings');
+    if (stored) {
+      try {
+        let parsed = JSON.parse(stored);
+        if (parsed.serverUrl === 'https://tienhiep.lyvuha.com') {
+          parsed.serverUrl = 'https://cong123779-tienhiep-api.hf.space';
+        }
+        setTranslationSettings(prev => ({ ...prev, ...parsed }));
+      } catch (e) {}
+    }
+  }, []);
+
+  const updateTranslationSetting = (key, value) => {
+    let newSettings = { ...translationSettings, [key]: value };
+    if (key === 'engineType' && value === 'browser') {
+      if (['fast', 'advanced', 'advanced_hanviet'].includes(newSettings.mode)) {
+        newSettings.mode = 'vietphrase';
+      }
+    }
+    setTranslationSettings(newSettings);
+    localStorage.setItem('translationSettings', JSON.stringify(newSettings));
+    window.dispatchEvent(new CustomEvent('translationSettingsUpdated', { detail: newSettings }));
+  };
 
   // Translation local dictionary to support newly added sections
   const dict = {
@@ -307,6 +348,9 @@ export default function Settings() {
       } else {
         localStorage.setItem('electron_downloadFolder', linuxPath);
       }
+    } else if (isCapacitor) {
+      setDownloadFolder("Bộ nhớ trong (Sandboxed App Storage)");
+      localStorage.setItem('electron_downloadFolder', "Bộ nhớ trong (Sandboxed App Storage)");
     } else {
       localStorage.setItem('electron_downloadFolder', linuxPath);
     }
@@ -347,6 +391,8 @@ export default function Settings() {
             alert(lang === 'vi' ? 'Không thể kết nối đến máy chủ cập nhật.' : 'Cannot connect to update server.');
           }
         }
+      } else if (isCapacitor) {
+        alert(lang === 'vi' ? 'Ứng dụng di động Android đang chạy phiên bản mới nhất!' : 'Android mobile app is running the latest version!');
       } else {
         // Trên web
         const res = await api.get('/api/releases');
@@ -434,6 +480,11 @@ export default function Settings() {
         const models = await api.listModels(downloadFolder);
         setLocalModels(models);
       }
+    } else if (isCapacitor) {
+      setLocalModels([
+        { name: 'Matcha-TTS (Cloud/Server API)', sizeMB: 19.2 },
+        { name: 'Vocos Vocoder (Cloud/Server API)', sizeMB: 13.0 }
+      ]);
     }
   };
 
@@ -592,14 +643,28 @@ export default function Settings() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'desktop' && isElectron) {
+    if (activeTab === 'desktop' && (isElectron || isCapacitor)) {
       const fetchSystemInfo = async () => {
         setSystemInfoLoading(true);
         try {
-          const api = getElectronAPI();
-          if (api && api.getSystemInfo) {
-            const info = await api.getSystemInfo();
-            setSystemInfo(info);
+          if (isElectron) {
+            const api = getElectronAPI();
+            if (api && api.getSystemInfo) {
+              const info = await api.getSystemInfo();
+              setSystemInfo(info);
+            }
+          } else if (isCapacitor) {
+            const ua = navigator.userAgent;
+            const androidVersionMatch = ua.match(/Android\s([0-9\.]+)/);
+            const androidVersion = androidVersionMatch ? `Android ${androidVersionMatch[1]}` : 'Android OS';
+            setSystemInfo({
+              platform: androidVersion,
+              arch: ua.includes('arm64') || ua.includes('aarch64') ? 'arm64' : (ua.includes('x86_64') ? 'x86_64' : 'arm'),
+              cpuCount: navigator.hardwareConcurrency || 'N/A',
+              freeMemoryGB: 'N/A',
+              totalMemoryGB: navigator.deviceMemory || 'N/A',
+              version: '1.0.18 (Capacitor Mobile)'
+            });
           }
         } catch (e) {
           console.error("Lỗi khi tải thông tin hệ thống:", e);
@@ -626,6 +691,10 @@ export default function Settings() {
   }, []);
 
   const handleDownloadModel = async (modelId, url) => {
+    if (isCapacitor) {
+      alert("Mô hình AI trên ứng dụng di động được kết nối và xử lý trực tiếp qua Máy Chủ Cloud AI hoặc Server local của bạn để tối ưu pin và hiệu năng thiết bị di động.");
+      return;
+    }
     if (!isElectron) {
       alert("Tính năng tải trực tiếp Model siêu tốc độ chỉ hỗ trợ trên ứng dụng Desktop (.exe). Vui lòng tải app Desktop để dùng!");
       return;
@@ -1143,10 +1212,18 @@ export default function Settings() {
   if (!user) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-          <AlertTriangle className="w-12 h-12 text-amber-500 mb-4 animate-bounce" />
-          <h2 className="text-xl font-bold text-white mb-2">{t.settings?.reqLogin || "Yêu cầu đăng nhập"}</h2>
-          <p className="text-sm">{t.settings?.reqLoginDesc || "Vui lòng đăng nhập để truy cập trang Cài đặt tài khoản."}</p>
+        <div className="flex flex-col items-center justify-center py-24 text-slate-400 max-w-md mx-auto px-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-6 animate-bounce">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-white mb-2">{t.settings?.reqLogin || "Yêu cầu đăng nhập"}</h2>
+          <p className="text-xs text-slate-400 leading-relaxed mb-8">{t.settings?.reqLoginDesc || "Vui lòng đăng nhập để truy cập trang Cài đặt tài khoản."}</p>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal'))}
+            className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-extrabold rounded-2xl text-xs shadow-lg shadow-purple-600/20 transition-all hover:scale-[1.02] active:scale-95"
+          >
+            Đăng nhập ngay
+          </button>
         </div>
       </MainLayout>
     );
@@ -1296,7 +1373,7 @@ export default function Settings() {
                     : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
                 }`}
               >
-                <Laptop className="w-4 h-4" /> {isElectron ? 'Cấu hình Desktop' : 'Tải Bản Desktop'}
+                <Laptop className="w-4 h-4" /> {isElectron ? 'Cấu hình Desktop' : (isCapacitor ? 'Cấu hình Android' : 'Tải Bản Desktop')}
               </button>
               <button 
                 onClick={() => setActiveTab('tts_models')}
@@ -1307,6 +1384,37 @@ export default function Settings() {
                 }`}
               >
                 <Tv className="w-4 h-4" /> Quản lý Giọng AI
+              </button>
+              <button 
+                onClick={() => setActiveTab('ai_translation')}
+                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
+                  activeTab === 'ai_translation' 
+                    ? 'bg-purple-600 text-white shadow-md' 
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <BrainCircuit className="w-4 h-4" /> Cấu hình Dịch & AI
+              </button>
+
+              <div className="hidden lg:block w-full border-t border-white/5 my-1" />
+
+              <button 
+                onClick={() => navigate('/sects')}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
+              >
+                <Crown className="w-4 h-4 text-amber-400" /> Tông Môn (Sects)
+              </button>
+              <button 
+                onClick={() => navigate('/messages')}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
+              >
+                <MessageSquare className="w-4 h-4 text-purple-400" /> Hộp thư đàm đạo
+              </button>
+              <button 
+                onClick={() => navigate('/developer')}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
+              >
+                <Terminal className="w-4 h-4 text-blue-400" /> API Keys & Developer
               </button>
             </div>
 
@@ -2337,18 +2445,19 @@ export default function Settings() {
               </div>
             )}
 
-            {/* TAB 6: ELECTRON DESKTOP VERSION */}
             {activeTab === 'desktop' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-[#121225]/80 border border-[#1f1f3a] rounded-2xl p-6 shadow-xl space-y-6">
                   <div className="border-b border-[#1f1f3a]/60 pb-3">
                     <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                      <Laptop className="w-5 h-5 text-purple-400" /> Cấu Hình Phiên Bản Desktop
+                      <Laptop className="w-5 h-5 text-purple-400" /> {isElectron ? 'Cấu Hình Phiên Bản Desktop' : (isCapacitor ? 'Cấu Hình Thiết Bị Android' : 'Cấu hình Desktop & Tải Bản Desktop')}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-1">Đồng bộ ngoại tuyến, tối ưu tài nguyên phần cứng và điều khiển nâng cao.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {isElectron ? 'Đồng bộ ngoại tuyến, tối ưu tài nguyên phần cứng và điều khiển nâng cao.' : (isCapacitor ? 'Đồng bộ cấu hình, tối ưu tài nguyên thiết bị di động Android của bạn.' : 'Đồng bộ ngoại tuyến, tối ưu tài nguyên phần cứng và điều khiển nâng cao.')}
+                    </p>
                   </div>
 
-                  {isElectron ? (
+                  {(isElectron || isCapacitor) ? (
                     <div className="space-y-6">
                       {/* Electron Settings Form */}
                       <div className="bg-[#0b0b14]/50 border border-[#1f1f3a] p-5 rounded-2xl space-y-4">
@@ -2360,23 +2469,25 @@ export default function Settings() {
                             readOnly
                             className="flex-1 px-4 py-2.5 bg-[#05050a] border border-[#1f1f3a] rounded-xl text-xs text-slate-300 outline-none"
                           />
-                          <button 
-                            type="button"
-                            onClick={async () => {
-                              const api = getElectronAPI();
-                              if (api && api.selectDirectory) {
-                                const folder = await api.selectDirectory('Chọn thư mục lưu trữ sách');
-                                if (folder) {
-                                  setDownloadFolder(folder);
-                                  localStorage.setItem('electron_downloadFolder', folder);
-                                  alert(`Đã đổi thư mục lưu trữ thành: ${folder}`);
+                          {!isCapacitor && (
+                            <button 
+                              type="button"
+                              onClick={async () => {
+                                const api = getElectronAPI();
+                                if (api && api.selectDirectory) {
+                                  const folder = await api.selectDirectory('Chọn thư mục lưu trữ sách');
+                                  if (folder) {
+                                    setDownloadFolder(folder);
+                                    localStorage.setItem('electron_downloadFolder', folder);
+                                    alert(`Đã đổi thư mục lưu trữ thành: ${folder}`);
+                                  }
                                 }
-                              }
-                            }}
-                            className="bg-purple-600 hover:bg-purple-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs transition-colors shrink-0"
-                          >
-                            Chọn thư mục
-                          </button>
+                              }}
+                              className="bg-purple-600 hover:bg-purple-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs transition-colors shrink-0"
+                            >
+                              Chọn thư mục
+                            </button>
+                          )}
                         </div>
                         <p className="text-[10px] text-slate-500">Các chương truyện được tải xuống sẽ được lưu trữ cục bộ tại đường dẫn này để đọc khi không có mạng.</p>
                       </div>
@@ -2404,8 +2515,12 @@ export default function Settings() {
                               <span className="text-xs font-extrabold text-white">{systemInfo.freeMemoryGB} GB trống / {systemInfo.totalMemoryGB} GB</span>
                             </div>
                             <div className="p-3 bg-[#05050a] border border-[#1f1f3a]/60 rounded-xl col-span-2 sm:col-span-3">
-                              <span className="text-[9px] text-slate-500 font-bold uppercase block">Phiên bản Ứng dụng Desktop</span>
-                              <span className="text-xs font-extrabold text-purple-400">v{systemInfo.version} - Chạy bằng Electron & Node.js</span>
+                              <span className="text-[9px] text-slate-500 font-bold uppercase block">
+                                {isElectron ? 'Phiên bản Ứng dụng Desktop' : 'Phiên bản Ứng dụng Android'}
+                              </span>
+                              <span className="text-xs font-extrabold text-purple-400">
+                                {isElectron ? `v${systemInfo.version} - Chạy bằng Electron & Node.js` : `v${systemInfo.version} - Chạy bằng Capacitor & WebKit`}
+                              </span>
                             </div>
                           </div>
                         ) : (
@@ -2723,6 +2838,107 @@ export default function Settings() {
                     </div>
                   )}
 
+                </div>
+              </div>
+            )}
+            {activeTab === 'ai_translation' && (
+              <div className="bg-[#121225]/80 border border-[#1f1f3a] rounded-2xl p-6 shadow-xl space-y-6 animate-fadeIn">
+                <div className="border-b border-[#1f1f3a]/60 pb-3">
+                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <BrainCircuit className="w-5 h-5 text-purple-400" /> Cấu hình Dịch thuật & Cloud AI
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Cấu hình máy chủ dịch thuật và khóa VIP cho các chế độ dịch máy nâng cao.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Engine Selection */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                      Bộ Dịch (Engine)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => updateTranslationSetting('engineType', 'browser')}
+                        className={`p-4 rounded-xl border flex flex-col gap-1 items-start transition-all text-left ${translationSettings.engineType === 'browser' ? 'bg-purple-600/20 border-purple-500 text-purple-200' : 'bg-[#0b0b14] border-[#1f1f3a] text-slate-400 hover:bg-white/[0.02]'}`}
+                      >
+                        <span className="font-bold text-sm text-white">Offline Local</span>
+                        <span className="text-[10px] opacity-70">Dịch ngay trên trình duyệt/máy của bạn. Tốc độ cao, không cần mạng.</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => updateTranslationSetting('engineType', 'server')}
+                        className={`p-4 rounded-xl border flex flex-col gap-1 items-start transition-all text-left ${translationSettings.engineType === 'server' ? 'bg-purple-600/20 border-purple-500 text-purple-200' : 'bg-[#0b0b14] border-[#1f1f3a] text-slate-400 hover:bg-white/[0.02]'}`}
+                      >
+                        <span className="font-bold text-sm text-white">Cloud AI Server</span>
+                        <span className="text-[10px] opacity-70">Dịch siêu mượt qua Server đám mây mạnh mẽ. Yêu cầu VIP key.</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mode Selection */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                      Chế Độ Dịch (Mode)
+                    </label>
+                    <select 
+                      value={translationSettings.mode}
+                      onChange={(e) => updateTranslationSetting('mode', e.target.value)}
+                      className="w-full bg-[#0b0b14] border border-[#1f1f3a] rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-purple-500 transition-colors"
+                    >
+                      {translationSettings.engineType === 'server' ? (
+                        <>
+                          <option value="vietphrase">Vietphrase (Dịch Thô Server)</option>
+                          <option value="hanviet">Hán Việt (Âm Hán Việt Server)</option>
+                          <option value="fast">👑 Dịch Nhanh (Server AI)</option>
+                          <option value="advanced">👑 Nâng Cao (Server AI)</option>
+                          <option value="advanced_hanviet">👑 Nâng Cao Hán-Việt (Server AI)</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="vietphrase">Vietphrase (Dịch Thô Local)</option>
+                          <option value="hanviet">Hán Việt (Âm Hán Việt Local)</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Server API URL */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                      Server API URL
+                    </label>
+                    <input 
+                      type="text" 
+                      value={translationSettings.serverUrl}
+                      onChange={(e) => updateTranslationSetting('serverUrl', e.target.value)}
+                      placeholder="https://cong123779-tienhiep-api.hf.space"
+                      className="w-full bg-[#0b0b14] border border-[#1f1f3a] rounded-xl px-4 py-2.5 text-xs text-slate-200 outline-none focus:border-purple-500 transition-colors"
+                    />
+                  </div>
+
+                  {/* VIP Key */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                      VIP Key / API Key Dịch Thuật
+                    </label>
+                    <input 
+                      type="password" 
+                      value={translationSettings.vipKey}
+                      onChange={(e) => updateTranslationSetting('vipKey', e.target.value)}
+                      placeholder="Nhập mã VIP / API Key của bạn để sử dụng Cloud AI"
+                      className="w-full bg-[#0b0b14] border border-[#1f1f3a] rounded-xl px-4 py-2.5 text-xs text-slate-200 outline-none focus:border-purple-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-slate-500">
+                      Mã này được gửi kèm trong header yêu cầu dịch thuật tới server. Bạn có thể mua VIP key hoặc tạo ở trang API Developer.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 text-xs text-purple-300 leading-relaxed">
+                  <strong>💡 Gợi ý:</strong> Cài đặt dịch thuật này sẽ áp dụng trực tiếp cho tất cả các chương truyện khi bạn đọc bằng Trình duyệt nguồn thô hoặc nhập truyện offline.
                 </div>
               </div>
             )}

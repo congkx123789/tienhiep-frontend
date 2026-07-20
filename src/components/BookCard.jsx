@@ -133,11 +133,15 @@ export default function BookCard({
             <img 
               src={book.cover} 
               alt="cover" 
-              className="w-[60px] h-[82px] object-cover rounded-lg border border-[#2d2d55] shadow-md shrink-0 bg-[#0f0f1a]"
+              className="w-[60px] h-[82px] object-cover rounded-lg border border-[#2d2d55] shadow-md shrink-0 bg-[#0f0f1a] cursor-pointer hover:opacity-90 transition-opacity"
               onError={(e) => { e.target.remove(); }}
+              onClick={() => onRead && onRead(book)}
             />
           ) : (
-            <div className="w-[60px] h-[82px] rounded-lg border border-[#2d2d55] bg-[#0f0f1a] flex items-center justify-center text-slate-500 shrink-0 shadow-md">
+            <div 
+              className="w-[60px] h-[82px] rounded-lg border border-[#2d2d55] bg-[#0f0f1a] flex items-center justify-center text-slate-500 shrink-0 shadow-md cursor-pointer hover:bg-[#1a1a2e] transition-colors"
+              onClick={() => onRead && onRead(book)}
+            >
               <Book className="w-5 h-5" />
             </div>
           )}
@@ -192,7 +196,7 @@ export default function BookCard({
                 {book.site_count || 5} site
               </span>
               <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                {book.word_count_max ? Math.round(book.word_count_max / 1000) : 1975}
+                {book.word_count_max ? `${Math.round(book.word_count_max / 1000)}k chữ` : 'Chưa rõ số chữ'}
               </span>
             </div>
           </div>
@@ -217,7 +221,7 @@ export default function BookCard({
 
         <div className="flex justify-between items-center text-slate-400 text-[10px] mt-2.5 border-t border-[#1f1f3a]/40 pt-2">
           <span>
-            <strong>Chương:</strong> {book.chapters_max || 110} | {book.word_count_max ? Math.round(book.word_count_max / 1000) : 0}
+            <strong>Chương:</strong> {book.chapters_max || 110} chương | {book.word_count_max ? (book.word_count_max >= 1000000 ? `${(book.word_count_max / 1000000).toFixed(1)}M chữ` : `${Math.round(book.word_count_max / 1000)}k chữ`) : 'Chưa rõ số chữ'}
           </span>
           {rawDesc && (
             <button
@@ -261,7 +265,7 @@ export default function BookCard({
                 </button>
               </div>
             </div>
-            <p className="text-slate-400 text-[10px] line-clamp-3 leading-relaxed" title={rawDesc}>
+            <p className="text-slate-300 text-[10.5px] line-clamp-none max-h-40 overflow-y-auto pr-1 leading-relaxed custom-scrollbar whitespace-pre-line" title={rawDesc}>
               {translating ? "Đang dịch tóm tắt..." : descText}
             </p>
           </div>

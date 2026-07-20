@@ -37,7 +37,7 @@ export default function Reader() {
   const [customKeyword, setCustomKeyword] = useState('miễn phí đọc mới nhất');
   const [embedUrl, setEmbedUrl] = useState(null);
 
-  const { activeAudioObj, setActiveAudioObj } = useBrowser();
+  const { openInBrowser, activeAudioObj, setActiveAudioObj } = useBrowser();
 
   const [autoScrollTts, setAutoScrollTts] = useState(() => {
     return localStorage.getItem('tts_auto_scroll') !== 'false';

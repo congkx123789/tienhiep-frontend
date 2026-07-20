@@ -36,10 +36,16 @@ async function getBestServer() {
     return '';
   }
 
-  // 1. Nếu chạy trong Electron: ưu tiên hàng đầu là Local Engine (cổng 8001) chạy offline
+  // 1. Nếu chạy trong Electron hoặc Capacitor: ưu tiên hàng đầu là Local Engine chạy offline
   if (window.electron) {
     const localServer = 'http://127.0.0.1:5051';
     const isLocalAlive = await pingServer(localServer, 300); // chỉ timeout 300ms cho local
+    if (isLocalAlive) {
+      return localServer;
+    }
+  } else if (window.Capacitor) {
+    const localServer = 'http://10.0.2.2:5051';
+    const isLocalAlive = await pingServer(localServer, 500); // timeout 500ms cho giả lập
     if (isLocalAlive) {
       return localServer;
     }
@@ -61,6 +67,7 @@ async function getBestServer() {
 
   // 3. Nếu chưa có cache hoặc cache hết hạn: ping song song các server để chọn server tốt nhất
   const servers = [
+    window.Capacitor ? 'http://10.0.2.2:5051' : 'http://localhost:5051',
     'https://cong123779-tienhiep-api.hf.space',
     'https://api-tienhiep.lyvuha.com'
   ];

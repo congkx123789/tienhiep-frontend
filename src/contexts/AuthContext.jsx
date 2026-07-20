@@ -209,42 +209,88 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
+  const handleOAuthUrl = (url) => {
+    try {
+      console.log("[AuthContext] Received OAuth Callback URL:", url);
+      const parsedUrl = new URL(url);
+      const params = new URLSearchParams(parsedUrl.search);
+      const token = params.get('token');
+      const refreshToken = params.get('refresh_token');
+      const userStr = params.get('user');
+      let parsedUser = null;
+      if (userStr) {
+        parsedUser = JSON.parse(decodeURIComponent(userStr));
+      }
+      
+      if (token) {
+        onAuthSuccess(token, refreshToken, parsedUser);
+        console.log("[AuthContext] Deep link OAuth login successful!");
+        
+        if (parsedUser && parsedUser.require_password_change === 1) {
+          window.location.href = '/settings';
+        } else {
+          window.location.reload();
+        }
+      }
+    } catch (err) {
+      console.error("[AuthContext] Failed to process OAuth callback URL:", err);
+    }
+  };
+
   useEffect(() => {
     if (window.electron && typeof window.electron.onOAuthCallback === 'function') {
       console.log("[AuthContext] Registering Electron Deep Link OAuth Listener");
       const unsubscribe = window.electron.onOAuthCallback((url) => {
-        try {
-          console.log("[AuthContext] Received OAuth Callback URL:", url);
-          const parsedUrl = new URL(url);
-          const params = new URLSearchParams(parsedUrl.search);
-          const token = params.get('token');
-          const refreshToken = params.get('refresh_token');
-          const userStr = params.get('user');
-          let parsedUser = null;
-          if (userStr) {
-            parsedUser = JSON.parse(decodeURIComponent(userStr));
-          }
-          
-          if (token) {
-            onAuthSuccess(token, refreshToken, parsedUser);
-            console.log("[AuthContext] Deep link OAuth login successful!");
-            
-            if (parsedUser && parsedUser.require_password_change === 1) {
-              window.location.href = '/settings';
-            } else {
-              window.location.reload();
-            }
-          }
-        } catch (err) {
-          console.error("[AuthContext] Failed to process OAuth callback URL:", err);
-        }
+        handleOAuthUrl(url);
       });
       return () => unsubscribe();
     }
   }, []);
 
   useEffect(() => {
+    let isSubscribed = true;
+    let appListener = null;
+
+    const setupCapacitorListener = async () => {
+      const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+      if (!isNative) return;
+
+      try {
+        const { App } = await import('@capacitor/app');
+        if (!isSubscribed) return;
+
+        console.log("[AuthContext] Registering Capacitor App URL Open Listener");
+        appListener = await App.addListener('appUrlOpen', (event) => {
+          console.log("[AuthContext] Capacitor received URL:", event.url);
+          handleOAuthUrl(event.url);
+        });
+      } catch (err) {
+        console.error("[AuthContext] Failed to register Capacitor listener:", err);
+      }
+    };
+
+    setupCapacitorListener();
+
+    return () => {
+      isSubscribed = false;
+      if (appListener && typeof appListener.remove === 'function') {
+        appListener.remove();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (loading) return;
+
+    const isCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+    if (isCapacitor) {
+      console.log("Capacitor Native Platform - Google AdSense disabled");
+      const script = document.getElementById('google-adsense-script');
+      if (script) {
+        script.remove();
+      }
+      return;
+    }
 
     if (user && user.vip_status === 1) {
       console.log("VIP User detected - Google AdSense disabled");

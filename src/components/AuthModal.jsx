@@ -70,8 +70,18 @@ export default function AuthModal({ isOpen, onClose }) {
     try {
       const server = await getBestServer();
       const loginUrl = `${server}/api/auth/google/login?state=desktop|${encodeURIComponent(server)}`;
+      const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+      
       if (window.electron && window.electron.openExternal) {
         window.electron.openExternal(loginUrl);
+      } else if (isNative) {
+        try {
+          const { Browser } = await import('@capacitor/browser');
+          await Browser.open({ url: loginUrl });
+        } catch (capErr) {
+          console.error("Capacitor Browser failed, falling back to window.open", capErr);
+          window.open(loginUrl, '_system');
+        }
       } else {
         window.open(loginUrl, '_blank');
       }
@@ -294,7 +304,7 @@ export default function AuthModal({ isOpen, onClose }) {
 
         {mode === 'login' && (
           <div className="mt-4 flex justify-center w-full px-1">
-            {window.electron ? (
+            {(window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) ? (
               <button
                 type="button"
                 onClick={handleGoogleDesktopLogin}

@@ -43,14 +43,15 @@ export default function Bookshelf() {
     try {
       const params = q ? { q } : {};
       const res = await api.get('/api/bookshelf', { params });
-      // Map return fields
+      // Map return fields and keep all enriched properties
       const mapped = res.data.map(b => ({
-        id: b.book_id || b.url,
-        title_vietphrase: b.title,
-        author_hanviet: b.author,
+        ...b,
+        id: b.book_id || b.url || b.id,
+        title_vietphrase: b.title_vietphrase || b.title,
+        author_hanviet: b.author_hanviet || b.author,
         cover: b.cover,
         url: b.url,
-        site_count: 1
+        site_count: b.site_count || 1
       }));
       setBooks(mapped);
     } catch (e) {

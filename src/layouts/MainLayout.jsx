@@ -146,8 +146,15 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
   useEffect(() => {
     const handleToggle = () => setShowLogConsole(v => !v);
+    const handleOpenAuth = () => setAuthOpen(true);
+    
     window.addEventListener('toggle-log-console', handleToggle);
-    return () => window.removeEventListener('toggle-log-console', handleToggle);
+    window.addEventListener('open-auth-modal', handleOpenAuth);
+    
+    return () => {
+      window.removeEventListener('toggle-log-console', handleToggle);
+      window.removeEventListener('open-auth-modal', handleOpenAuth);
+    };
   }, []);
 
   useEffect(() => {
@@ -215,12 +222,12 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
   const activeTab = isVisible ? 'browser' : getActiveTab();
 
-  // Bottom nav items (mobile only — 5 main tabs)
+  // Bottom nav items (mobile only — 5 main tabs including browser)
   const bottomNavItems = [
+    { key: 'browser',   icon: Globe,        label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
     { key: 'all',       icon: Compass,      label: t.tabDiscover   },
     { key: 'bookshelf', icon: BookMarked,    label: t.tabBookshelf  },
     { key: 'history',   icon: History,       label: t.tabHistory    },
-    { key: 'embed',     icon: BookOpen,      label: t.tabEmbed      },
     { key: 'settings',  icon: SettingsIcon,  label: t.tabSettings   },
   ];
 
@@ -228,11 +235,11 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
   // Desktop tab items (full set)
   const desktopNavItems = [
-    ...(tabs && tabs.length > 0 ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
+    { key: 'browser',   icon: Globe,       label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
     { key: 'all',       icon: Compass,     label: t.tabDiscover  },
     { key: 'bookshelf', icon: BookMarked,  label: t.tabBookshelf },
     { key: 'history',   icon: History,     label: t.tabHistory   },
-    ...(isAdmin ? [{ key: 'developer', icon: Terminal,    label: t.tabDeveloper }] : []),
+    ...(user ? [{ key: 'developer', icon: Terminal,    label: lang === 'vi' ? 'API Key & AI' : 'API Key' }] : []),
     { key: 'downloads', icon: DownloadIcon,    label: t.tabDownloads },
     { key: 'embed',     icon: BookOpen,    label: t.tabEmbed     },
     ...(user ? [
@@ -240,6 +247,7 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
       { key: 'settings', icon: SettingsIcon, label: t.tabSettings }
     ] : []),
   ];
+
 
   return (
     <div className={`min-h-screen min-h-[100dvh] flex flex-col bg-[#0b0b14] text-slate-100`}>
@@ -384,11 +392,59 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
               ) : (
                 <button
                   onClick={() => setAuthOpen(true)}
-                  className="hidden sm:block bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md transition-all"
+                  className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md transition-all shrink-0"
                 >
                   {t.login}
                 </button>
               )}
+
+              {/* Mobile Shortcuts */}
+              <div className="flex sm:hidden items-center gap-1 mr-1" style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}>
+                {user && (
+                  <button
+                    onClick={() => handleTabChange('sects')}
+                    className={`p-1 rounded-lg transition-colors ${activeTab === 'sects' ? 'text-purple-400 bg-purple-600/10' : 'text-slate-400 hover:text-white'}`}
+                    title={lang === 'vi' ? 'Tông Môn' : 'Sects'}
+                  >
+                    <Crown className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleTabChange('downloads')}
+                  className={`p-1 rounded-lg transition-colors ${activeTab === 'downloads' ? 'text-purple-400 bg-purple-600/10' : 'text-slate-400 hover:text-white'}`}
+                  title={t.tabDownloads}
+                >
+                  <DownloadIcon className="w-4.5 h-4.5" />
+                </button>
+                {user && (
+                  <>
+                    <button
+                      onClick={() => navigate('/messages')}
+                      className={`p-1 rounded-lg transition-colors relative ${location.pathname === '/messages' ? 'text-purple-400 bg-purple-600/10' : 'text-slate-400 hover:text-white'}`}
+                      title="Tin nhắn riêng"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      {unreadMsgCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[12px] h-3 bg-rose-500 text-white rounded-full flex items-center justify-center text-[7px] font-black px-0.5 shadow-md">
+                          {unreadMsgCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => { setSocialTab('notifications'); setSocialOpen(true); }}
+                      className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors relative"
+                      title="Thông báo thư hữu"
+                    >
+                      <Bell className="w-4 h-4" />
+                      {unreadNotifCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[12px] h-3 bg-amber-500 text-white rounded-full flex items-center justify-center text-[7px] font-black px-0.5 shadow-md animate-pulse">
+                          {unreadNotifCount}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
 
               {/* Mobile: hamburger (for developer tab not in bottom nav + user menu) */}
               <button
@@ -443,7 +499,7 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
             >
               <div className="px-4 py-3 space-y-1">
                 {/* Developer tab (not in bottom nav) */}
-                {isAdmin && (
+                {user && (
                   <button
                     onClick={() => handleTabChange('developer')}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${

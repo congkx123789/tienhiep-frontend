@@ -7,7 +7,8 @@ import { BrowserProvider } from './contexts/BrowserContext';
 import { isElectron } from './utils/electron';
 import ErrorBoundary from './components/ErrorBoundary';
 
-const Router = isElectron ? HashRouter : BrowserRouter;
+const isCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+const Router = (isElectron || isCapacitor) ? HashRouter : BrowserRouter;
 
 
 // ── Lazy load all pages to eliminate upfront JS parse cost ──────────────────

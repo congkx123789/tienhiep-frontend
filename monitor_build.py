@@ -57,59 +57,29 @@ def fetch_job_logs(job_id):
         return f"Failed to fetch logs: {e}"
 
 def download_artifact(run_id):
-    print("📦 Finding iOS build artifact...")
+    print("📦 Finding iOS IPA artifact...")
     artifacts_url = f"https://api.github.com/repos/{REPO}/actions/runs/{run_id}/artifacts"
     try:
         data = make_request(artifacts_url)
         for art in data.get("artifacts", []):
-            if art.get("name") == "tts-ios-simulator-app":
+            if art.get("name") == "tts-ios-unsigned-ipa":
                 art_id = art["id"]
                 download_url = art["archive_download_url"]
                 print(f"⏬ Downloading artifact: {art['name']} ({art['size_in_bytes'] / 1024 / 1024:.2f} MB)...")
-                # Download using curl because it handles OAuth redirect correctly
-                cmd = f"curl -s -L -H 'Authorization: Bearer {TOKEN}' -o TienHiepAI_Simulator.zip '{download_url}'"
+                # Download using curl
+                cmd = f"curl -s -L -H 'Authorization: Bearer {TOKEN}' -o TienHiepAI_Unsigned.zip '{download_url}'"
                 subprocess.run(cmd, shell=True, check=True)
-                print("✅ Download complete! File saved as TienHiepAI_Simulator.zip")
+                print("📦 Extracting IPA from download package...")
+                subprocess.run("unzip -o TienHiepAI_Unsigned.zip && mv -f TienHiepAI_Unsigned.ipa TienHiepAI.ipa && rm -f TienHiepAI_Unsigned.zip", shell=True, check=True)
+                print("✅ Download and extraction complete! File saved as TienHiepAI.ipa")
                 return True
     except Exception as e:
         print(f"❌ Failed to download artifact: {e}")
     return False
 
 def upload_to_appetize():
-    appetize_token = os.environ.get("APPETIZE_API_TOKEN", "")
-    if not appetize_token or appetize_token.startswith("tok_b6***") or "*" in appetize_token:
-        print("ℹ️ Appetize token is empty, contains asterisks, or is a placeholder. Skipping automatic upload.")
-        return
-        
-    public_key = os.environ.get("APPETIZE_PUBLIC_KEY", "")
-    print("🚀 Uploading simulator build to Appetize.io...")
-    
-    if public_key:
-        url = f"https://api.appetize.io/v1/apps/{public_key}"
-    else:
-        url = "https://api.appetize.io/v1/apps"
-        
-    # Build curl command
-    cmd = f"curl -s -X POST '{url}' -H 'X-API-KEY: {appetize_token}' -F 'file=@TienHiepAI_Simulator.zip' -F 'platform=ios'"
-    try:
-        output = subprocess.check_output(cmd, shell=True).decode()
-        data = json.loads(output)
-        new_public_key = data.get("publicKey")
-        app_url = data.get("publicURL") or f"https://appetize.io/app/{new_public_key}"
-        print(f"🎉 Appetize.io upload successful!")
-        print(f"👉 Play your iOS App online here: {app_url}")
-        
-        # Open in default system browser
-        import webbrowser
-        print("🌐 Opening iOS Simulator in your browser...")
-        webbrowser.open(app_url)
-        
-        if not public_key and new_public_key:
-            print(f"📝 Saving Appetize public key ({new_public_key}) in .env.local...")
-            with open(".env.local", "a") as f:
-                f.write(f"\nAPPETIZE_PUBLIC_KEY={new_public_key}\n")
-    except Exception as e:
-        print(f"❌ Failed to upload to Appetize: {e}")
+    print("ℹ️ Skipping Appetize.io upload because this is a physical device IPA build (not for simulator).")
+    return
 
 def main():
     print("🚀 Triggering git push to GitHub...")

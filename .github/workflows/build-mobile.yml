@@ -43,20 +43,28 @@ jobs:
           cd ios/App
           pod install
 
-      - name: Compile Xcode Simulator Build (No Code Signing Required)
+      - name: Compile Xcode Device Build (No Code Signing Required)
         run: |
           cd ios/App
           xcodebuild -workspace App.xcworkspace \
                      -scheme App \
-                     -sdk iphonesimulator \
-                     -configuration Debug \
+                     -sdk iphoneos \
+                     -configuration Release \
                      -derivedDataPath build \
                      CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
                      clean build
 
-      - name: Upload iOS App Artifact
+      - name: Create Unsigned IPA Package
+        run: |
+          cd ios/App/build/Build/Products/Release-iphoneos
+          mkdir -p Payload
+          cp -r App.app Payload/
+          zip -r TienHiepAI_Unsigned.ipa Payload
+
+      - name: Upload iOS IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tts-ios-simulator-app
-          path: ios/App/build/Build/Products/Debug-iphonesimulator/App.app
+          name: tts-ios-unsigned-ipa
+          path: ios/App/build/Build/Products/Release-iphoneos/TienHiepAI_Unsigned.ipa
           retention-days: 7

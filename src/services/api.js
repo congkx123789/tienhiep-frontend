@@ -33,7 +33,7 @@ async function getBestServer() {
   // Web Mode (cả Prod trên Vercel và Dev trên local browser):
   // Luôn trả về rỗng để sử dụng cùng nguồn (same-origin proxy: Vercel rewrites trong prod, Vite proxy trong dev)
   if (!window.electron && !window.Capacitor) {
-    return '';
+    return typeof window !== 'undefined' ? window.location.origin : '';
   }
 
   // 1. Nếu chạy trong Electron hoặc Capacitor: ưu tiên hàng đầu là Local Engine chạy offline
@@ -117,7 +117,7 @@ api.interceptors.request.use(async (config) => {
 
 
   // Gắn baseURL của server tốt nhất
-  if (!config.baseURL) {
+  if (config.baseURL === undefined || config.baseURL === null || config.baseURL === '') {
     const server = await getBestServer();
     config.baseURL = server;
   }

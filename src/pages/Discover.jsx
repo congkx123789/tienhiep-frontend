@@ -204,24 +204,26 @@ export default function Discover() {
   useEffect(() => {
     const syncHeroBooks = async () => {
       try {
-        const synced = [...heroBooks];
-        for (let i = 0; i < synced.length; i++) {
-          const res = await api.get('/api/books', {
-            params: { q: synced[i].title, per_page: 1 }
-          });
-          if (res.data && res.data.books && res.data.books.length > 0) {
-            const match = res.data.books[0];
-            synced[i] = {
-              ...synced[i],
-              id: match.id,
-              cover: match.cover || synced[i].cover,
-              title_vietphrase: match.title_vietphrase || match.title,
-              author_hanviet: match.author_hanviet || match.author,
-              urls: match.urls,
-              categories: match.categories || synced[i].categories
-            };
-          }
-        }
+        const synced = await Promise.all(heroBooks.map(async (item) => {
+          try {
+            const res = await api.get('/api/books', {
+              params: { q: item.title, per_page: 1 }
+            });
+            if (res.data && res.data.books && res.data.books.length > 0) {
+              const match = res.data.books[0];
+              return {
+                ...item,
+                id: match.id,
+                cover: match.cover || item.cover,
+                title_vietphrase: match.title_vietphrase || item.title,
+                author_hanviet: match.author_hanviet || item.author,
+                urls: match.urls,
+                categories: match.categories || item.categories
+              };
+            }
+          } catch (e) {}
+          return item;
+        }));
         setHeroBooks(synced);
       } catch (e) {
         console.error("Failed to sync hero books with database:", e);

@@ -1557,7 +1557,7 @@ export const BrowserProvider = ({ children }) => {
   return (
     <BrowserContext.Provider value={{ openInBrowser, tabs, activeTabId, closeTab, closeAll, isVisible, setIsVisible, activeAudioObj, setActiveAudioObj }}>
       {children}
-      {tabs.length > 0 && (
+      {tabs.length > 0 && (window.electron || isCapacitor) && (
         <div
           className={`fixed left-0 right-0 bottom-0 z-[9999] bg-[#0b0b14] flex-col animate-fade-in shadow-2xl ${isVisible ? 'flex' : 'hidden'}`}
           style={{ top: document.querySelector('header') ? '56px' : '0px' }}

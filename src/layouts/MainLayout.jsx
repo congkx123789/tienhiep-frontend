@@ -222,9 +222,11 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
   const activeTab = isVisible ? 'browser' : getActiveTab();
 
-  // Bottom nav items (mobile only — 5 main tabs including browser)
+  const isNativeApp = isElectron || (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  // Bottom nav items (mobile only — 5 main tabs)
   const bottomNavItems = [
-    { key: 'browser',   icon: Globe,        label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
+    ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
     { key: 'all',       icon: Compass,      label: t.tabDiscover   },
     { key: 'bookshelf', icon: BookMarked,    label: t.tabBookshelf  },
     { key: 'history',   icon: History,       label: t.tabHistory    },
@@ -235,7 +237,7 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
   // Desktop tab items (full set)
   const desktopNavItems = [
-    { key: 'browser',   icon: Globe,       label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
+    ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
     { key: 'all',       icon: Compass,     label: t.tabDiscover  },
     { key: 'bookshelf', icon: BookMarked,  label: t.tabBookshelf },
     { key: 'history',   icon: History,     label: t.tabHistory   },

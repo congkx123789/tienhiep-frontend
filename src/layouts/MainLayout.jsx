@@ -220,7 +220,10 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     if (tab === 'sects')     navigate('/sects');
   };
 
-  const isNativeApp = isElectron || (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const isNativeApp = typeof window !== 'undefined' && (
+    !!window.electron ||
+    (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform() === true)
+  );
 
   const activeTab = (isNativeApp && isVisible) ? 'browser' : getActiveTab();
 

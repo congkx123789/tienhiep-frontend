@@ -41,3 +41,4 @@ dist_old_*
 *.zip
 *.asar
 .git_token
+.env*

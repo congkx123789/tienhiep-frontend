@@ -110,6 +110,13 @@ export const BrowserProvider = ({ children }) => {
   };
 
   const openInBrowser = (url) => {
+    if (!url) return;
+    // On Web (not running in Electron or native Capacitor app), open directly in a new browser tab
+    if (!window.electron && !isCapacitor) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     const newId = Date.now().toString();
     setTabs(prev => [...prev, {
       id: newId,
@@ -127,7 +134,6 @@ export const BrowserProvider = ({ children }) => {
       // Use setTimeout to allow state update before fetch (fetchProxyContent needs tabId registered)
       setTimeout(() => fetchProxyContent(newId, url), 100);
     }
-
   };
 
   const navigateTabToUrl = (tabId, targetUrl) => {

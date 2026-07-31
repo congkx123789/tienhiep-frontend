@@ -25,7 +25,12 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
   // TTS Engine selection ('browser' | 'matcha')
   const [ttsEngine, setTtsEngine] = useState(() => {
-    return localStorage.getItem('local_tts_engine') || 'browser';
+    const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const saved = localStorage.getItem('local_tts_engine');
+    if (!isNativeApp && (saved === 'local' || (saved === 'matcha' && !localStorage.getItem('local_tts_api_key')))) {
+      return 'browser';
+    }
+    return saved || 'browser';
   });
 
   // API Key for Matcha-TTS
@@ -316,8 +321,11 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     return false;
   };
 
-  // Đồng bộ cấu hình CPU/GPU (device) từ localStorage với Local TTS Server khi khởi động trình phát
+  // Đồng bộ cấu hình CPU/GPU (device) từ localStorage với Local TTS Server khi khởi động trình phát (chỉ trên Native App)
   useEffect(() => {
+    const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (!isNativeApp) return;
+
     const host = getLocalTtsHost();
     const pref = localStorage.getItem('tts_device_pref') || 'auto';
     fetch(`${host}/set_device`, {
@@ -922,7 +930,11 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
     if (ttsEngine === 'matcha' || ttsEngine === 'local') {
       if (ttsEngine === 'matcha' && !matchaApiKey) {
-        // Just stop and wait for key
+        logTrace("[speakContent] Không có API Key Matcha. Tự động chuyển dự phòng sang Trình duyệt (Web Speech API).");
+        setIsLoading(false);
+        setTtsEngine('browser');
+        localStorage.setItem('local_tts_engine', 'browser');
+        setTimeout(() => speakContent(), 100);
         return;
       }
 

@@ -401,9 +401,12 @@ export default function BookDetail() {
                       target="_blank" 
                       rel="noreferrer" 
                       onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openInBrowser(u.url);
+                        const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+                        if (isNativeApp) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openInBrowser(u.url);
+                        }
                       }}
                       className="inline-flex items-center gap-1 bg-[#0b0b14]/40 border border-[#1f1f3a] hover:border-purple-500/30 rounded px-2 py-1 text-[10px] text-slate-300 hover:text-white transition-all hover:scale-[1.02]"
                       title={u.url}
@@ -441,8 +444,11 @@ export default function BookDetail() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => {
-                  e.preventDefault();
-                  openInBrowser(urlsList[0].url);
+                  const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+                  if (isNativeApp) {
+                    e.preventDefault();
+                    openInBrowser(urlsList[0].url);
+                  }
                 }}
                 className="inline-flex items-center gap-1.5 px-6 py-3 bg-[#0b0b14]/50 border border-purple-500/30 hover:bg-purple-500/10 text-purple-300 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
               >
@@ -671,8 +677,11 @@ export default function BookDetail() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => {
-                            e.preventDefault();
-                            openInBrowser(src.url);
+                            const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+                            if (isNativeApp) {
+                              e.preventDefault();
+                              openInBrowser(src.url);
+                            }
                           }}
                           className="inline-flex items-center gap-1 bg-[#0b0b14]/50 border border-[#1f1f3a] hover:border-purple-500/40 rounded px-2 py-1 text-[10px] text-slate-300 hover:text-purple-300 transition-all hover:scale-[1.02]"
                           title={src.url}

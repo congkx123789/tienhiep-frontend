@@ -40,6 +40,10 @@ export function useAutoUpdate() {
   const isElectron = typeof window !== 'undefined' && !!window.electron;
 
   const checkForUpdate = useCallback(async () => {
+    // Web app is hosted on server and always up to date.
+    // Auto-update checking is only relevant for native Electron desktop app.
+    if (!isElectron) return;
+
     // Chỉ chạy 1 lần mỗi session — tránh spam API
     const checkedKey = `update_checked_${new Date().toDateString()}`;
     if (sessionStorage.getItem(checkedKey)) return;

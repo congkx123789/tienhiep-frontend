@@ -301,9 +301,12 @@ export default function BookCard({
                   target="_blank" 
                   rel="noreferrer" 
                   onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openInBrowser(u.url);
+                    const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+                    if (isNativeApp) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openInBrowser(u.url);
+                    }
                   }}
                   className="inline-flex items-center gap-1 bg-[#0b0b14]/40 border border-[#1f1f3a] hover:border-purple-500/30 rounded px-1.5 py-0.5 text-[9px] text-slate-300 hover:text-white transition-all"
                 >

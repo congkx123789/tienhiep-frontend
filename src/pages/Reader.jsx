@@ -528,9 +528,14 @@ export default function Reader() {
                   <a 
                     key={idx}
                     href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={(e) => {
-                      e.preventDefault();
-                      openInBrowser(src.url);
+                      const isNativeApp = window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+                      if (isNativeApp) {
+                        e.preventDefault();
+                        openInBrowser(src.url);
+                      }
                     }}
                     className="cursor-pointer inline-flex items-center gap-1 bg-purple-950/20 hover:bg-purple-900/40 border border-purple-500/25 hover:border-purple-500/45 text-purple-300 rounded-lg px-2 py-0.5 text-[11px] font-black transition-all hover:scale-[1.02]"
                     title={`Đi tới ${src.site} gốc`}

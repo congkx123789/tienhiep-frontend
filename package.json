@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "clean": "rm -rf dist dist-web dist-electron dist-electron-build .vercel *.ipa *.zip && (cd android && ./gradlew clean || true)",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite --mode electron\" \"wait-on http://localhost:3532 && electron . --no-sandbox --remote-debugging-port=9222\"",

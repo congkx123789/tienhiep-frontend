@@ -674,7 +674,10 @@ export default function Discover() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500" />
               </span>
               <Globe className="w-4 h-4 text-purple-400" />
-              {lang === 'vi' ? 'Khám phá nguồn truyện raw (Trình duyệt)' : 'Browse Raw Web Sources (In-App Browser)'}
+              {typeof window !== 'undefined' && (window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()))
+                ? (lang === 'vi' ? 'Khám phá nguồn truyện raw (Trình duyệt)' : 'Browse Raw Web Sources (In-App Browser)')
+                : (lang === 'vi' ? 'Khám phá nguồn truyện raw' : 'Browse Raw Web Sources')
+              }
             </h3>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {[

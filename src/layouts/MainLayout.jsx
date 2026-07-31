@@ -220,9 +220,9 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     if (tab === 'sects')     navigate('/sects');
   };
 
-  const activeTab = isVisible ? 'browser' : getActiveTab();
-
   const isNativeApp = isElectron || (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  const activeTab = (isNativeApp && isVisible) ? 'browser' : getActiveTab();
 
   // Bottom nav items (mobile only — 5 main tabs)
   const bottomNavItems = [

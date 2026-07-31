@@ -1554,12 +1554,24 @@ export const BrowserProvider = ({ children }) => {
     }
   };
 
+  const isNativeApp = typeof window !== 'undefined' && (!!window.electron || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
+
   return (
-    <BrowserContext.Provider value={{ openInBrowser, tabs, activeTabId, closeTab, closeAll, isVisible, setIsVisible, activeAudioObj, setActiveAudioObj }}>
+    <BrowserContext.Provider value={{
+      openInBrowser,
+      tabs: isNativeApp ? tabs : [],
+      activeTabId: isNativeApp ? activeTabId : null,
+      closeTab,
+      closeAll,
+      isVisible: isNativeApp ? isVisible : false,
+      setIsVisible: (val) => { if (isNativeApp) setIsVisible(val); },
+      activeAudioObj,
+      setActiveAudioObj
+    }}>
       {children}
-      {tabs.length > 0 && (window.electron || isCapacitor) && (
+      {tabs.length > 0 && isNativeApp && isVisible && (
         <div
-          className={`fixed left-0 right-0 bottom-0 z-[9999] bg-[#0b0b14] flex-col animate-fade-in shadow-2xl ${isVisible ? 'flex' : 'hidden'}`}
+          className={`fixed left-0 right-0 bottom-0 z-[9999] bg-[#0b0b14] flex flex-col animate-fade-in shadow-2xl`}
           style={{ top: document.querySelector('header') ? '56px' : '0px' }}
         >
 

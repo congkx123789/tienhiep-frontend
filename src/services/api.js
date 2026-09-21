@@ -6,11 +6,10 @@ import axios from 'axios';
 // Frontend sẽ tự động chọn server nhanh nhất còn sống
 // =====================================================
 const SERVERS = import.meta.env.PROD ? [
-  'https://cong123779-tienhiep-api.hf.space',
-  'https://api-tienhiep.lyvuha.com'
+  'https://cong123779-tienhiep-api.hf.space'
 ] : [''];  // Dev: rỗng → vite proxy
 
-const HEALTH_TIMEOUT = 1200;   // 1.2s timeout để ping health check nhanh
+const HEALTH_TIMEOUT = 1500;   // 1.5s timeout để ping health check
 const CACHE_KEY = 'best_tienhiep_server';
 const CACHE_DURATION = 10 * 60 * 1000; // Cache server tốt trong 10 phút
 
@@ -30,22 +29,24 @@ async function pingServer(url, timeoutMs = HEALTH_TIMEOUT) {
 
 // Tìm server tốt nhất với cơ chế cache và fallback thông minh
 async function getBestServer() {
+  const isCapacitorNative = typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
+
   // Web Mode (cả Prod trên Vercel và Dev trên local browser):
   // Luôn trả về rỗng để sử dụng cùng nguồn (same-origin proxy: Vercel rewrites trong prod, Vite proxy trong dev)
-  if (!window.electron && !window.Capacitor) {
+  if (!window.electron && !isCapacitorNative) {
     return typeof window !== 'undefined' ? window.location.origin : '';
   }
 
   // 1. Nếu chạy trong Electron hoặc Capacitor: ưu tiên hàng đầu là Local Engine chạy offline
   if (window.electron) {
     const localServer = 'http://127.0.0.1:5051';
-    const isLocalAlive = await pingServer(localServer, 300); // chỉ timeout 300ms cho local
+    const isLocalAlive = await pingServer(localServer, 1500); // 1.5s timeout cho local server
     if (isLocalAlive) {
       return localServer;
     }
-  } else if (window.Capacitor) {
+  } else if (isCapacitorNative) {
     const localServer = 'http://10.0.2.2:5051';
-    const isLocalAlive = await pingServer(localServer, 500); // timeout 500ms cho giả lập
+    const isLocalAlive = await pingServer(localServer, 1000); // timeout 1s cho giả lập
     if (isLocalAlive) {
       return localServer;
     }
@@ -54,7 +55,7 @@ async function getBestServer() {
   // 2. Kiểm tra cache trong localStorage
   try {
     const cached = localStorage.getItem(CACHE_KEY);
-    if (cached && cached.includes(':8001')) {
+    if (cached && (cached.includes(':8001') || cached.includes('api-tienhiep.lyvuha.com'))) {
       localStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(`${CACHE_KEY}_expiry`);
     } else {
@@ -67,14 +68,13 @@ async function getBestServer() {
 
   // 3. Nếu chưa có cache hoặc cache hết hạn: ping song song các server để chọn server tốt nhất
   const servers = [
-    window.Capacitor ? 'http://10.0.2.2:5051' : 'http://localhost:5051',
-    'https://cong123779-tienhiep-api.hf.space',
-    'https://api-tienhiep.lyvuha.com'
+    isCapacitorNative ? 'http://10.0.2.2:5051' : 'http://localhost:5051',
+    'https://cong123779-tienhiep-api.hf.space'
   ];
 
   // Ping song song, trả về server nào phản hồi OK đầu tiên
   const pingPromises = servers.map(async (srv) => {
-    const alive = await pingServer(srv, 1200);
+    const alive = await pingServer(srv, 1500);
     if (alive) return srv;
     throw new Error('Dead');
   });
@@ -90,8 +90,8 @@ async function getBestServer() {
 
     return bestSrv;
   } catch (err) {
-    // Nếu tất cả server đều không phản hồi trong 1.2s, fallback về HuggingFace làm mặc định
-    return 'https://cong123779-tienhiep-api.hf.space';
+    // Nếu tất cả server đều không phản hồi trong 1.5s, fallback về local nếu có, hoặc HuggingFace
+    return 'http://127.0.0.1:5051';
   }
 }
 

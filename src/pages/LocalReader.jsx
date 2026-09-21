@@ -953,19 +953,19 @@ export default function LocalReader() {
   // Get active theme colors matching reader themes
   const getThemeClass = () => {
     switch (theme) {
-      case 'light': return 'bg-amber-50/90 text-slate-900 border-amber-200/40';
-      case 'sepia': return 'bg-[#f4ebd0] text-[#5c4033] border-[#e4d5b0]';
-      case 'gray': return 'bg-[#1e293b] text-slate-200 border-slate-700/40';
-      default: return 'bg-[#0f0f26]/85 text-slate-200 border-indigo-950/40';
+      case 'light': return 'bg-amber-50/95 text-slate-900 border-amber-200/60';
+      case 'sepia': return 'bg-[#f4ebd0] text-[#422e24] border-[#e4d5b0]';
+      case 'gray': return 'bg-[#1e293b] text-slate-100 border-slate-700/60';
+      default: return 'bg-[#0b0c16] text-slate-100 border-indigo-950/60';
     }
   };
 
   const getReaderBg = () => {
     switch (theme) {
       case 'light': return 'bg-amber-50 text-slate-900';
-      case 'sepia': return 'bg-[#f5eccb] text-[#422e24]';
-      case 'gray': return 'bg-[#181d2a] text-slate-200';
-      default: return 'bg-[#0b0c16] text-slate-300';
+      case 'sepia': return 'bg-[#f5eccb] text-[#332219]';
+      case 'gray': return 'bg-[#181d2a] text-slate-100';
+      default: return 'bg-[#0b0c16] text-slate-100';
     }
   };
 
@@ -1720,11 +1720,17 @@ export default function LocalReader() {
             </div>
           </div>
 
-           {/* Chapter Content Area */}
+            {/* Chapter Content Area */}
           <div className={`px-6 py-12 md:px-16 mx-auto space-y-6 ${getReaderWidthClass()} ${getReaderBg()}`}>
-            <h3 className="text-center font-bold text-lg md:text-xl text-slate-100 tracking-tight pb-2 border-b border-white/5">
-              {activeBook.chapters[activeChapterIdx]?.title}
-            </h3>
+            {(() => {
+              const prefixLen = (activeBook.chapters[activeChapterIdx]?.title?.length || 0) + 2;
+              const isPlayingTitle = isCurrentChapterPlaying && currentSpokenCharIdx < prefixLen;
+              return (
+                <h3 className={`text-center font-bold text-lg md:text-xl tracking-tight pb-2 border-b border-white/10 opacity-95 transition-all duration-300 ${isPlayingTitle ? 'text-amber-400 bg-amber-500/15 py-1.5 px-4 rounded-xl shadow-lg ring-1 ring-amber-400/40 inline-block mx-auto' : ''}`}>
+                  {activeBook.chapters[activeChapterIdx]?.title}
+                </h3>
+              );
+            })()}
 
             {getReadingTime() && (
               <div className="text-center text-[10px] text-slate-400 mt-2 flex justify-center items-center gap-2">

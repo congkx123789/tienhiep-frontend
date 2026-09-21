@@ -331,8 +331,8 @@ export default function Settings() {
   const [phoneVerified, setPhoneVerified] = useState(!!user?.phone);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.two_factor === 1);
 
-  // ÉP CỨNG ĐƯỜNG DẪN LINUX, BỎ QUA BỘ NHỚ ĐỆM CŨ
-  const linuxPath = '/home/alida/Documents/Extension_reader_tool/ttS/matcha36_vocos10_standalone/models';
+  // Đường dẫn Model ONNX cục bộ
+  const linuxPath = '/home/alida/Documents/Extension_reader_tool/ttS/TTS_Engine/models_onnx';
   const [downloadFolder, setDownloadFolder] = useState(linuxPath);
   
   useEffect(() => {

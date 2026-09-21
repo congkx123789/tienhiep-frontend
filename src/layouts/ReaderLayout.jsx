@@ -50,6 +50,8 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
     return () => window.removeEventListener('click', handleScreenClick);
   }, [showSettingsPanel]);
 
+  const isLinux = typeof navigator !== 'undefined' && /linux/i.test(navigator.userAgent);
+
   return (
     <div className={`min-h-screen transition-colors duration-300 relative theme-${theme} select-none`}>
       <div 
@@ -57,7 +59,7 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
           overlayVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
         }`}
         style={{
-          ...(isElectron ? { WebkitAppRegion: 'drag', paddingRight: '144px' } : {})
+          ...(isElectron && !isLinux ? { WebkitAppRegion: 'drag', paddingRight: '144px' } : (isElectron ? { paddingRight: '144px' } : {}))
         }}
       >
         <div className="flex items-center gap-3" style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}>

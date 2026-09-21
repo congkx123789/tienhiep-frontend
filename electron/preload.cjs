@@ -64,5 +64,10 @@ contextBridge.exposeInMainWorld('electron', {
   openLogFolder: () => ipcRenderer.invoke('open-log-folder'),
   quickPatchUpdate: (url, version) => ipcRenderer.invoke('quick-patch-update', { url, version }),
   getLogContent: () => ipcRenderer.invoke('get-log-content'),
-  clearLog: () => ipcRenderer.invoke('clear-log')
+  clearLog: () => ipcRenderer.invoke('clear-log'),
+  onActiveTabReload: (callback) => {
+    const subscription = () => callback();
+    ipcRenderer.on('active-tab-reload', subscription);
+    return () => ipcRenderer.off('active-tab-reload', subscription);
+  }
 });

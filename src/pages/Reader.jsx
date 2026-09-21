@@ -658,9 +658,14 @@ export default function Reader() {
           )}
         </div>
 
-        <h2 className="text-xl md:text-2xl font-black mb-2 border-b border-slate-500/10 pb-4 text-center">
-          {chapterTitle}
-        </h2>
+        {(() => {
+          const isPlayingTitle = isCurrentChapterPlaying && currentSpokenCharIdx < (chapterTitle.length + 2);
+          return (
+            <h2 className={`text-xl md:text-2xl font-black mb-2 border-b border-slate-500/10 pb-4 text-center transition-all duration-300 ${isPlayingTitle ? 'text-amber-400 bg-amber-500/15 py-1.5 px-4 rounded-xl shadow-lg ring-1 ring-amber-400/40' : ''}`}>
+              {chapterTitle}
+            </h2>
+          );
+        })()}
 
         {getReadingTime() && (
           <div className="text-center text-[10px] text-slate-400 mb-6 flex justify-center items-center gap-2">

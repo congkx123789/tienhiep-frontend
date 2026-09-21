@@ -1,4 +1,12 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, session } = require('electron');
+
+// Thêm switch bypass sandbox cho Linux và cho phép tự động phát âm thanh không cần cử chỉ chuột
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 const path = require('path');
 const os = require('os');
 const http = require('http');
@@ -6,6 +14,110 @@ const https = require('https');
 const fs = require('fs');
 const { exec } = require('child_process');
 const JSZip = require('jszip');
+
+// ═════════════════════════════════════════════════════════════════════════
+// 🛡️ TIÊN HIỆP BROWSER NETWORK AD-BLOCKER (CHẶN QUẢNG CÁO TẬN GỐC TẦNG MẠNG)
+// ═════════════════════════════════════════════════════════════════════════
+const AD_DOMAINS = [
+  'magsrv.com', 'genieesspv.jp', 'popads.net', 'popcash.net', 'propellerads.com',
+  'adsterra.com', 'exoclick.com', 'trafficjunky.com', 'adtrue.com', 'monetag.com',
+  'adnxs.com', 'cpmstar.com', 'onclickalgo.com', 'bidvertiser.com', 'infolinks.com',
+  'taboola.com', 'outbrain.com', 'doubleclick.net', 'googlesyndication.com',
+  'googleadservices.com', 'google-analytics.com', 'googletagmanager.com',
+  'tongji.baidu.com', 'hm.baidu.com', 'cnzz.com', '51.la', 'umeng.com',
+  'hilltopads.net', 'richpush.co', 'clickadu.com', 'admob.com', 'adroll.com',
+  'rubiconproject.com', 'openx.net', 'pubmatic.com', 'criteo.com', 'zergnet.com',
+  'mgid.com', 'revcontent.com', 'yandex.ru', 'yandex.net', 'an.yandex.ru',
+  'adhigh.net', 'juicyads.com', 'trafficfactory.biz', 'adx1.com', 'exosrv.com',
+  'syndication.exoclick.com', 'tsyndicate.com', 'realsrv.com', 'wigetmedia.com',
+  'ad-provider.js', 'syndication.com', 'vidoomy.com', 'seedr.cc', 'yieldlove.com',
+  'vantagefx.com', 'vantagemarkets.com', 'adcash.com', 'popmyads.com', 'admaven.com',
+  'ad-maven.com', 'alwingulla.com', 'highperformancecpmgate.com', 'richads.com',
+  'trafficstars.com', 'daolan.net', 'yuhuads.com'
+];
+
+const AD_PATH_PATTERNS = [
+  /\/ad-provider\.js/i,
+  /\/pagead\//i,
+  /zoneid=\d+/i,
+  /\/ad\.js/i,
+  /\/ads\.js/i,
+  /\/adv\.js/i,
+  /\/adx\.js/i,
+  /\/guanggao\//i,
+  /partner\.googleadservices/i,
+  /pos\.baidu\.com/i,
+  /cpro\.baidustatic\.com/i,
+  /\/popunder/i,
+  /\/adservice\./i,
+  /googleads/i,
+  /\/banner_ad/i,
+  /\/float_ad/i,
+  /\/fake_captcha/i,
+  /\/not_a_robot/i,
+  /\/vantage/i
+];
+
+function isAdUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  if (
+    rawUrl.startsWith('http://localhost') ||
+    rawUrl.startsWith('http://127.0.0.1') ||
+    rawUrl.startsWith('tienhiepai:') ||
+    rawUrl.startsWith('file:') ||
+    rawUrl.startsWith('devtools:')
+  ) {
+    return false;
+  }
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname.toLowerCase();
+    for (const domain of AD_DOMAINS) {
+      if (host === domain || host.endsWith('.' + domain)) {
+        return true;
+      }
+    }
+    const full = rawUrl.toLowerCase();
+    for (const pattern of AD_PATH_PATTERNS) {
+      if (pattern.test(full)) {
+        return true;
+      }
+    }
+  } catch (e) {
+    const lower = rawUrl.toLowerCase();
+    for (const domain of AD_DOMAINS) {
+      if (lower.includes(domain)) return true;
+    }
+  }
+  return false;
+}
+
+function setupAdBlockerForSession(sess) {
+  if (!sess || sess.__adBlockerInstalled) return;
+  sess.__adBlockerInstalled = true;
+
+  try {
+    sess.setPermissionRequestHandler((webContents, permission, callback) => {
+      // Chặn đứng hoàn toàn mọi nỗ lực xin quyền thông báo (Web Push) lừa đảo từ web truyện
+      if (permission === 'notifications' || permission === 'geolocation' || permission === 'media') {
+        return callback(false);
+      }
+      callback(true);
+    });
+  } catch (err) {}
+
+  try {
+    sess.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+      if (isAdUrl(details.url)) {
+        console.log(`[Network AdBlock] 🚫 Đã chặn request quảng cáo: ${details.url.substring(0, 100)}...`);
+        return callback({ cancel: true });
+      }
+      return callback({ cancel: false });
+    });
+  } catch (err) {
+    console.error('[Network AdBlock] Lỗi gắn bộ lọc request:', err);
+  }
+}
 
 // Định nghĩa helper ghi log hệ thống
 function writeAppLog(msg) {
@@ -237,9 +349,10 @@ function createWindow() {
       mainWindow.webContents.toggleDevTools();
       event.preventDefault();
     }
-    const isReloadShortcut = (input.control && key === 'r');
+    const isReloadShortcut = (input.control && key === 'r') || input.key === 'F5';
     if (isReloadShortcut && input.type === 'keyDown') {
-      mainWindow.webContents.reload();
+      // Báo xuống React reload riêng webview hiện tại thay vì reload sập cả cửa sổ Electron
+      mainWindow.webContents.send('active-tab-reload');
       event.preventDefault();
     }
   });
@@ -531,8 +644,8 @@ async function startBackend() {
   await killBackendOnPort(8001);
 
   if (isDev) {
-    // Trong môi trường Dev, ưu tiên chạy trực tiếp bằng python3 api_server.py để nhận thư viện GPU
-    const devScriptPath = path.join(__dirname, '../../TTS_ONNX_Deploy/api_server.py');
+    // Trong môi trường Dev, ưu tiên chạy trực tiếp server TTS mới từ TTS_Engine/server.py
+    const devScriptPath = path.join(__dirname, '../../TTS_Engine/server.py');
     if (fs.existsSync(devScriptPath)) {
       command = process.platform === 'win32' ? 'python' : 'python3';
       args = [devScriptPath];
@@ -826,6 +939,7 @@ function stopHealthMonitor() {
 
 app.whenReady().then(() => {
   registerLinuxDevProtocol();
+  setupAdBlockerForSession(session.defaultSession);
   createWindow();
 
   // Khởi động backend bất đồng bộ để tránh block cửa sổ chính
@@ -855,9 +969,46 @@ app.whenReady().then(() => {
   }, 100);
 
   app.on('web-contents-created', (event, contents) => {
+    // Đặt màu nền Chromium mặc định của mọi webContents (bao gồm cả webview) là màu đen mun #121214
+    // Triệt tiêu tận gốc hiện tượng nháy trắng khi Chromium render khung hình đầu tiên
+    try {
+      contents.setBackgroundColor('#121214');
+    } catch (err) {}
+
+    // Kích hoạt AdBlocker trên session của webview/webContents nếu có session riêng
+    try {
+      if (contents.session) {
+        setupAdBlockerForSession(contents.session);
+      }
+    } catch (err) {}
+
+    contents.on('console-message', (e, level, message, line, sourceId) => {
+      console.log(`[${contents.getType()} Console ${level}] ${message} (at ${sourceId}:${line})`);
+    });
+
     contents.setWindowOpenHandler(({ url }) => {
+      // 1. Nếu URL là liên kết quảng cáo đã biết -> Chặn đứng hoàn toàn
+      if (isAdUrl(url)) {
+        console.log(`[WindowOpen AdBlock] 🚫 Đã chặn mở cửa sổ quảng cáo: ${url}`);
+        return { action: 'deny' };
+      }
+
+      // 2. Với webview đọc truyện: Tuyệt đối không cho phép tự động loadURL popup quảng cáo đè lên chương đang đọc
       if (contents.getType() === 'webview') {
-        contents.loadURL(url);
+        let currentHost = '';
+        let targetHost = '';
+        try { currentHost = new URL(contents.getURL()).hostname.toLowerCase(); } catch (e) {}
+        try { targetHost = new URL(url).hostname.toLowerCase(); } catch (e) {}
+
+        const isSameDomain = currentHost && targetHost && (currentHost === targetHost || targetHost.endsWith('.' + currentHost) || currentHost.endsWith('.' + targetHost));
+        const isChapterLink = /\.(html|htm|php)$/i.test(url) || /chapter|chap|read|book/i.test(url);
+
+        // Chỉ điều hướng nếu đúng là link chương tiếp/truyện cùng trang web, ngược lại CHẶN HẾT các popup tự nhảy
+        if (isSameDomain && isChapterLink) {
+          contents.loadURL(url);
+        } else {
+          console.log(`[WindowOpen AdBlock] 🚫 Chặn webview popup chuyển trang ngoài ý muốn: ${url}`);
+        }
         return { action: 'deny' };
       }
       return { action: 'allow' };
@@ -1372,7 +1523,7 @@ ipcMain.handle('get-models-path', async () => {
   }
 
   if (isDev) {
-    return path.join(__dirname, '../../TTS_ONNX_Deploy');
+    return path.join(__dirname, '../../TTS_Engine/models_onnx');
   } else {
     const possiblePaths = [
       path.join(process.resourcesPath, binaryName),

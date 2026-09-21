@@ -238,6 +238,8 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
   const isAdmin = user && ['admin', 'havucong25', 'congkx123789'].includes(user.username);
 
+  const isLinux = typeof navigator !== 'undefined' && /linux/i.test(navigator.userAgent);
+
   // Desktop tab items (full set)
   const desktopNavItems = [
     ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
@@ -249,8 +251,8 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     { key: 'embed',     icon: BookOpen,    label: t.tabEmbed     },
     ...(user ? [
       { key: 'sects', icon: Crown, label: lang === 'vi' ? 'Tông Môn' : 'Sects' },
-      { key: 'settings', icon: SettingsIcon, label: t.tabSettings }
     ] : []),
+    { key: 'settings', icon: SettingsIcon, label: t.tabSettings },
   ];
 
 
@@ -260,13 +262,13 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
       {/* ─── HEADER ─── */}
       {!hideHeader && (
         <header 
-          className={`relative bg-[#1c183a] border-b border-indigo-950/30 shadow-lg sticky top-0 z-40 ${isElectron ? 'select-none' : ''}`}
-          style={isElectron ? { WebkitAppRegion: 'drag' } : {}}
+          className={`relative bg-[#1c183a] border-b border-indigo-950/30 shadow-lg sticky top-0 z-[100000] ${isElectron ? 'select-none' : ''}`}
+          style={isElectron && !isLinux ? { WebkitAppRegion: 'drag' } : {}}
         >
           <div 
             className="max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-12 h-14 flex items-center justify-between gap-3"
             style={{
-              paddingRight: isElectron ? '144px' : undefined
+              paddingRight: isElectron ? '160px' : undefined
             }}
           >
 
@@ -284,42 +286,51 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
 
             {/* CENTER: Desktop tabs */}
             <nav 
-              className="hidden sm:flex bg-[#0f0f26]/60 rounded-full p-1 border border-white/5 text-[11px] font-bold gap-0.5"
+              className="hidden sm:flex items-center bg-[#0f0f26]/60 rounded-full p-1 border border-white/5 text-[11px] font-bold gap-0.5"
               style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
             >
-              {desktopNavItems.map(({ key, icon: Icon, label }) => (
-                <button
-                  key={key}
-                  onClick={() => handleTabChange(key)}
-                  title={label}
-                  className={`flex items-center whitespace-nowrap shrink-0 gap-1 px-2 py-1 lg:gap-1.5 lg:px-3.5 lg:py-1.5 rounded-full transition-all relative ${
-                    activeTab === key
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="inline">{label}</span>
-                  {key === 'settings' && user?.require_password_change === 1 && (
-                    <span className="absolute top-1 right-1 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              {desktopNavItems.map(({ key, icon: Icon, label }) => {
+                const isActive = activeTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleTabChange(key)}
+                    title={label}
+                    className={`flex items-center whitespace-nowrap shrink-0 gap-1.5 px-2.5 py-1.5 rounded-full transition-all relative ${
+                      isActive
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    {/* Tab đang chọn luôn hiện chữ, các tab khác chỉ hiện chữ khi màn hình rộng (2xl), màn hình vừa chỉ hiện icon */}
+                    <span className={`${isActive ? 'inline' : 'hidden 2xl:inline'}`}>
+                      {label}
                     </span>
-                  )}
-                </button>
-              ))}
+                    {key === 'settings' && user?.require_password_change === 1 && (
+                      <span className="absolute top-1 right-1 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* RIGHT: Language + Auth */}
-            <div className="flex items-center gap-2 shrink-0" style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}>
+            <div 
+              className="flex items-center gap-1.5 sm:gap-2 shrink-0 pr-1" 
+              style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
+            >
               {/* Language switcher */}
-              <div className="hidden sm:flex bg-[#0f0f26]/60 rounded-full p-0.5 border border-white/5 text-[9px] font-bold">
+              <div className="hidden lg:flex bg-[#0f0f26]/60 rounded-full p-0.5 border border-white/5 text-[9px] font-bold">
                 {['vi', 'en', 'zh'].map((l) => (
                   <button
                     key={l}
                     onClick={() => setLang(l)}
                     title={l.toUpperCase()}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all ${lang === l ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-full transition-all ${lang === l ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
                   >
                     <FlagIcon langCode={l} />
                     <span className="hidden 2xl:inline">{l.toUpperCase()}</span>
@@ -403,78 +414,48 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
                 </button>
               )}
 
-              {/* Mobile Shortcuts */}
-              <div className="flex sm:hidden items-center gap-1 mr-1" style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}>
-                {user && (
-                  <button
-                    onClick={() => handleTabChange('sects')}
-                    className={`p-1 rounded-lg transition-colors ${activeTab === 'sects' ? 'text-purple-400 bg-purple-600/10' : 'text-slate-400 hover:text-white'}`}
-                    title={lang === 'vi' ? 'Tông Môn' : 'Sects'}
-                  >
-                    <Crown className="w-4 h-4" />
-                  </button>
-                )}
-                <button
-                  onClick={() => handleTabChange('downloads')}
-                  className={`p-1 rounded-lg transition-colors ${activeTab === 'downloads' ? 'text-purple-400 bg-purple-600/10' : 'text-slate-400 hover:text-white'}`}
-                  title={t.tabDownloads}
-                >
-                  <DownloadIcon className="w-4.5 h-4.5" />
-                </button>
-                {user && (
-                  <>
-                    <button
-                      onClick={() => navigate('/messages')}
-                      className={`p-1 rounded-lg transition-colors relative ${location.pathname === '/messages' ? 'text-purple-400 bg-purple-600/10' : 'text-slate-400 hover:text-white'}`}
-                      title="Tin nhắn riêng"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      {unreadMsgCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[12px] h-3 bg-rose-500 text-white rounded-full flex items-center justify-center text-[7px] font-black px-0.5 shadow-md">
-                          {unreadMsgCount}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => { setSocialTab('notifications'); setSocialOpen(true); }}
-                      className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors relative"
-                      title="Thông báo thư hữu"
-                    >
-                      <Bell className="w-4 h-4" />
-                      {unreadNotifCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[12px] h-3 bg-amber-500 text-white rounded-full flex items-center justify-center text-[7px] font-black px-0.5 shadow-md animate-pulse">
-                          {unreadNotifCount}
-                        </span>
-                      )}
-                    </button>
-                  </>
-                )}
-              </div>
 
-              {/* Mobile: hamburger (for developer tab not in bottom nav + user menu) */}
+
+              {/* Mobile: hamburger button - distinctly styled to avoid confusion with window close */}
               <button
                 onClick={() => setMobileMenuOpen(v => !v)}
-                className="sm:hidden p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                className={`sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  mobileMenuOpen
+                    ? 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-sm'
+                    : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
+                }`}
                 style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
+                title={mobileMenuOpen ? "Đóng Menu" : "Mở Menu"}
               >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {mobileMenuOpen ? (
+                  <>
+                    <X className="w-3.5 h-3.5 text-purple-300" />
+                    <span>Đóng</span>
+                  </>
+                ) : (
+                  <>
+                    <Menu className="w-3.5 h-3.5" />
+                    <span>Menu</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
 
           {/* Electron Window Controls */}
           {isElectron && (
-            <div className="absolute right-0 top-0 bottom-0 flex items-stretch h-14" style={{ WebkitAppRegion: 'no-drag' }}>
+            <div className="absolute right-0 top-0 bottom-0 flex items-stretch h-14 z-[100002]" style={{ WebkitAppRegion: 'no-drag' }}>
+              <div className="h-5 w-px bg-white/10 self-center mr-1" />
               <button
-                onClick={() => window.electron.minimize()}
-                className="flex items-center justify-center w-12 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                onClick={() => window.electron?.minimize?.()}
+                className="flex items-center justify-center w-11 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                 title="Thu nhỏ"
               >
                 <Minus className="w-4 h-4" />
               </button>
               <button
-                onClick={() => window.electron.maximize()}
-                className="flex items-center justify-center w-12 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                onClick={() => window.electron?.maximize?.()}
+                className="flex items-center justify-center w-11 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                 title={isWindowMaximized ? "Thu nhỏ cửa sổ" : "Phóng to"}
               >
                 {isWindowMaximized ? (
@@ -487,148 +468,252 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
                 )}
               </button>
               <button
-                onClick={() => window.electron.close()}
-                className="flex items-center justify-center w-12 hover:bg-rose-600 text-slate-400 hover:text-white transition-colors"
-                title="Đóng"
+                onClick={() => window.electron?.close?.()}
+                className="flex items-center justify-center w-11 hover:bg-rose-600 text-slate-400 hover:text-white transition-colors"
+                title="Đóng ứng dụng"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          {/* Mobile dropdown menu (for extra items + user info) */}
+          {/* Mobile dropdown / Drawer menu */}
           {mobileMenuOpen && (
             <div 
-              className="sm:hidden border-t border-white/5 bg-[#1c183a] animate-fadeIn"
+              className="sm:hidden fixed inset-x-0 top-14 bottom-0 z-[100001] bg-[#0c0c1a]/98 backdrop-blur-2xl border-t border-white/10 overflow-y-auto animate-fadeIn shadow-2xl flex flex-col justify-between"
               style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
             >
-              <div className="px-4 py-3 space-y-1">
-                {/* Developer tab (not in bottom nav) */}
-                {user && (
-                  <button
-                    onClick={() => handleTabChange('developer')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                      activeTab === 'developer'
-                        ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                        : 'text-slate-300 hover:bg-white/5'
-                    }`}
-                  >
-                    <Terminal className="w-4 h-4" />
-                    {t.tabDeveloper}
-                  </button>
-                )}
-
-                {/* Downloads tab */}
-                <button
-                  onClick={() => handleTabChange('downloads')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    activeTab === 'downloads'
-                      ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                      : 'text-slate-300 hover:bg-white/5'
-                  }`}
-                >
-                  <DownloadIcon className="w-4 h-4" />
-                  {t.tabDownloads}
-                </button>
-
-                {/* Sects tab (Tông Môn) - only visible if logged in */}
-                {user && (
-                  <button
-                    onClick={() => handleTabChange('sects')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                      activeTab === 'sects'
-                        ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                        : 'text-slate-300 hover:bg-white/5'
-                    }`}
-                  >
-                    <Crown className="w-4 h-4 text-amber-400" />
-                    {lang === 'vi' ? 'Tông Môn' : lang === 'en' ? 'Sects' : '宗门'}
-                  </button>
-                )}
-
-                {/* Language switcher in mobile menu */}
-                <div className="h-px bg-white/5 my-2" />
-                <div className="px-3 py-1.5">
-                  <p className="text-xs text-slate-400 mb-2 font-semibold">
-                    {lang === 'vi' ? 'Ngôn ngữ' : lang === 'en' ? 'Language' : '语言'}
-                  </p>
-                  <div className="flex bg-[#0f0f26]/60 rounded-full p-0.5 border border-white/5 text-xs font-bold w-fit">
-                    {['vi', 'en', 'zh'].map((l) => (
-                      <button
-                        key={l}
-                        onClick={() => setLang(l)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all ${lang === l ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        <FlagIcon langCode={l} />
-                        <span>{l === 'vi' ? 'VI' : l === 'en' ? 'EN' : 'ZH'}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* User info on mobile */}
+              <div className="p-4 space-y-4">
+                
+                {/* User Profile Card */}
                 {user ? (
-                  <>
-                    <div className="h-px bg-white/5 my-2" />
-                    {/* Tin nhắn riêng on mobile */}
-                    <button
-                      onClick={() => { navigate('/messages'); setMobileMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-all relative"
-                    >
-                      <MessageSquare className="w-4 h-4 text-purple-400" />
-                      {lang === 'vi' ? 'Tin nhắn riêng' : lang === 'en' ? 'Direct Messages' : '私信'}
-                      {unreadMsgCount > 0 && (
-                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-black px-1">
-                          {unreadMsgCount > 99 ? '99+' : unreadMsgCount}
-                        </span>
+                  <div className="p-3.5 bg-gradient-to-r from-purple-900/30 to-indigo-900/20 rounded-2xl border border-purple-500/20 shadow-inner flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {user.avatar ? (
+                        <img src={user.avatar} className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/50 shrink-0" alt="avatar" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-md">
+                          {user.username ? user.username[0].toUpperCase() : 'U'}
+                        </div>
                       )}
-                    </button>
-
-                    {/* Thông báo thư hữu on mobile */}
-                    <button
-                      onClick={() => { setSocialTab('notifications'); setSocialOpen(true); setMobileMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-all relative"
-                    >
-                      <Bell className="w-4 h-4 text-amber-400" />
-                      {lang === 'vi' ? 'Thông báo thư hữu' : lang === 'en' ? 'Social Notifications' : '书友通知'}
-                      {unreadNotifCount > 0 && (
-                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-black px-1">
-                          {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
-                        </span>
-                      )}
-                    </button>
-                    <div className="flex items-center justify-between px-3 py-2 bg-[#0f0f26]/20 rounded-xl border border-white/5 mt-2">
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-white truncate">{user.username}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold text-white truncate">{user.display_name || user.username}</p>
+                          {user.vip_status === 1 && (
+                            <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-amber-500/30 shrink-0">VIP</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate">{user.email || 'Thành viên Tiên Hiệp AI'}</p>
                       </div>
-                      <button
-                        onClick={() => { logout(); setMobileMenuOpen(false); }}
-                        className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-semibold shrink-0"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        {lang === 'vi' ? 'Đăng xuất' : lang === 'en' ? 'Logout' : '退出'}
-                      </button>
                     </div>
-                  </>
+                    <button
+                      onClick={() => { logout(); setMobileMenuOpen(false); }}
+                      className="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-all shrink-0"
+                      title="Đăng xuất"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
                 ) : (
-                  <div className="px-3 py-2">
+                  <div className="p-3 bg-[#13132b] rounded-2xl border border-white/5 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-white">Chưa đăng nhập</p>
+                      <p className="text-[11px] text-slate-400">Đăng nhập để lưu tủ sách & đồng bộ</p>
+                    </div>
                     <button
                       onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }}
-                      className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-bold shadow-md transition-all"
+                      className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all shrink-0"
                     >
                       {t.login}
                     </button>
                   </div>
                 )}
 
-                {/* Stats on mobile */}
-                <div className="flex items-center gap-4 px-3 py-2 text-[10px] text-slate-500">
-                  <span>{(stats.total || 931427).toLocaleString()} {lang === 'vi' ? 'truyện' : lang === 'en' ? 'novels' : '本'}</span>
-                  <span>•</span>
-                  <span>7 {lang === 'vi' ? 'nguồn' : lang === 'en' ? 'sources' : '源'}</span>
+                {/* Section 1: Main Navigation */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">
+                    {lang === 'vi' ? 'Điều Hướng Chính' : 'Main Navigation'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => handleTabChange('all')}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === 'all'
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-[#15152e]/60 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                      }`}
+                    >
+                      <Compass className="w-4 h-4 shrink-0 text-purple-400" />
+                      <span className="truncate">{t.tabDiscover}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleTabChange('bookshelf')}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === 'bookshelf'
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-[#15152e]/60 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                      }`}
+                    >
+                      <BookMarked className="w-4 h-4 shrink-0 text-indigo-400" />
+                      <span className="truncate">{t.tabBookshelf}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleTabChange('history')}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === 'history'
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-[#15152e]/60 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                      }`}
+                    >
+                      <History className="w-4 h-4 shrink-0 text-amber-400" />
+                      <span className="truncate">{t.tabHistory}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleTabChange('settings')}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === 'settings'
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-[#15152e]/60 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                      }`}
+                    >
+                      <SettingsIcon className="w-4 h-4 shrink-0 text-cyan-400" />
+                      <span className="truncate">{t.tabSettings}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Section 2: Community & Tools */}
+                <div className="space-y-1 pt-1">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">
+                    {lang === 'vi' ? 'Tiện Ích & Tông Môn' : 'Features & Sects'}
+                  </p>
+                  
+                  {/* Sects tab */}
+                  {user && (
+                    <button
+                      onClick={() => handleTabChange('sects')}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === 'sects'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-[#15152e]/40 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Crown className="w-4 h-4 text-amber-400" />
+                        <span>{lang === 'vi' ? 'Tông Môn' : lang === 'en' ? 'Sects' : '宗门'}</span>
+                      </div>
+                      <span className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20 font-bold">Cộng đồng</span>
+                    </button>
+                  )}
+
+                  {/* Messages */}
+                  {user && (
+                    <button
+                      onClick={() => { navigate('/messages'); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold bg-[#15152e]/40 text-slate-300 hover:bg-[#1f1f42] border border-white/5 transition-all"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <MessageSquare className="w-4 h-4 text-purple-400" />
+                        <span>{lang === 'vi' ? 'Tin nhắn riêng' : lang === 'en' ? 'Direct Messages' : '私信'}</span>
+                      </div>
+                      {unreadMsgCount > 0 && (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-black px-1.5">
+                          {unreadMsgCount > 99 ? '99+' : unreadMsgCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Notifications */}
+                  {user && (
+                    <button
+                      onClick={() => { setSocialTab('notifications'); setSocialOpen(true); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold bg-[#15152e]/40 text-slate-300 hover:bg-[#1f1f42] border border-white/5 transition-all"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Bell className="w-4 h-4 text-amber-400" />
+                        <span>{lang === 'vi' ? 'Thông báo thư hữu' : lang === 'en' ? 'Social Notifications' : '书友通知'}</span>
+                      </div>
+                      {unreadNotifCount > 0 && (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-black px-1.5">
+                          {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Developer */}
+                  {user && (
+                    <button
+                      onClick={() => handleTabChange('developer')}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === 'developer'
+                          ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
+                          : 'bg-[#15152e]/40 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                      }`}
+                    >
+                      <Terminal className="w-4 h-4 text-emerald-400" />
+                      <span>{t.tabDeveloper}</span>
+                    </button>
+                  )}
+
+                  {/* Downloads */}
+                  <button
+                    onClick={() => handleTabChange('downloads')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'downloads'
+                        ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
+                        : 'bg-[#15152e]/40 text-slate-300 hover:bg-[#1f1f42] border border-white/5'
+                    }`}
+                  >
+                    <DownloadIcon className="w-4 h-4 text-sky-400" />
+                    <span>{t.tabDownloads}</span>
+                  </button>
+                </div>
+
+                {/* Section 3: Language Selector */}
+                <div className="pt-2">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">
+                    {lang === 'vi' ? 'Ngôn Ngữ Ứng Dụng' : 'Language'}
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5 bg-[#0f0f26]/80 p-1 rounded-2xl border border-white/5">
+                    {[
+                      { code: 'vi', name: 'Tiếng Việt' },
+                      { code: 'en', name: 'English' },
+                      { code: 'zh', name: '中文' }
+                    ].map(({ code, name }) => (
+                      <button
+                        key={code}
+                        onClick={() => setLang(code)}
+                        className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                          lang === code
+                            ? 'bg-purple-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <FlagIcon langCode={code} />
+                        <span>{name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
+
+              {/* Drawer Footer Status */}
+              <div className="p-4 border-t border-white/5 bg-[#080812] flex items-center justify-between text-[11px] text-slate-500">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{(stats.total || 931427).toLocaleString()} {lang === 'vi' ? 'truyện' : 'novels'}</span>
+                  <span>•</span>
+                  <span>7 {lang === 'vi' ? 'nguồn' : 'sources'}</span>
+                </div>
+                <span className="font-mono text-[10px] text-slate-600">v1.0.18</span>
+              </div>
+
             </div>
           )}
         </header>
@@ -753,7 +838,7 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
       {/* ─── MOBILE BOTTOM NAVIGATION ─── */}
       {!hideHeader && (
         <nav 
-          className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1c183a]/95 backdrop-blur-md border-t border-white/8 safe-bottom"
+          className="sm:hidden fixed bottom-0 left-0 right-0 z-[100001] bg-[#1c183a]/95 backdrop-blur-md border-t border-white/8 safe-bottom select-none"
           style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
         >
           <div className="flex items-stretch h-16">

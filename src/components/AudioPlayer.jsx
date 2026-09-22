@@ -4,14 +4,35 @@ import api from '../services/api';
 
 // Resolve đúng địa chỉ host cho Local TTS server
 // - Electron/Web: 127.0.0.1:8001
-// - Capacitor Android emulator: 10.0.2.2:8001 (host loopback của emulator)
-// Resolve đúng địa chỉ host cho Local TTS server
-// - Electron/Web: 127.0.0.1:8001
-// - Capacitor Android emulator: 10.0.2.2:8001 (host loopback của emulator)
+// - Capacitor Android: 127.0.0.1:8001 (adb reverse) hoặc 10.0.2.2:8001 (host loopback emulator)
+let currentWorkingTtsHost = 'http://10.0.2.2:8001';
+
+async function detectBestTtsHost() {
+  if (typeof window !== 'undefined' && window.electron) return 'http://127.0.0.1:8001';
+  if (typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+    try {
+      const r = await fetch('http://127.0.0.1:8001/health', { signal: AbortSignal.timeout(600) });
+      if (r.ok) {
+        currentWorkingTtsHost = 'http://127.0.0.1:8001';
+        return currentWorkingTtsHost;
+      }
+    } catch (e) {}
+    try {
+      const r = await fetch('http://10.0.2.2:8001/health', { signal: AbortSignal.timeout(1000) });
+      if (r.ok) {
+        currentWorkingTtsHost = 'http://10.0.2.2:8001';
+        return currentWorkingTtsHost;
+      }
+    } catch (e) {}
+    return currentWorkingTtsHost;
+  }
+  return 'http://127.0.0.1:8001';
+}
+
 function getLocalTtsHost() {
   if (typeof window !== 'undefined' && window.electron) return 'http://127.0.0.1:8001';
   if (typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
-    return 'http://10.0.2.2:8001';
+    return currentWorkingTtsHost;
   }
   return 'http://127.0.0.1:8001';
 }
@@ -294,7 +315,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
   const ensureLocalEngineRunning = async () => {
     if (ttsEngine !== 'local') return true;
-    const host = getLocalTtsHost();
+    const host = await detectBestTtsHost();
 
     // 1. Thử ping /health trước với timeout 1 giây
     try {

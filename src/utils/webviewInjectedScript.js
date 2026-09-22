@@ -114,7 +114,7 @@ export function createTranslateScript(useTypewriter = false) {
                       if (txt && hasWord.test(txt) && !isNav.test(txt)) paragraphs.push(txt);
                   });
               } else {
-                  (clone.innerText || "").split(/\n+/).forEach(line => {
+                  (clone.innerText || "").split(new RegExp("\\n+")).forEach(line => {
                       const txt = line.trim();
                       if (txt && hasWord.test(txt) && !isNav.test(txt)) paragraphs.push(txt);
                   });
@@ -860,7 +860,7 @@ export function createTranslateScript(useTypewriter = false) {
           }
       };
 
-      const translateQueue = [];
+      let translateQueue = [];
       let translateTimeout = null;
       let isTranslating = false;
 
@@ -1347,7 +1347,7 @@ export function createTranslateScript(useTypewriter = false) {
             } catch(e) {}
           }
           // 2. Hủy toàn bộ hàng đợi dịch đang chờ
-          translateQueue = [];
+          translateQueue.length = 0;
           if (translateTimeout) {
             clearTimeout(translateTimeout);
             translateTimeout = null;

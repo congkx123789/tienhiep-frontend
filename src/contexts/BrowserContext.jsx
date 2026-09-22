@@ -30,7 +30,12 @@ function setCachedTranslation(text, mode, translated) {
 async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP2026') {
   const candidateServers = [];
   if (typeof window !== 'undefined' && (window.electron || isCapacitor)) {
-    candidateServers.push(isCapacitor ? 'http://10.0.2.2:5051' : 'http://127.0.0.1:5051');
+    if (isCapacitor) {
+      candidateServers.push('http://127.0.0.1:5051');
+      candidateServers.push('http://10.0.2.2:5051');
+    } else {
+      candidateServers.push('http://127.0.0.1:5051');
+    }
   } else {
     candidateServers.push('http://127.0.0.1:5051');
   }
@@ -143,7 +148,7 @@ export const BrowserProvider = ({ children }) => {
   
   const autoStatesRef = React.useRef({});
   const autoAudioStatesRef = React.useRef({});
-  const scriptContentRef = React.useRef('');
+  const scriptContentRef = React.useRef(createTranslateScript(false));
 
   const activeHost = React.useMemo(() => {
     try {
@@ -408,6 +413,10 @@ export const BrowserProvider = ({ children }) => {
       });
 
       console.log("[BrowserContext IPC] Resolved tabId:", tabId);
+
+      if (!tabId && activeTabId) {
+        tabId = activeTabId;
+      }
 
       if (!tabId) return;
       const iframe = document.getElementById('global-wv-' + tabId);
@@ -1445,7 +1454,23 @@ export const BrowserProvider = ({ children }) => {
       else if (action === 'audio') {
         autoAudioStatesRef.current[tabId] = true;
         if (isIframe) {
-          wv.contentWindow.postMessage({ action: 'EXTRACT_TEXT' }, '*');
+          const script = scriptContentRef.current || createTranslateScript(false);
+          if (script && wv.contentWindow) {
+            wv.contentWindow.postMessage({ action: 'INJECT_SCRIPT', script }, '*');
+          }
+          if (!autoStates[tabId]) {
+            autoStatesRef.current[tabId] = true;
+            localStorage.setItem('__tienhiep_auto_translate_active', 'true');
+            setAutoStates(prev => ({ ...prev, [tabId]: true }));
+            if (wv.contentWindow) {
+              wv.contentWindow.postMessage({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, '*');
+            }
+          }
+          setTimeout(() => {
+            if (wv.contentWindow) {
+              wv.contentWindow.postMessage({ action: 'EXTRACT_TEXT' }, '*');
+            }
+          }, 300);
         } else {
           // Nếu trang web chưa được kích hoạt dịch, tự động dịch trang trước để có nội dung tiếng Việt
           if (!autoStates[tabId]) {
@@ -2155,7 +2180,7 @@ export const BrowserProvider = ({ children }) => {
     
     const interval = setInterval(async () => {
       const wv = document.getElementById('global-wv-' + tabId);
-      if (!wv) return;
+      if (!wv || typeof wv.executeJavaScript !== 'function') return;
       
       try {
         const result = await wv.executeJavaScript(`

@@ -37,18 +37,20 @@ async function getBestServer() {
     return typeof window !== 'undefined' ? window.location.origin : '';
   }
 
-  // 1. Nếu chạy trong Electron hoặc Capacitor: ưu tiên hàng đầu là Local Engine chạy offline
+  // 1. Nếu chạy trong Electron: ưu tiên hàng đầu là Local Engine chạy offline
   if (window.electron) {
     const localServer = 'http://127.0.0.1:5051';
-    const isLocalAlive = await pingServer(localServer, 1500); // 1.5s timeout cho local server
+    const isLocalAlive = await pingServer(localServer, 1500);
     if (isLocalAlive) {
       return localServer;
     }
   } else if (isCapacitorNative) {
-    const localServer = 'http://10.0.2.2:5051';
-    const isLocalAlive = await pingServer(localServer, 1000); // timeout 1s cho giả lập
-    if (isLocalAlive) {
-      return localServer;
+    // Với Android Capacitor: thử localhost (hỗ trợ adb reverse) và 10.0.2.2 (máy ảo Android NAT)
+    if (await pingServer('http://127.0.0.1:5051', 1200)) {
+      return 'http://127.0.0.1:5051';
+    }
+    if (await pingServer('http://10.0.2.2:5051', 2000)) {
+      return 'http://10.0.2.2:5051';
     }
   }
 
@@ -66,33 +68,23 @@ async function getBestServer() {
     }
   } catch (e) { }
 
-  // 3. Nếu chưa có cache hoặc cache hết hạn: ping song song các server để chọn server tốt nhất
-  const servers = [
-    isCapacitorNative ? 'http://10.0.2.2:5051' : 'http://localhost:5051',
-    'https://cong123779-tienhiep-api.hf.space'
-  ];
+  // 3. Nếu chưa có cache hoặc cache hết hạn: ping server ứng cử viên
+  const candidates = isCapacitorNative
+    ? ['http://127.0.0.1:5051', 'http://10.0.2.2:5051', 'https://cong123779-tienhiep-api.hf.space']
+    : ['http://127.0.0.1:5051', 'https://cong123779-tienhiep-api.hf.space'];
 
-  // Ping song song, trả về server nào phản hồi OK đầu tiên
-  const pingPromises = servers.map(async (srv) => {
-    const alive = await pingServer(srv, 1500);
-    if (alive) return srv;
-    throw new Error('Dead');
-  });
-
-  try {
-    const bestSrv = await Promise.any(pingPromises);
-
-    // Lưu vào cache
-    try {
-      localStorage.setItem(CACHE_KEY, bestSrv);
-      localStorage.setItem(`${CACHE_KEY}_expiry`, (Date.now() + CACHE_DURATION).toString());
-    } catch (e) { }
-
-    return bestSrv;
-  } catch (err) {
-    // Nếu tất cả server đều không phản hồi trong 1.5s, fallback về local nếu có, hoặc HuggingFace
-    return 'http://127.0.0.1:5051';
+  for (const srv of candidates) {
+    if (await pingServer(srv, 1500)) {
+      try {
+        localStorage.setItem(CACHE_KEY, srv);
+        localStorage.setItem(`${CACHE_KEY}_expiry`, (Date.now() + CACHE_DURATION).toString());
+      } catch (e) { }
+      return srv;
+    }
   }
+
+  // 4. Fallback an toàn mặc định
+  return isCapacitorNative ? 'http://10.0.2.2:5051' : 'http://127.0.0.1:5051';
 }
 
 // Tạo axios instance động theo server đang dùng

@@ -126,7 +126,7 @@ export const BrowserProvider = ({ children }) => {
 
   useEffect(() => {
     if (isVisible && tabs.length === 0) {
-      openInBrowser('https://www.google.com/');
+      openInBrowser('https://www.quanben5.com/');
     }
   }, [isVisible, tabs.length]);
 
@@ -231,23 +231,44 @@ export const BrowserProvider = ({ children }) => {
     }
   };
 
-  // Fetch proxy HTML content for Capacitor (avoids WebView intercepting http://10.0.2.2:5051)
+  // Fetch proxy HTML content for Capacitor (thử 127.0.0.1:5051 [adb reverse] -> 10.0.2.2:5051 [emulator] -> Cloud API)
   const fetchProxyContent = React.useCallback(async (tabId, url) => {
     if (!url || !shouldUseProxy(url)) return;
-    const backendUrl = `http://10.0.2.2:5051/api/iframe_proxy?url=${encodeURIComponent(url)}`;
+
+    const proxyCandidates = [
+      `http://127.0.0.1:5051/api/iframe_proxy?url=${encodeURIComponent(url)}`,
+      `http://10.0.2.2:5051/api/iframe_proxy?url=${encodeURIComponent(url)}`,
+      `https://cong123779-tienhiep-api.hf.space/api/iframe_proxy?url=${encodeURIComponent(url)}`
+    ];
+
     setTabProxyContent(prev => ({ ...prev, [tabId]: { html: null, loading: true, error: null } }));
-    try {
-      const res = await fetch(backendUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
+
+    let html = null;
+    let lastError = null;
+
+    for (const pUrl of proxyCandidates) {
+      try {
+        const timeoutMs = pUrl.includes('hf.space') ? 10000 : 2500;
+        const res = await fetch(pUrl, { signal: AbortSignal.timeout(timeoutMs) });
+        if (res.ok) {
+          html = await res.text();
+          lastError = null;
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (html) {
       setTabProxyContent(prev => ({ ...prev, [tabId]: { html, loading: false, error: null } }));
       // Update tab title from HTML
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       if (titleMatch) {
         setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title: titleMatch[1].trim() } : t));
       }
-    } catch (err) {
-      setTabProxyContent(prev => ({ ...prev, [tabId]: { html: null, loading: false, error: err.message } }));
+    } else {
+      setTabProxyContent(prev => ({ ...prev, [tabId]: { html: null, loading: false, error: lastError?.message || 'Failed to fetch' } }));
     }
   }, []);  // eslint-disable-line
 

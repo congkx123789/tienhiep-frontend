@@ -14,23 +14,23 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://cong123779-tienhiep-api.hf.space/api/:path*"
+      "destination": "https://api-tienhiep.lyvuha.com/api/:path*"
     },
     {
       "source": "/translate",
-      "destination": "https://cong123779-tienhiep-api.hf.space/translate"
+      "destination": "https://api-tienhiep.lyvuha.com/translate"
     },
     {
       "source": "/translate_stream",
-      "destination": "https://cong123779-tienhiep-api.hf.space/translate_stream"
+      "destination": "https://api-tienhiep.lyvuha.com/translate_stream"
     },
     {
       "source": "/v1/:path*",
-      "destination": "https://cong123779-tienhiep-api.hf.space/v1/:path*"
+      "destination": "https://api-tienhiep.lyvuha.com/v1/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://cong123779-tienhiep-api.hf.space/health"
+      "destination": "https://api-tienhiep.lyvuha.com/health"
     },
     {
       "source": "/:path*",

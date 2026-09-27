@@ -6,6 +6,7 @@ import axios from 'axios';
 // Frontend sẽ tự động chọn server nhanh nhất còn sống
 // =====================================================
 const SERVERS = import.meta.env.PROD ? [
+  'https://api-tienhiep.lyvuha.com',
   'https://cong123779-tienhiep-api.hf.space'
 ] : [''];  // Dev: rỗng → vite proxy
 
@@ -70,8 +71,8 @@ async function getBestServer() {
 
   // 3. Nếu chưa có cache hoặc cache hết hạn: ping server ứng cử viên
   const candidates = isCapacitorNative
-    ? ['http://127.0.0.1:5051', 'http://10.0.2.2:5051', 'https://cong123779-tienhiep-api.hf.space']
-    : ['http://127.0.0.1:5051', 'https://cong123779-tienhiep-api.hf.space'];
+    ? ['http://127.0.0.1:5051', 'http://10.0.2.2:5051', 'https://api-tienhiep.lyvuha.com', 'https://cong123779-tienhiep-api.hf.space']
+    : ['http://127.0.0.1:5051', 'https://api-tienhiep.lyvuha.com', 'https://cong123779-tienhiep-api.hf.space'];
 
   for (const srv of candidates) {
     if (await pingServer(srv, 1500)) {

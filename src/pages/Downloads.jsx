@@ -32,6 +32,19 @@ const WindowsIcon = (props) => (
   </svg>
 );
 
+const AndroidIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 16v-6a7 7 0 0 1 14 0v6" />
+    <path d="M6 20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3H6v3z" />
+    <circle cx="9" cy="10" r="1" fill="currentColor" />
+    <circle cx="15" cy="10" r="1" fill="currentColor" />
+    <path d="M7 4l2 3" />
+    <path d="M17 4l-2 3" />
+    <path d="M3 12v4" />
+    <path d="M21 12v4" />
+  </svg>
+);
+
 export default function Downloads() {
   const { lang } = useLang();
   const { user } = useAuth();
@@ -58,6 +71,12 @@ export default function Downloads() {
       download_url: '#',
       file_size: '0 MB',
       release_notes: 'Bản Windows chính thức sắp ra mắt'
+    },
+    android_apk: {
+      version: '1.0.18',
+      download_url: '/downloads/app-tienhiep.apk',
+      file_size: '66 MB',
+      release_notes: 'Bản APK Android chính thức tối ưu WebView, đọc truyện mượt mà, hỗ trợ dịch nhanh và tải chương ngoại tuyến.'
     }
   });
 
@@ -312,6 +331,8 @@ export default function Downloads() {
       platform = 'desktop_windows';
     } else if (file.name.endsWith('.AppImage')) {
       platform = 'desktop_linux';
+    } else if (file.name.endsWith('.apk')) {
+      platform = 'android_apk';
     } else if (file.name.endsWith('.zip')) {
       platform = 'extension';
     }
@@ -326,6 +347,8 @@ export default function Downloads() {
     let downloadUrl = '';
     if (platform === 'extension') {
       downloadUrl = '/downloads/tts_extension.zip';
+    } else if (platform === 'android_apk') {
+      downloadUrl = '/downloads/app-tienhiep.apk';
     } else {
       downloadUrl = `https://huggingface.co/datasets/Cong123779/tienhiep-data/resolve/main/downloads/${cleanName}`;
     }
@@ -342,7 +365,7 @@ export default function Downloads() {
   const content = {
     vi: {
       title: "Tải App & Extension",
-      subtitle: "Đồng bộ trải nghiệm đọc truyện và dịch thuật AI tối ưu trên mọi nền tảng trình duyệt và máy tính.",
+      subtitle: "Đồng bộ trải nghiệm đọc truyện và dịch thuật AI tối ưu trên mọi nền tảng trình duyệt, máy tính và di động.",
       extensionTitle: "Chrome Extension Helper",
       extensionDesc: "Tiện ích tích hợp trực tiếp vào trình duyệt giúp tự động lấy chương, dịch nhanh tiếng Trung và đồng bộ lịch sử đọc với Web App.",
       extensionBtn: "Tải tiện ích (.ZIP)",
@@ -362,6 +385,15 @@ export default function Downloads() {
         "Tải file cài đặt TienHiepAI-0.0.0.AppImage về máy tính.",
         "Cấp quyền thực thi và chạy file bằng lệnh:"
       ],
+      apkTitle: "Android Mobile App (APK)",
+      apkDesc: "Ứng dụng di động dành cho Android, tối ưu hóa giao diện đọc truyện trên điện thoại, đồng bộ tủ sách, không giật lag và tiết kiệm pin.",
+      apkBtn: "Tải ứng dụng Android (.APK)",
+      apkStepHeader: "Cách cài đặt tệp APK",
+      apkSteps: [
+        "Nhấn nút tải file app-tienhiep.apk về điện thoại của bạn.",
+        "Mở file vừa tải về trong mục Tải xuống (Downloads) hoặc Quản lý tệp.",
+        "Nếu điện thoại hỏi 'Cài đặt ứng dụng không rõ nguồn', chọn 'Cài đặt' hoặc bật 'Cho phép từ nguồn này' để hoàn tất."
+      ],
       copyTooltip: "Sao chép lệnh",
       copiedTooltip: "Đã sao chép!",
       noteTitle: "⚠️ Lưu ý đồng bộ",
@@ -369,7 +401,7 @@ export default function Downloads() {
     },
     en: {
       title: "Download App & Extension",
-      subtitle: "Synchronize your reading experience and AI translations across all browsers and desktop platforms.",
+      subtitle: "Synchronize your reading experience and AI translations across all browsers, desktop, and mobile platforms.",
       extensionTitle: "Chrome Extension Helper",
       extensionDesc: "Integrate directly into your browser to automatically capture chapters, translate Chinese instantly, and sync reading history with the Web App.",
       extensionBtn: "Download Extension (.ZIP)",
@@ -389,6 +421,15 @@ export default function Downloads() {
         "Download the TienHiepAI-0.0.0.AppImage file to your computer.",
         "Grant execution permission using the command below:"
       ],
+      apkTitle: "Android Mobile App (APK)",
+      apkDesc: "Dedicated Android app optimized for mobile reading, bookmark synchronization, high-speed chapter loading, and zero lag.",
+      apkBtn: "Download Android App (.APK)",
+      apkStepHeader: "APK Installation Guide",
+      apkSteps: [
+        "Tap the button above to download app-tienhiep.apk to your phone.",
+        "Open the downloaded file in your browser's Downloads or File Manager.",
+        "Allow 'Install from unknown sources' if prompted and tap Install to complete."
+      ],
       copyTooltip: "Copy command",
       copiedTooltip: "Copied!",
       noteTitle: "⚠️ Sync Warning",
@@ -396,7 +437,7 @@ export default function Downloads() {
     },
     zh: {
       title: "下载中心",
-      subtitle: "在所有浏览器和电脑平台上同步您的阅读体验与 AI 翻译记录。",
+      subtitle: "在所有浏览器、电脑与安卓手机端上同步您的阅读体验与 AI 翻译记录。",
       extensionTitle: "Chrome 辅助插件",
       extensionDesc: "直接嵌入浏览器以自动抓取章节、快速翻译中文，并与网页版同步阅读进度和统计数据。",
       extensionBtn: "下载插件包 (.ZIP)",
@@ -416,10 +457,19 @@ export default function Downloads() {
         "将 TienHiepAI-0.0.0.AppImage 文件下载到您的电脑中。",
         "使用以下命令赋予可执行权限："
       ],
+      apkTitle: "Android 移动端 (APK)",
+      apkDesc: "专为安卓手机优化的移动阅读应用，支持书架自动同步、快速章节加载与极致流畅体验。",
+      apkBtn: "下载安卓安装包 (.APK)",
+      apkStepHeader: "APK 安装指引",
+      apkSteps: [
+        "点击上方按钮下载 app-tienhiep.apk 到您的安卓手机。",
+        "在下载管理或文件管理器中打开已下载的 APK 文件。",
+        "若系统提示未知来源，请开启“允许来自此来源的应用”并点击安装即可。"
+      ],
       copyTooltip: "复制命令",
       copiedTooltip: "已复制！",
       noteTitle: "⚠️ 重要提示",
-      noteText: "浏览器插件和电脑桌面端均通过您的账号进行数据同步。请确保在所有客户端上登录相同的账号，以便精确统计您的翻译字符数和总阅读时长。"
+      noteText: "浏览器插件、电脑桌面端及安卓端均通过您的账号进行数据同步。请确保在所有客户端上登录相同的账号，以便精确统计您的翻译字符数和总阅读时长。"
     }
   };
 
@@ -445,7 +495,7 @@ export default function Downloads() {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto space-y-8 py-4 sm:py-6">
+      <div className="max-w-7xl mx-auto space-y-8 py-4 sm:py-6 px-4">
         
         {/* Header Section */}
         <div className="text-center space-y-3 max-w-3xl mx-auto">
@@ -486,14 +536,14 @@ export default function Downloads() {
             <div className="p-4 bg-purple-950/20 border border-purple-500/10 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-left">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">⚡ Tự động điền thông tin tệp</h4>
-                <p className="text-[10px] text-purple-300">Chọn file build (.exe, .AppImage, .zip) để hệ thống tự phân tích phiên bản, dung lượng và sinh URL HuggingFace.</p>
+                <p className="text-[10px] text-purple-300">Chọn file build (.exe, .AppImage, .apk, .zip) để hệ thống tự phân tích phiên bản, dung lượng và sinh URL.</p>
               </div>
               <label className="cursor-pointer bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs shadow-lg transition-all flex items-center gap-1.5 whitespace-nowrap">
                 <Laptop className="w-3.5 h-3.5" />
                 <span>Chọn Tệp Build...</span>
                 <input 
                   type="file" 
-                  accept=".exe,.AppImage,.zip"
+                  accept=".exe,.AppImage,.apk,.zip"
                   onChange={handleAutoFillFromBuildFile}
                   className="hidden" 
                 />
@@ -511,6 +561,7 @@ export default function Downloads() {
                   <option value="extension">Chrome Extension Helper</option>
                   <option value="desktop_linux">Linux Desktop (AppImage)</option>
                   <option value="desktop_windows">Windows Desktop Client</option>
+                  <option value="android_apk">Android Mobile (APK)</option>
                 </select>
               </div>
 
@@ -583,8 +634,8 @@ export default function Downloads() {
           </div>
         )}
 
-        {/* Main Grid: Extension vs Linux Client vs Windows Client */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Main Grid: Extension vs Linux Client vs Windows Client vs Android APK */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           
           {/* Card 1: Chrome Extension */}
           <div className="bg-[#121225]/80 border border-[#1f1f3a]/80 rounded-3xl p-6 flex flex-col justify-between shadow-xl relative hover:border-emerald-500/20 hover:shadow-emerald-950/5 transition-all duration-300 group">
@@ -959,6 +1010,69 @@ export default function Downloads() {
                     </span>
                     <span className="leading-relaxed">Chạy file installer `.exe` và làm theo các bước hướng dẫn trên màn hình.</span>
                   </li>
+                </ol>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Card 4: Android Mobile App (APK) */}
+          <div className="bg-[#121225]/80 border border-[#1f1f3a]/80 rounded-3xl p-6 flex flex-col justify-between shadow-xl relative hover:border-teal-500/20 hover:shadow-teal-950/5 transition-all duration-300 group">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/5 rounded-bl-full filter blur-xl opacity-50 group-hover:bg-teal-500/10 transition-colors" />
+            <div className="space-y-5">
+              
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-2xl text-teal-400 group-hover:scale-115 transition-transform">
+                  <AndroidIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">{t.apkTitle}</h3>
+                  <span className="inline-block text-[9px] font-black tracking-widest text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full uppercase mt-0.5">
+                    v{releases.android_apk?.version || '1.0.18'} • Mobile APK
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-slate-400 text-xs leading-relaxed min-h-[50px]">
+                {t.apkDesc}
+              </p>
+
+              <div>
+                <a 
+                  href={releases.android_apk?.download_url || '/downloads/app-tienhiep.apk'}
+                  download="app-tienhiep.apk"
+                  className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 active:scale-98 text-white font-extrabold px-5 py-3 rounded-xl shadow-lg transition-all text-xs text-center"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  <span>{t.apkBtn}</span>
+                </a>
+                <p className="text-center text-[9px] text-slate-500 mt-2">
+                  APK Package • Size: ~{releases.android_apk?.file_size || '66 MB'}
+                </p>
+              </div>
+
+              {/* Release Notes */}
+              <div className="bg-[#0b0b14]/50 border border-teal-500/10 p-3 rounded-xl space-y-1">
+                <span className="text-[9px] font-bold text-teal-400 uppercase tracking-widest">📝 Changelog</span>
+                <p className="text-slate-300 text-[11px] leading-relaxed italic">
+                  "{releases.android_apk?.release_notes || 'Tối ưu hoá WebView, chống lag giật và đồng bộ đọc truyện.'}"
+                </p>
+              </div>
+
+              {/* Steps Guide */}
+              <div className="border-t border-[#1f1f3a]/50 pt-4 space-y-3">
+                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-slate-400" /> {t.apkStepHeader}
+                </h4>
+                <ol className="space-y-3 text-[11px] text-slate-400 list-none pl-0">
+                  {t.apkSteps.map((step, idx) => (
+                    <li key={idx} className="flex gap-2 items-start">
+                      <span className="w-4.5 h-4.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
                 </ol>
               </div>
 

@@ -44,6 +44,9 @@ export default function Reader() {
   });
 
   const [currentSpokenCharIdx, setCurrentSpokenCharIdx] = useState(-1);
+  const [currentSpokenSentenceText, setCurrentSpokenSentenceText] = useState('');
+  const [currentSpokenSentenceId, setCurrentSpokenSentenceId] = useState(-1);
+  const lastMatchedParaIdxRef = useRef(0);
 
   const [audioSpeed, setAudioSpeed] = useState(() => {
     try {
@@ -87,10 +90,15 @@ export default function Reader() {
     fetchChapterContent();
   }, [bookId, chapterIdx]);
 
-  // Sync spoken character highlight globally
+  // Sync spoken character & sentence highlight globally
   useEffect(() => {
     const handleBoundary = (e) => {
-      setCurrentSpokenCharIdx(e.detail.charIdx);
+      if (typeof e.detail?.charIdx === 'number') {
+        setCurrentSpokenCharIdx(e.detail.charIdx);
+      }
+      if (e.detail?.sentenceText) {
+        setCurrentSpokenSentenceText(e.detail.sentenceText);
+      }
     };
     window.addEventListener('global-tts-boundary', handleBoundary);
     return () => window.removeEventListener('global-tts-boundary', handleBoundary);
@@ -98,13 +106,13 @@ export default function Reader() {
 
   // Auto-scroll to highlighted sentence
   useEffect(() => {
-    if (isCurrentChapterPlaying && currentSpokenCharIdx > 0 && autoScrollTts) {
+    if (isCurrentChapterPlaying && (currentSpokenSentenceText || currentSpokenCharIdx > 0) && autoScrollTts) {
       const activeEl = document.getElementById('active-tts-sentence');
       if (activeEl) {
         activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [currentSpokenCharIdx, isCurrentChapterPlaying, autoScrollTts]);
+  }, [currentSpokenCharIdx, currentSpokenSentenceText, isCurrentChapterPlaying, autoScrollTts]);
 
   // Sync online chapter view changes from global TTS
   useEffect(() => {
@@ -256,8 +264,9 @@ export default function Reader() {
         author_hanviet: bookTitle,
         description: content,
         isChapter: true,
-        onBoundary: (charIdx) => {
-          setCurrentSpokenCharIdx(charIdx);
+        onBoundary: (charIdx, sentenceText) => {
+          if (typeof charIdx === 'number') setCurrentSpokenCharIdx(charIdx);
+          if (sentenceText) setCurrentSpokenSentenceText(sentenceText);
         },
         book: { id: bookId, title: bookTitle, title_vietphrase: bookTitle },
         chapterIdx: parseInt(chapterIdx),
@@ -269,6 +278,7 @@ export default function Reader() {
   const stopAudio = () => {
     setActiveAudioObj(null);
     setCurrentSpokenCharIdx(-1);
+    setCurrentSpokenSentenceText('');
   };
 
   const handleParagraphDoubleClick = (pIdx, text) => {
@@ -325,8 +335,16 @@ export default function Reader() {
       author_hanviet: bookTitle,
       description: content,
       isChapter: true,
-      onBoundary: (charIdx) => {
-        setCurrentSpokenCharIdx(charIdx);
+      onBoundary: (charIdx, sentenceText, sentenceId) => {
+        if (typeof charIdx === 'number') setCurrentSpokenCharIdx(charIdx);
+        if (sentenceText) setCurrentSpokenSentenceText(sentenceText);
+        if (typeof sentenceId === 'number') {
+          setCurrentSpokenSentenceId(sentenceId);
+          const el = document.getElementById('s-' + sentenceId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
       },
       book: { id: bookId, title: bookTitle, title_vietphrase: bookTitle },
       chapterIdx: parseInt(chapterIdx),
@@ -335,66 +353,52 @@ export default function Reader() {
     });
   };
 
-  // Highlight spoken text sentence by character boundary index
+  // Highlight spoken text sentence by 1:1 ID index O(1)
   const renderHighlightedContent = () => {
     const paragraphs = content.split(/\n+/);
-    
-    let accumulatedLength = 0;
-    const prefixLen = chapterTitle.length + 2;
-    const adjustedIdx = currentSpokenCharIdx - prefixLen;
+    let sCounter = 0;
 
     return paragraphs.map((para, pIdx) => {
-      const startOfPara = accumulatedLength;
-      accumulatedLength += para.length + 1;
-      const endOfPara = accumulatedLength;
+      const trimmed = para.trim();
+      if (!trimmed) return null;
 
-      const isActivePara = isCurrentChapterPlaying && 
-                           adjustedIdx >= startOfPara && 
-                           adjustedIdx < endOfPara;
-
-      let paraContent = para;
-      if (isActivePara) {
-        const localAdjustedIdx = adjustedIdx - startOfPara;
-        
-        let startSentenceIdx = 0;
-        for (let i = localAdjustedIdx; i >= 0; i--) {
-          if (['.', '?', '!', '\n'].includes(para[i])) {
-            startSentenceIdx = i + 1;
-            break;
-          }
+      const parts = trimmed.split(/([.!?。！？]+["”'’」]?\s*)/);
+      const sList = [];
+      let cur = "";
+      for (let i = 0; i < parts.length; i++) {
+        cur += parts[i];
+        if (/[.!?。！？]/.test(parts[i]) || cur.length > 250) {
+          if (cur.trim()) sList.push(cur.trim());
+          cur = "";
         }
-        
-        let endSentenceIdx = para.length;
-        for (let i = localAdjustedIdx; i < para.length; i++) {
-          if (['.', '?', '!', '\n'].includes(para[i])) {
-            endSentenceIdx = i + 1;
-            break;
-          }
-        }
-
-        const before = para.slice(0, startSentenceIdx);
-        const active = para.slice(startSentenceIdx, endSentenceIdx);
-        const after = para.slice(endSentenceIdx);
-
-        paraContent = (
-          <>
-            {before}
-            <span id="active-tts-sentence" className="bg-purple-500/20 text-purple-200 border-b-2 border-purple-500 px-1 py-0.5 rounded transition-all duration-300">
-              {active}
-            </span>
-            {after}
-          </>
-        );
       }
+      if (cur.trim()) sList.push(cur.trim());
 
       return (
         <p 
           key={pIdx} 
-          onDoubleClick={() => handleParagraphDoubleClick(pIdx, para)}
-          className="cursor-pointer hover:bg-purple-500/5 px-2 py-1 rounded transition-colors duration-150 relative group"
-          title="Nháy đúp để đọc từ đoạn này"
+          className="mb-6 leading-relaxed select-text" 
+          data-para-idx={pIdx}
+          style={{ fontSize: `${fontSize}px`, lineHeight: '1.85' }}
         >
-          {paraContent}
+          {sList.map((st) => {
+            const thisId = sCounter++;
+            const isActive = isCurrentChapterPlaying && currentSpokenSentenceId === thisId;
+            return (
+              <span
+                key={thisId}
+                id={`s-${thisId}`}
+                data-sid={thisId}
+                className={`transition-all duration-150 inline ${
+                  isActive
+                    ? "bg-amber-400 text-black font-semibold px-1 py-0.5 rounded shadow-md"
+                    : ""
+                }`}
+              >
+                {st}{" "}
+              </span>
+            );
+          })}
         </p>
       );
     });

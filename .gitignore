@@ -28,6 +28,7 @@ dist-ssr
 dist-web/
 dist-electron/
 dist-electron-build/
+public/downloads/
 dist-electron-build-temp/
 dist-electron-old/
 dist-temp-to-delete/

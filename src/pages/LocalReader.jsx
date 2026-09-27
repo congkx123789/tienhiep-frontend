@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MainLayout from '../layouts/MainLayout';
 import { useReaderSettings } from '../contexts/ReaderSettingsContext';
 import { useLang } from '../contexts/LangContext';
@@ -106,6 +106,8 @@ export default function LocalReader() {
 
   // Audio / TTS Speech States
   const [currentSpokenCharIdx, setCurrentSpokenCharIdx] = useState(-1);
+  const [currentSpokenSentenceText, setCurrentSpokenSentenceText] = useState('');
+  const lastMatchedParaIdxRef = useRef(0);
 
   const [autoScrollTts, setAutoScrollTts] = useState(() => {
     return localStorage.getItem('tts_auto_scroll') !== 'false';
@@ -268,10 +270,15 @@ export default function LocalReader() {
     return () => window.removeEventListener('global-tts-chapter-changed', handleGlobalTtsChange);
   }, [activeBook, activeChapterIdx]);
 
-  // Sync spoken character highlight globally
+  // Sync spoken character & sentence highlight globally
   useEffect(() => {
     const handleBoundary = (e) => {
-      setCurrentSpokenCharIdx(e.detail.charIdx);
+      if (typeof e.detail?.charIdx === 'number') {
+        setCurrentSpokenCharIdx(e.detail.charIdx);
+      }
+      if (e.detail?.sentenceText) {
+        setCurrentSpokenSentenceText(e.detail.sentenceText);
+      }
     };
     window.addEventListener('global-tts-boundary', handleBoundary);
     return () => window.removeEventListener('global-tts-boundary', handleBoundary);
@@ -279,13 +286,13 @@ export default function LocalReader() {
 
   // Auto-scroll to highlighted sentence
   useEffect(() => {
-    if (isCurrentChapterPlaying && currentSpokenCharIdx > 0 && autoScrollTts) {
+    if (isCurrentChapterPlaying && (currentSpokenSentenceText || currentSpokenCharIdx > 0) && autoScrollTts) {
       const activeEl = document.getElementById('active-tts-sentence');
       if (activeEl) {
         activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [currentSpokenCharIdx, isCurrentChapterPlaying, autoScrollTts]);
+  }, [currentSpokenCharIdx, currentSpokenSentenceText, isCurrentChapterPlaying, autoScrollTts]);
 
   // Save progress when activeChapterIdx changes
   useEffect(() => {
@@ -788,14 +795,16 @@ export default function LocalReader() {
     if (isCurrentChapterPlaying) {
       setActiveAudioObj(null);
       setCurrentSpokenCharIdx(-1);
+      setCurrentSpokenSentenceText('');
     } else {
       setActiveAudioObj({
         title_vietphrase: activeBook.chapters[activeChapterIdx]?.title || '',
         title: activeBook.chapters[activeChapterIdx]?.title || '',
         description: activeBook.chapters[activeChapterIdx]?.content || '',
         isChapter: true,
-        onBoundary: (charIdx) => {
-          setCurrentSpokenCharIdx(charIdx);
+        onBoundary: (charIdx, sentenceText) => {
+          if (typeof charIdx === 'number') setCurrentSpokenCharIdx(charIdx);
+          if (sentenceText) setCurrentSpokenSentenceText(sentenceText);
         },
         book: activeBook,
         chapterIdx: activeChapterIdx,
@@ -860,8 +869,9 @@ export default function LocalReader() {
       title: activeBook.chapters[activeChapterIdx]?.title || '',
       description: content,
       isChapter: true,
-      onBoundary: (charIdx) => {
-        setCurrentSpokenCharIdx(charIdx);
+      onBoundary: (charIdx, sentenceText) => {
+        if (typeof charIdx === 'number') setCurrentSpokenCharIdx(charIdx);
+        if (sentenceText) setCurrentSpokenSentenceText(sentenceText);
       },
       book: activeBook,
       chapterIdx: activeChapterIdx,
@@ -874,6 +884,60 @@ export default function LocalReader() {
     const content = activeBook?.chapters[activeChapterIdx]?.content || curT.emptyChapterContent;
     const paragraphs = content.split(/\n+/);
     
+    // Chuẩn hóa câu đang phát âm để tìm kiếm chính xác
+    const cleanSpoken = (currentSpokenSentenceText || '')
+      .replace(/^["“'‘\s]+|["”'’\s]+$/g, '')
+      .trim();
+
+    let matchedParaIdx = -1;
+    let matchedInParaStart = -1;
+    let matchedInParaEnd = -1;
+
+    if (isCurrentChapterPlaying && cleanSpoken.length >= 2) {
+      const targetSnippet = cleanSpoken.slice(0, 30);
+      const startP = (lastMatchedParaIdxRef.current >= 0 && lastMatchedParaIdxRef.current < paragraphs.length) ? lastMatchedParaIdxRef.current : 0;
+      
+      const searchInP = (i) => {
+        const p = paragraphs[i];
+        let sIdx = p.indexOf(targetSnippet);
+        if (sIdx === -1 && cleanSpoken.length >= 10) {
+          const words = cleanSpoken.split(/\s+/).filter(Boolean);
+          if (words.length >= 3) {
+            const shortSnippet = words.slice(0, 3).join(' ');
+            sIdx = p.indexOf(shortSnippet);
+          }
+        }
+        if (sIdx !== -1) {
+          matchedParaIdx = i;
+          matchedInParaStart = sIdx;
+          let eIdx = Math.min(p.length, sIdx + cleanSpoken.length);
+          for (let k = Math.max(sIdx + 1, eIdx - 5); k < Math.min(p.length, eIdx + 15); k++) {
+            if (['.', '!', '?', '。', '！', '？', '\n'].includes(p[k])) {
+              eIdx = k + 1;
+              if (k + 1 < p.length && ['"', '”', '’', '»', '』'].includes(p[k + 1])) {
+                eIdx = k + 2;
+              }
+              break;
+            }
+          }
+          matchedInParaEnd = Math.min(p.length, eIdx);
+          lastMatchedParaIdxRef.current = i;
+          return true;
+        }
+        return false;
+      };
+
+      let found = false;
+      for (let i = startP; i < paragraphs.length; i++) {
+        if (searchInP(i)) { found = true; break; }
+      }
+      if (!found && startP > 0) {
+        for (let i = 0; i < startP; i++) {
+          if (searchInP(i)) break;
+        }
+      }
+    }
+
     let accumulatedLength = 0;
     const prefixLen = (activeBook?.chapters[activeChapterIdx]?.title?.length || 0) + 2;
     const adjustedIdx = currentSpokenCharIdx - prefixLen;
@@ -883,17 +947,30 @@ export default function LocalReader() {
       accumulatedLength += para.length + 1;
       const endOfPara = accumulatedLength;
 
-      const isActivePara = isCurrentChapterPlaying && 
-                           adjustedIdx >= startOfPara && 
-                           adjustedIdx < endOfPara;
+      const isSentenceMatched = (matchedParaIdx === pIdx);
+      const isOffsetMatched = (matchedParaIdx === -1 && isCurrentChapterPlaying && adjustedIdx >= startOfPara && adjustedIdx < endOfPara);
 
       let paraContent = para;
-      if (isActivePara) {
-        const localAdjustedIdx = adjustedIdx - startOfPara;
+      if (isSentenceMatched) {
+        const before = para.slice(0, matchedInParaStart);
+        const active = para.slice(matchedInParaStart, matchedInParaEnd);
+        const after = para.slice(matchedInParaEnd);
+
+        paraContent = (
+          <>
+            {before}
+            <span id="active-tts-sentence" className="bg-purple-500/20 text-purple-200 border-b-2 border-purple-500 px-1 py-0.5 rounded transition-all duration-300">
+              {active}
+            </span>
+            {after}
+          </>
+        );
+      } else if (isOffsetMatched) {
+        const localAdjustedIdx = Math.max(0, Math.min(para.length - 1, adjustedIdx - startOfPara));
         
         let startSentenceIdx = 0;
         for (let i = localAdjustedIdx; i >= 0; i--) {
-          if (['.', '?', '!', '\n'].includes(para[i])) {
+          if (['.', '?', '!', '\n', '。', '！', '？'].includes(para[i])) {
             startSentenceIdx = i + 1;
             break;
           }
@@ -901,7 +978,7 @@ export default function LocalReader() {
         
         let endSentenceIdx = para.length;
         for (let i = localAdjustedIdx; i < para.length; i++) {
-          if (['.', '?', '!', '\n'].includes(para[i])) {
+          if (['.', '?', '!', '\n', '。', '！', '？'].includes(para[i])) {
             endSentenceIdx = i + 1;
             break;
           }

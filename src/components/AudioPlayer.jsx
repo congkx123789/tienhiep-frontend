@@ -3,39 +3,52 @@ import { Play, Pause, X, Music, Volume2, Settings, Minimize2, SkipForward, SkipB
 import api from '../services/api';
 
 // Resolve đúng địa chỉ host cho Local TTS server
-// - Electron/Web: 127.0.0.1:8001
-// - Capacitor Android: 127.0.0.1:8001 (adb reverse) hoặc 10.0.2.2:8001 (host loopback emulator)
-let currentWorkingTtsHost = 'http://10.0.2.2:8001';
+// - Electron/Web: 127.0.0.1:5051 (hoặc 127.0.0.1:8001 nếu chạy ONNX riêng)
+// - Capacitor Android: 127.0.0.1:5051 (adb reverse) hoặc 10.0.2.2:5051 (host loopback emulator)
+let currentWorkingTtsHost = 'http://127.0.0.1:5051';
 
 async function detectBestTtsHost() {
-  if (typeof window !== 'undefined' && window.electron) return 'http://127.0.0.1:8001';
+  if (typeof window !== 'undefined' && window.electron) return 'http://127.0.0.1:5051';
   if (typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
     try {
-      const r = await fetch('http://127.0.0.1:8001/health', { signal: AbortSignal.timeout(600) });
+      const r = await fetch('http://127.0.0.1:5051/health', { signal: AbortSignal.timeout(400) });
+      if (r.ok) {
+        currentWorkingTtsHost = 'http://127.0.0.1:5051';
+        return currentWorkingTtsHost;
+      }
+    } catch (e) {}
+    try {
+      const r = await fetch('http://10.0.2.2:5051/health', { signal: AbortSignal.timeout(500) });
+      if (r.ok) {
+        currentWorkingTtsHost = 'http://10.0.2.2:5051';
+        return currentWorkingTtsHost;
+      }
+    } catch (e) {}
+    try {
+      const r = await fetch('http://127.0.0.1:8001/health', { signal: AbortSignal.timeout(300) });
       if (r.ok) {
         currentWorkingTtsHost = 'http://127.0.0.1:8001';
         return currentWorkingTtsHost;
       }
     } catch (e) {}
-    try {
-      const r = await fetch('http://10.0.2.2:8001/health', { signal: AbortSignal.timeout(1000) });
-      if (r.ok) {
-        currentWorkingTtsHost = 'http://10.0.2.2:8001';
-        return currentWorkingTtsHost;
-      }
-    } catch (e) {}
     return currentWorkingTtsHost;
   }
-  return 'http://127.0.0.1:8001';
+  return 'http://127.0.0.1:5051';
 }
 
 function getLocalTtsHost() {
-  if (typeof window !== 'undefined' && window.electron) return 'http://127.0.0.1:8001';
+  if (typeof window !== 'undefined' && window.electron) return 'http://127.0.0.1:5051';
   if (typeof window !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
     return currentWorkingTtsHost;
   }
-  return 'http://127.0.0.1:8001';
+  return 'http://127.0.0.1:5051';
 }
+
+const isSpeechSynthesisAvailable = () => {
+  return typeof window !== 'undefined' &&
+         typeof window.SpeechSynthesisUtterance !== 'undefined' &&
+         !!window.speechSynthesis;
+};
 
 export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapter }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -52,12 +65,11 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
   // TTS Engine selection ('local' | 'browser' | 'matcha')
   const [ttsEngine, setTtsEngine] = useState(() => {
-    const isNativeApp = typeof window !== 'undefined' && (!!window.electron || (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()));
     const saved = localStorage.getItem('local_tts_engine');
-    // Ưu tiên cao nhất cho 'local' (FastAPI native port 8001)
-    if (saved === 'matcha') return 'matcha';
-    if (isNativeApp || !saved || saved === 'browser') return 'local';
-    return saved;
+    if (saved) return saved;
+    const isNativeApp = typeof window !== 'undefined' && (!!window.electron || (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()));
+    if (isNativeApp) return 'browser'; // Mặc định an toàn trên mobile webview là browser nếu chưa cấu hình
+    return 'local';
   });
 
   // API Key for Matcha-TTS
@@ -110,6 +122,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
   const triggeredIndicesRef = useRef(new Set());
   const rateRef = useRef(rate);
   rateRef.current = rate;
+  const sentenceRetryCountRef = useRef({});
 
   // Watchdog & Playback State Recovery Refs
   const userPausedRef = useRef(false);
@@ -127,19 +140,15 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
   // Draggable State for Audio Player Panel (direct DOM/RAF method with left-bottom anchoring and dynamic bounding)
   const playerElRef = useRef(null);
   const _initPos = (() => {
-    try {
-      const saved = localStorage.getItem('audio_player_pos_v4');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
+    // Luôn để null khi khởi tạo để AudioPlayer mặc định luôn căn giữa màn hình theo CSS, tránh bị lệch do tọa độ cũ
+    return null;
   })();
   const positionRef = useRef(_initPos);
   const [position, setPosition] = useState(_initPos);
   const draggedRef = useRef(false);
   const isDraggingRef = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
-  const prevBookIdRef = useRef(null);
-  const playerSize = useRef({ width: 340, height: 260 });
-  const playerOffset = useRef({ x: 0, y: 0 });
+  const playerSize = useRef({ width: 290, height: 145 });
   const rafRef = useRef(null);
 
   // Direct DOM Drag Logic (Stores left and bottom offsets)
@@ -172,11 +181,14 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     const rawLeft = playerOffset.current.x + dx;
     const rawBottom = playerOffset.current.y - dy;
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    const minBottom = isMobile ? 76 : 16;
+
     // Moving right (dx > 0) increases left (x)
-    const newLeft = Math.max(0, Math.min(rawLeft, window.innerWidth  - playerSize.current.width));
+    const newLeft = Math.max(10, Math.min(rawLeft, window.innerWidth  - playerSize.current.width - 10));
     // Moving down (dy > 0) decreases bottom (y) - clamp top edge to stop exactly below the 56px header
-    const maxBottom = Math.max(0, window.innerHeight - playerSize.current.height - 56);
-    const newBottom = Math.max(0, Math.min(rawBottom, maxBottom));
+    const maxBottom = Math.max(minBottom, window.innerHeight - playerSize.current.height - 56);
+    const newBottom = Math.max(minBottom, Math.min(rawBottom, maxBottom));
 
     setPosition({ x: newLeft, y: newBottom });
     positionRef.current = { x: newLeft, y: newBottom };
@@ -227,10 +239,12 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     const handleWindowResize = () => {
       setPosition(prev => {
         if (!prev) return prev;
-        const maxLeft = Math.max(0, window.innerWidth - playerSize.current.width);
-        const maxBottom = Math.max(0, window.innerHeight - playerSize.current.height - 56);
-        const newLeft = Math.max(0, Math.min(prev.x, maxLeft));
-        const newBottom = Math.max(0, Math.min(prev.y, maxBottom));
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+        const minBottom = isMobile ? 76 : 16;
+        const maxLeft = Math.max(10, window.innerWidth - playerSize.current.width - 10);
+        const maxBottom = Math.max(minBottom, window.innerHeight - playerSize.current.height - 56);
+        const newLeft = Math.max(10, Math.min(prev.x, maxLeft));
+        const newBottom = Math.max(minBottom, Math.min(prev.y, maxBottom));
         if (newLeft !== prev.x || newBottom !== prev.y) {
           positionRef.current = { x: newLeft, y: newBottom };
           return { x: newLeft, y: newBottom };
@@ -252,6 +266,17 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       window.removeEventListener('resize',    handleWindowResize);
       document.body.classList.remove('global-dragging');
     };
+  }, []);
+
+  // Đảm bảo tọa độ khởi tạo trên mobile không bị chìm dưới thanh Bottom Navigation
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    if (isMobile && position && (position.y < 76 || position.y === undefined)) {
+      const fixedPos = { ...position, y: 76 };
+      setPosition(fixedPos);
+      positionRef.current = fixedPos;
+      try { localStorage.setItem('audio_player_pos_v4', JSON.stringify(fixedPos)); } catch {}
+    }
   }, []);
 
   // Sleep Timer countdown logic
@@ -406,6 +431,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
   // Load browser speech voices on mount
   useEffect(() => {
+    if (!isSpeechSynthesisAvailable()) return;
     const loadVoices = () => {
       if (!synthRef.current) return;
       const allVoices = synthRef.current.getVoices();
@@ -496,19 +522,35 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
   }, [book?.id, book?.chapterIdx, book?.tabId, book?.title, book?.title_vietphrase, book?.description]);
 
   // Điều chỉnh giọng đọc hoặc Engine khi người dùng chủ động đổi trong Menu Cài đặt
-  const lastVoiceSettingsRef = useRef({ engine: ttsEngine, voice: matchaVoice, browserVoice: selectedVoiceName });
+  const lastVoiceSettingsRef = useRef({ engine: ttsEngine, voice: matchaVoice, browserVoice: selectedVoiceName, rate });
   useEffect(() => {
     if (
       lastVoiceSettingsRef.current.engine !== ttsEngine ||
       lastVoiceSettingsRef.current.voice !== matchaVoice ||
-      lastVoiceSettingsRef.current.browserVoice !== selectedVoiceName
+      lastVoiceSettingsRef.current.browserVoice !== selectedVoiceName ||
+      lastVoiceSettingsRef.current.rate !== rate
     ) {
-      lastVoiceSettingsRef.current = { engine: ttsEngine, voice: matchaVoice, browserVoice: selectedVoiceName };
+      logTrace(`[TTS Config Changed] Đổi cấu hình TTS: engine=${ttsEngine}, voice=${matchaVoice}/${selectedVoiceName}, rate=${rate}`);
+      lastVoiceSettingsRef.current = { engine: ttsEngine, voice: matchaVoice, browserVoice: selectedVoiceName, rate };
+      
+      // Dọn sạch toàn bộ cache cũ để nạp mới theo giọng/engine/tốc độ mới ngay lập tức
+      if (audioCacheRef.current) {
+        Object.values(audioCacheRef.current).forEach(a => {
+          if (a) {
+            cleanupAudio(a);
+            if (a.src && a.src.startsWith('blob:')) URL.revokeObjectURL(a.src);
+          }
+        });
+        audioCacheRef.current = {};
+      }
+      prefetchQueueRef.current = new Set();
+      triggeredIndicesRef.current.clear();
+
       if (sentencesRef.current.length > 0 && isPlaying) {
-        speakContent();
+        seekToSentence(currentSentenceIdxRef.current);
       }
     }
-  }, [ttsEngine, matchaVoice, selectedVoiceName]);
+  }, [ttsEngine, matchaVoice, selectedVoiceName, rate]);
 
   // Active Playback Watchdog: Tự động giám sát, phát hiện và khôi phục khi audio bị đứng/đơ/nghẽn bất thường
   useEffect(() => {
@@ -573,7 +615,8 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     return () => clearInterval(watchdogInterval);
   }, [ttsEngine, isLoading, isPlaying]);
 
-  const fetchMatchaAudio = async (idx, retryCount = 2) => {
+  const fetchMatchaAudio = async (idx, targetSessionId = null, retryCount = 2) => {
+    const expectedSession = targetSessionId !== null ? targetSessionId : playSessionIdRef.current;
     if (idx >= sentencesRef.current.length) return null;
     
     // Check cache
@@ -605,10 +648,10 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         let audioUrl;
         
         if (ttsEngine === 'local') {
-          // Gọi API offline chạy cục bộ với Timeout 7 giây chống treo
+          // Gọi API offline chạy cục bộ với Timeout 2.5 giây chống treo
           const host = getLocalTtsHost();
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 7000);
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
 
           let response;
           try {
@@ -631,7 +674,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
           
           const blob = await response.blob();
           audioUrl = URL.createObjectURL(blob);
-        } else {
+        } else if (ttsEngine === 'matcha') {
           // Gọi API Matcha Đám mây (Cloud)
           const res = await api.post('/v1/audio/speech', {
             input: textToSend,
@@ -644,11 +687,84 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
             }
           });
           audioUrl = URL.createObjectURL(res.data);
+        } else {
+          // TTS Stream cho engine Browser trên môi trường không có SpeechSynthesisUtterance (như Android WebView)
+          // 1. Ưu tiên gọi backend endpoint /api/tts/speak (Edge-TTS AI Neural Voice chất lượng cao, có CORS header đầy đủ)
+          let blob = null;
+          try {
+            const res = await api.get('/api/tts/speak', {
+              params: {
+                text: textToSend.substring(0, 350),
+                speed: rateRef.current || 1.0,
+                voice: 'vi-VN-HoaiMyNeural'
+              },
+              responseType: 'blob',
+              timeout: 3500
+            });
+            if (res && res.data && res.data.size > 100) {
+              blob = res.data;
+            }
+          } catch(apiErr) {
+            logTrace(`[fetchMatchaAudio] Gọi /api/tts/speak qua api thất bại: ${apiErr.message}`);
+          }
+
+          if (blob) {
+            audioUrl = URL.createObjectURL(blob);
+          } else {
+            // 2. Dự phòng: Google TTS qua CapacitorHttp Native (Bypass hoàn toàn CORS trên Android)
+            try {
+              if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) {
+                const textParam = encodeURIComponent(textToSend.substring(0, 200));
+                const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${textParam}`;
+                const capRes = await window.Capacitor.Plugins.CapacitorHttp.get({
+                  url: googleUrl,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                    'Referer': 'https://translate.google.com/'
+                  },
+                  responseType: 'blob'
+                });
+                if (capRes && capRes.data) {
+                  let base64Data = capRes.data;
+                  if (typeof base64Data === 'string') {
+                    if (!base64Data.startsWith('data:')) {
+                      base64Data = `data:audio/mpeg;base64,${base64Data}`;
+                    }
+                    audioUrl = base64Data;
+                  }
+                }
+              }
+            } catch (capErr) {
+              logTrace(`[fetchMatchaAudio] CapacitorHttp Google fallback lỗi: ${capErr.message}`);
+            }
+          }
+
+          if (!audioUrl) {
+            throw new Error(`Không thể nạp âm thanh cho câu idx=${idx}`);
+          }
+        }
+
+        // Kiểm tra xem phiên phát có bị hủy trong quá trình fetch không
+        if (expectedSession !== playSessionIdRef.current) {
+          logTrace(`[fetchMatchaAudio] Bỏ qua lưu cache câu idx=${idx} vì phiên đã thay đổi (${expectedSession} vs ${playSessionIdRef.current})`);
+          if (audioUrl) {
+            try { URL.revokeObjectURL(audioUrl); } catch(e){}
+          }
+          return null;
         }
 
         const audio = new Audio(audioUrl);
         audio.preload = 'auto';
         audio.load();
+
+        if (expectedSession !== playSessionIdRef.current) {
+          cleanupAudio(audio);
+          if (audioUrl) {
+            try { URL.revokeObjectURL(audioUrl); } catch(e){}
+          }
+          return null;
+        }
+
         audioCacheRef.current[idx] = audio;
         logTrace(`[fetchMatchaAudio] Tải THÀNH CÔNG câu idx=${idx} sau ${attempt + 1} lần thử`);
         return audio;
@@ -662,13 +778,14 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     }
   };
 
-  const prefetchMatchaSentence = (idx) => {
+  const prefetchMatchaSentence = (idx, targetSessionId = null) => {
+    const expectedSession = targetSessionId !== null ? targetSessionId : playSessionIdRef.current;
     if (idx >= sentencesRef.current.length || idx < 0) return;
     if (audioCacheRef.current[idx] || prefetchQueueRef.current.has(idx)) return;
 
-    logTrace(`[prefetch] Thêm câu idx=${idx} vào hàng đợi tải trước`);
+    logTrace(`[prefetch] Thêm câu idx=${idx} vào hàng đợi tải trước (Session: ${expectedSession})`);
     prefetchQueueRef.current.add(idx);
-    fetchMatchaAudio(idx)
+    fetchMatchaAudio(idx, expectedSession)
       .then(() => {
         prefetchQueueRef.current.delete(idx);
         logTrace(`[prefetch] Đã tải trước xong câu idx=${idx}`);
@@ -721,7 +838,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       for (let i = 0; i < currentIdx; i++) {
         estimatedCharIdx += (sentencesRef.current[i] || '').length + 1;
       }
-      book.onBoundary(estimatedCharIdx, sentencesRef.current[currentIdx] || '');
+      book.onBoundary(estimatedCharIdx, sentencesRef.current[currentIdx] || '', currentIdx);
     }
   };
 
@@ -761,6 +878,9 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       setIsPlaying(false);
       setProgress(100);
       if (book.isChapter && onNextChapter) {
+        window.dispatchEvent(new CustomEvent('app-toast', {
+          detail: { message: '📖 Đã đọc xong chương. Đang tự động chuyển sang chương tiếp theo...', type: 'info' }
+        }));
         onNextChapter();
       }
       return;
@@ -835,7 +955,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
             emitBoundary(nextIdx);
             setProgress(Math.round((nextIdx / sentencesRef.current.length) * 100));
             evictCache(nextIdx);
-            for (let offset = 1; offset <= 15; offset++) {
+            for (let offset = 1; offset <= 2; offset++) {
               prefetchMatchaSentence(nextIdx + offset);
             }
             return;
@@ -862,6 +982,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
           return;
         }
         logTrace(`[playMatcha] [Audio Event] Đang phát câu idx=${currentIdx} (Tốc độ mong muốn: ${rateRef.current}x, Tốc độ thực tế: ${aud.playbackRate}x)`);
+        delete sentenceRetryCountRef.current[currentIdx];
         setIsLoading(false);
         setIsPlaying(true);
         aud.playbackRate = rateRef.current;
@@ -888,9 +1009,21 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         lastPlaybackPositionRef.current = aud.currentTime;
       };
 
+      aud.oncanplay = () => {
+        if (!userPausedRef.current && mySessionId === playSessionIdRef.current) {
+          setIsLoading(false);
+        }
+      };
+
+      aud.oncanplaythrough = () => {
+        if (!userPausedRef.current && mySessionId === playSessionIdRef.current) {
+          setIsLoading(false);
+        }
+      };
+
       aud.onwaiting = () => {
         logTrace(`[playMatcha] [Audio Event] Đang chờ nạp đệm dữ liệu (onwaiting) ở câu idx=${currentIdx}`);
-        if (!userPausedRef.current && mySessionId === playSessionIdRef.current) {
+        if (!userPausedRef.current && mySessionId === playSessionIdRef.current && aud.readyState < 2) {
           setIsLoading(true);
         }
       };
@@ -951,8 +1084,6 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         logTrace(`[playMatcha] [Audio Event] LỖI phát âm thanh ở câu idx=${currentIdx}: ${e.message || 'Unknown error'}`);
         if (mySessionId !== playSessionIdRef.current || currentIdx !== currentSentenceIdxRef.current) return;
         
-        setIsLoading(true);
-        
         // Tự động giải phóng và ngắt các sự kiện của câu bị lỗi để tránh lồng giọng
         if (audioCacheRef.current[currentIdx]) {
           try {
@@ -964,18 +1095,36 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
             oldAudio.onerror = null;
             oldAudio.onended = null;
             oldAudio.ontimeupdate = null;
-            if (oldAudio.src) URL.revokeObjectURL(oldAudio.src);
+            if (oldAudio.src && oldAudio.src.startsWith('blob:')) URL.revokeObjectURL(oldAudio.src);
           } catch(err) {}
           delete audioCacheRef.current[currentIdx];
         }
-        
-        // Chờ 1 giây rồi tự động tải lại và phát tiếp tục
-        logTrace(`[playMatcha] Sẽ thử tải lại và phát lại câu idx=${currentIdx} sau 1 giây...`);
-        setTimeout(() => {
-          if (mySessionId === playSessionIdRef.current && currentIdx === currentSentenceIdxRef.current && !userPausedRef.current) {
-            playMatchaSentence(currentIdx, mySessionId);
+
+        const retryCount = (sentenceRetryCountRef.current[currentIdx] || 0) + 1;
+        sentenceRetryCountRef.current[currentIdx] = retryCount;
+
+        if (retryCount <= 2) {
+          logTrace(`[playMatcha] Thử tải lại câu idx=${currentIdx} lần ${retryCount}/2 sau 500ms...`);
+          setTimeout(() => {
+            if (mySessionId === playSessionIdRef.current && currentIdx === currentSentenceIdxRef.current && !userPausedRef.current) {
+              playMatchaSentence(currentIdx, mySessionId);
+            }
+          }, 500);
+        } else {
+          // Thử 2 lần vẫn lỗi: Triệt tiêu vòng xoay, cảnh báo và tự động nhảy tiếp sang câu kế tiếp!
+          logTrace(`[playMatcha] Câu idx=${currentIdx} thử ${retryCount} lần thất bại. Tự động bỏ qua và đọc câu tiếp theo.`);
+          setIsLoading(false);
+          delete sentenceRetryCountRef.current[currentIdx];
+          window.dispatchEvent(new CustomEvent('app-toast', {
+            detail: { message: '⚠️ Âm thanh câu hiện tại bị gián đoạn. Đang tiếp tục câu tiếp theo...', type: 'warning' }
+          }));
+          if (currentIdx + 1 < sentencesRef.current.length) {
+            playMatchaSentence(currentIdx + 1, mySessionId);
+          } else {
+            setIsPlaying(false);
+            if (book.isChapter && onNextChapter) onNextChapter();
           }
-        }, 1000);
+        }
       };
     };
 
@@ -1008,7 +1157,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         setIsLoading(false);
 
         // Fallback to browser system TTS if local server or cloud is unreachable/erroring
-        const hasBrowserVoices = (synthRef.current && synthRef.current.getVoices().length > 0);
+        const hasBrowserVoices = isSpeechSynthesisAvailable() && synthRef.current && synthRef.current.getVoices().length > 0;
         if ((ttsEngine === 'local' || ttsEngine === 'matcha') && hasBrowserVoices &&
             (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch') || err.message.includes('status') || err.message.includes('HTTP') || err.message.includes('error'))) {
           logTrace(`[playMatcha] Engine ${ttsEngine} lỗi hoặc không có phản hồi. Tự động chuyển đổi dự phòng sang Trình duyệt (Browser Speech) để phát tiếp.`);
@@ -1136,10 +1285,12 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     }
   };
 
-  const speakContent = async () => {
+  const speakContent = async (overrideEngine = null) => {
     stopSpeaking();
     userPausedRef.current = false;
     lastPlaybackProgressTimeRef.current = Date.now();
+
+    const activeEngine = overrideEngine || ttsEngine;
 
     let titleText = (book.title_vietphrase || book.title || '').trim();
     const authorText = book.author_hanviet || book.author || '';
@@ -1180,63 +1331,76 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       const trimmedPara = para.trim();
       if (!trimmedPara) continue;
       
-      if (trimmedPara.length <= 400) {
-        if (validTextRegex.test(trimmedPara)) {
-          rawSentences.push(trimmedPara);
-        }
-      } else {
-        // Nếu đoạn văn quá dài, phân tách theo dấu ngắt câu để tránh timeout máy chủ
-        const sentences = trimmedPara.split(/([.!?。！？])/);
-        let currentChunk = "";
-        for (let i = 0; i < sentences.length; i++) {
-          const part = sentences[i];
-          if (['.', '!', '?', '。', '！', '？'].includes(part)) {
-            currentChunk += part;
-          } else {
-            if (currentChunk.trim() && currentChunk.length + part.length > 400) {
-              if (validTextRegex.test(currentChunk.trim())) {
-                rawSentences.push(currentChunk.trim());
-              }
-              currentChunk = part;
-            } else {
-              currentChunk += part;
-            }
+      const parts = trimmedPara.split(/([.!?。！？]+["”'’」]?\s*)/);
+      let cur = "";
+      for (let i = 0; i < parts.length; i++) {
+        cur += parts[i];
+        if (/[.!?。！？]/.test(parts[i]) || cur.length > 250) {
+          if (cur.trim() && validTextRegex.test(cur.trim())) {
+            rawSentences.push(cur.trim());
           }
+          cur = "";
         }
-        if (currentChunk.trim() && validTextRegex.test(currentChunk.trim())) {
-          rawSentences.push(currentChunk.trim());
-        }
+      }
+      if (cur.trim() && validTextRegex.test(cur.trim())) {
+        rawSentences.push(cur.trim());
       }
     }
 
     if (rawSentences.length === 0) return;
 
-    if (ttsEngine === 'matcha' || ttsEngine === 'local') {
-      if (ttsEngine === 'matcha' && !matchaApiKey) {
-        logTrace("[speakContent] Không có API Key Matcha. Tự động chuyển dự phòng sang Trình duyệt (Web Speech API).");
+    sentencesRef.current = rawSentences;
+    let startIdx = 0;
+    if (book.startSnippet) {
+      const cleanSnippet = book.startSnippet.replace(/^["“'‘\s]+|["”'’\s]+$/g, '').slice(0, 30).toLowerCase();
+      const matchIdx = rawSentences.findIndex(s => {
+        const cleanS = s.toLowerCase();
+        return cleanS.includes(cleanSnippet) || cleanSnippet.includes(cleanS.slice(0, 20));
+      });
+      if (matchIdx !== -1) {
+        startIdx = matchIdx;
+      }
+    }
+    if (startIdx === 0 && typeof book.startParaIdx === 'number' && book.paragraphs && book.paragraphs[book.startParaIdx]) {
+      const paraText = book.paragraphs[book.startParaIdx].trim().toLowerCase().slice(0, 30);
+      const matchIdx = rawSentences.findIndex(s => {
+        const cleanS = s.toLowerCase();
+        return cleanS.includes(paraText) || paraText.includes(cleanS.slice(0, 20));
+      });
+      if (matchIdx !== -1) {
+        startIdx = matchIdx;
+      }
+    }
+    if (startIdx === 0 && typeof book.startSentenceIdx === 'number') {
+      startIdx = Math.max(0, Math.min(book.startSentenceIdx, rawSentences.length - 1));
+    }
+    currentSentenceIdxRef.current = startIdx;
+
+    const useSentenceQueue = (activeEngine === 'matcha' || activeEngine === 'local' || (activeEngine === 'browser' && !isSpeechSynthesisAvailable()));
+
+    if (useSentenceQueue) {
+      if (activeEngine === 'matcha' && !matchaApiKey) {
+        logTrace("[speakContent] Không có API Key Matcha. Tự động chuyển dự phòng sang Trình duyệt.");
         setIsLoading(false);
         setTtsEngine('browser');
         localStorage.setItem('local_tts_engine', 'browser');
-        setTimeout(() => speakContent(), 100);
+        speakContent('browser');
         return;
       }
 
-      if (ttsEngine === 'local') {
+      if (activeEngine === 'local') {
         setIsLoading(true);
         const isRunning = await ensureLocalEngineRunning();
         if (!isRunning) {
           logTrace("[speakContent] Không khởi động được engine local. Tự động chuyển dự phòng sang Trình duyệt.");
           setIsLoading(false);
           setTtsEngine('browser');
-          // Gọi lại speakContent để phát bằng trình duyệt
-          setTimeout(() => speakContent(), 100);
+          localStorage.setItem('local_tts_engine', 'browser');
+          speakContent('browser');
           return;
         }
       }
       
-      sentencesRef.current = rawSentences;
-      const startIdx = book.startSentenceIdx || 0;
-      currentSentenceIdxRef.current = startIdx;
       audioCacheRef.current = {};
       prefetchQueueRef.current = new Set();
       triggeredIndicesRef.current.clear();
@@ -1244,7 +1408,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       // Bật ngay highlight câu đầu tiên để người dùng thấy phản hồi tức thì
       emitBoundary(startIdx);
 
-      if (ttsEngine === 'local') {
+      if (activeEngine === 'local') {
         const host = getLocalTtsHost();
         fetch(`${host}/reset_prompt`, { method: 'POST' }).catch(() => {});
       }
@@ -1252,31 +1416,38 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       // Bật trạng thái Loading để người dùng biết hệ thống đang chuẩn bị bộ đệm
       setIsLoading(true);
 
-      // Kích hoạt tải trước (Prefetch) 15 câu đầu tiên ngay lập tức trong nền
-      for (let offset = 0; offset <= 15; offset++) {
-        prefetchMatchaSentence(startIdx + offset);
-      }
-
-      // Trì hoãn 800ms để hệ thống sinh sẵn 3-5 câu đệm ban đầu, giúp x4/x24 mượt mà
       const currentSessionId = playSessionIdRef.current;
+
+      // ƯU TIÊN TUYỆT ĐỐI: Nạp và phát ngay lập tức câu startIdx trong 0ms (Không để hàng đợi mạng bị chiếm)
+      playMatchaSentence(startIdx, currentSessionId);
+
+      // Sau 250ms chỉ nhẹ nhàng tải trước tối đa 2 câu kế tiếp
       setTimeout(() => {
-        if (currentSessionId === playSessionIdRef.current) {
-          playMatchaSentence(startIdx, currentSessionId);
+        if (currentSessionId === playSessionIdRef.current && !userPausedRef.current) {
+          prefetchMatchaSentence(startIdx + 1, currentSessionId);
+          prefetchMatchaSentence(startIdx + 2, currentSessionId);
         }
-      }, 800);
+      }, 250);
     } else {
-      // Browser Synthesis Engine
+      // Browser Synthesis Engine (Khi môi trường có SpeechSynthesisUtterance)
+      if (!synthRef.current) {
+        synthRef.current = window.speechSynthesis;
+      }
       if (!synthRef.current) return;
       
       let browserTextToSpeak = textToSpeak;
       let sliceOffset = 0;
-      const startIdx = book.startSentenceIdx || 0;
       if (startIdx > 0 && startIdx < rawSentences.length) {
         browserTextToSpeak = rawSentences.slice(startIdx).join(". ");
         for (let i = 0; i < startIdx; i++) {
           sliceOffset += rawSentences[i].length + 2; // +2 for ". "
         }
       }
+
+      // Xóa sạch utterance cũ đang pending trong hàng đợi
+      try {
+        synthRef.current.cancel();
+      } catch (err) {}
 
       const utterance = new SpeechSynthesisUtterance(browserTextToSpeak);
       
@@ -1315,10 +1486,21 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       };
 
       utterance.onboundary = (event) => {
-        if (event.name === 'word') {
+        if (event.name === 'word' || event.name === 'sentence') {
           const idx = event.charIndex + sliceOffset;
+          let cum = 0;
+          let matchedSentence = '';
+          for (let si = 0; si < rawSentences.length; si++) {
+            const nextCum = cum + rawSentences[si].length + 2;
+            if (idx >= cum && idx < nextCum) {
+              matchedSentence = rawSentences[si];
+              currentSentenceIdxRef.current = si;
+              break;
+            }
+            cum = nextCum;
+          }
           if (typeof book.onBoundary === 'function') {
-            book.onBoundary(idx);
+            book.onBoundary(idx, matchedSentence, currentSentenceIdxRef.current);
           }
           const totalLen = textToSpeak.length;
           if (totalLen > 0) {
@@ -1328,15 +1510,33 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       };
 
       utteranceRef.current = utterance;
-      synthRef.current.speak(utterance);
+      try {
+        synthRef.current.speak(utterance);
+        // Ngăn chặn trạng thái bị paused ngầm trên Chrome / Android WebView
+        if (synthRef.current.paused) {
+          synthRef.current.resume();
+        }
+        setIsPlaying(true);
+      } catch (err) {
+        console.error("Speech Synthesis speak error:", err);
+      }
     }
   };
 
   const togglePlay = () => {
     logTrace(`[User Action] Nhấn nút Tạm dừng/Phát tiếp (togglePlay)`);
-    if (ttsEngine === 'matcha' || ttsEngine === 'local') {
+    const useSentenceQueue = (ttsEngine === 'matcha' || ttsEngine === 'local' || (ttsEngine === 'browser' && !isSpeechSynthesisAvailable()));
+
+    if (useSentenceQueue) {
       if (isLoading) {
-        logTrace(`[User Action] Đang Loading, bỏ qua hành động togglePlay.`);
+        logTrace(`[User Action] Đang Loading, người dùng bấm dừng lại.`);
+        userPausedRef.current = true;
+        setIsLoading(false);
+        setIsPlaying(false);
+        if (audioRef.current) {
+          cleanupAudio(audioRef.current);
+          audioRef.current = null;
+        }
         return;
       }
       if (isPlaying) {
@@ -1350,6 +1550,7 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         logTrace(`[User Action] Tiếp tục phát âm thanh.`);
         userPausedRef.current = false;
         lastPlaybackProgressTimeRef.current = Date.now();
+        emitBoundary(currentSentenceIdxRef.current);
         
         const currentAudio = audioRef.current;
         if (currentAudio && !currentAudio.ended && currentAudio.currentTime > 0 && currentAudio.currentTime < currentAudio.duration) {
@@ -1376,16 +1577,19 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         }
       }
     } else {
+      if (!synthRef.current) {
+        synthRef.current = window.speechSynthesis;
+      }
       if (!synthRef.current) return;
       if (isPlaying) {
         userPausedRef.current = true;
-        synthRef.current.pause();
+        try { synthRef.current.pause(); } catch(e){}
         setIsPlaying(false);
       } else {
         userPausedRef.current = false;
         lastPlaybackProgressTimeRef.current = Date.now();
-        if (synthRef.current.paused) {
-          synthRef.current.resume();
+        if (synthRef.current.paused && synthRef.current.speaking) {
+          try { synthRef.current.resume(); } catch(e){}
           setIsPlaying(true);
         } else {
           speakContent();
@@ -1432,19 +1636,96 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     onClose && onClose();
   };
 
+  // Lắng nghe sự kiện tua/nhảy đoạn toàn cục (Tap-to-read từ webview hoặc component khác)
+  useEffect(() => {
+    const handleGlobalSeek = (e) => {
+      if (!e.detail) return;
+      logTrace(`[Event: global-tts-seek] Nhận yêu cầu: ${JSON.stringify(e.detail)}`);
+
+      // 1. Khớp chính xác theo chuỗi snippet của đoạn được tap / tâm ngắm chỉ định
+      if (e.detail.sentenceSnippet || e.detail.sentenceText) {
+        const rawSnippet = (e.detail.sentenceSnippet || e.detail.sentenceText).trim();
+        const cleanSnippet = rawSnippet.replace(/^["“'‘\s]+|["”'’\s]+$/g, '').slice(0, 30).toLowerCase();
+        if (cleanSnippet.length >= 3 && sentencesRef.current?.length > 0) {
+          const matchIdx = sentencesRef.current.findIndex(s => {
+            const cleanS = s.toLowerCase();
+            return cleanS.includes(cleanSnippet) || cleanSnippet.includes(cleanS.slice(0, 20));
+          });
+          if (matchIdx !== -1) {
+            logTrace(`[Event: global-tts-seek] Tìm thấy khớp chính xác theo snippet: idx=${matchIdx} ("${cleanSnippet}")`);
+            seekToSentence(matchIdx);
+            return;
+          }
+        }
+      }
+
+      // 2. Tìm theo paraIdx thông qua mapping danh sách paragraphs của book
+      if (typeof e.detail.paraIdx === 'number' && sentencesRef.current?.length > 0) {
+        const targetParaIdx = e.detail.paraIdx;
+        if (book?.paragraphs && Array.isArray(book.paragraphs) && book.paragraphs[targetParaIdx]) {
+          const targetParaText = book.paragraphs[targetParaIdx].trim().toLowerCase().slice(0, 30);
+          if (targetParaText.length >= 3) {
+            const matchIdx = sentencesRef.current.findIndex(s => {
+              const cleanS = s.toLowerCase();
+              return cleanS.includes(targetParaText) || targetParaText.includes(cleanS.slice(0, 20));
+            });
+            if (matchIdx !== -1) {
+              logTrace(`[Event: global-tts-seek] Khớp đoạn paraIdx=${targetParaIdx} với câu sentenceIdx=${matchIdx}`);
+              seekToSentence(matchIdx);
+              return;
+            }
+          }
+        }
+      }
+
+      // 3. Fallback theo sentenceIdx hoặc paraIdx trực tiếp
+      if (typeof e.detail.sentenceIdx === 'number') {
+        logTrace(`[Event: global-tts-seek] Nhảy trực tiếp đến câu idx=${e.detail.sentenceIdx}`);
+        seekToSentence(e.detail.sentenceIdx);
+      } else if (typeof e.detail.paraIdx === 'number') {
+        const total = sentencesRef.current?.length || 0;
+        if (total > 0) {
+          const targetIdx = Math.max(0, Math.min(e.detail.paraIdx + (book?.title_vietphrase ? 1 : 0), total - 1));
+          seekToSentence(targetIdx);
+        }
+      }
+    };
+    window.addEventListener('global-tts-seek', handleGlobalSeek);
+    return () => window.removeEventListener('global-tts-seek', handleGlobalSeek);
+  }, [book?.paragraphs, book?.title_vietphrase]);
+
   // Hàm điều hướng câu thông minh: dọn dẹp âm thanh cũ ngay lập tức và tăng Session ID để chống chồng chéo giọng
   const seekToSentence = (targetIdx) => {
     if (!sentencesRef.current || sentencesRef.current.length === 0) return;
-    if (targetIdx < 0) return;
+    
+    // Kẹp biên dưới: không thể tua lùi nhỏ hơn câu 0
+    if (targetIdx < 0) {
+      targetIdx = 0;
+    }
+    
+    // Kẹp biên trên: tua vượt quá số câu trong chương sẽ kích hoạt chuyển chương sau
     if (targetIdx >= sentencesRef.current.length) {
-      if (book.isChapter && onNextChapter) onNextChapter();
+      logTrace(`[seekToSentence] targetIdx=${targetIdx} >= ${sentencesRef.current.length}. Tự động chuyển chương kế tiếp.`);
+      if (book.isChapter && onNextChapter) {
+        window.dispatchEvent(new CustomEvent('app-toast', {
+          detail: { message: '📖 Đã đọc xong chương. Đang tự động chuyển sang chương tiếp theo...', type: 'info' }
+        }));
+        onNextChapter();
+      }
       return;
     }
 
     userPausedRef.current = false;
     lastPlaybackProgressTimeRef.current = Date.now();
+    currentSentenceIdxRef.current = targetIdx;
 
-    if (ttsEngine === 'matcha' || ttsEngine === 'local') {
+    // ĐÁNH DẤU ĐÚNG CHỖ NGAY LẬP TỨC TRÊN TRANG TRUYỆN!
+    emitBoundary(targetIdx);
+    setProgress(Math.round((targetIdx / sentencesRef.current.length) * 100));
+
+    const useSentenceQueue = (ttsEngine === 'matcha' || ttsEngine === 'local' || (ttsEngine === 'browser' && !isSpeechSynthesisAvailable()));
+
+    if (useSentenceQueue) {
       // 1. Dọn dẹp dứt khoát audio cũ đang phát để không bị lồng tiếng / vấp tiếng
       if (audioRef.current) {
         cleanupAudio(audioRef.current);
@@ -1456,19 +1737,22 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       triggeredIndicesRef.current.clear();
 
       setIsLoading(true);
-      currentSentenceIdxRef.current = targetIdx;
 
-      // 3. Tải trước câu mục tiêu và các câu kế tiếp
-      for (let offset = 0; offset <= 10; offset++) {
-        prefetchMatchaSentence(targetIdx + offset);
-      }
-
-      // 4. Phát câu mới trong session mới
+      // 3. ƯU TIÊN TUYỆT ĐỐI: Tải và phát ngay lập tức câu targetIdx được chỉ định
       playMatchaSentence(targetIdx, newSessionId);
+
+      // 4. Chỉ tải trước 2 câu kế tiếp sau khi đã khởi động tải câu chính 200ms
+      setTimeout(() => {
+        if (newSessionId === playSessionIdRef.current && !userPausedRef.current) {
+          prefetchMatchaSentence(targetIdx + 1, newSessionId);
+          prefetchMatchaSentence(targetIdx + 2, newSessionId);
+        }
+      }, 200);
     } else {
+      if (!isSpeechSynthesisAvailable()) return;
       // Browser TTS seeking
       const textToSpeak = (book.isChapter ? `${book.title_vietphrase}. ${book.description}` : book.description) || "";
-      const approxCharPerSentence = textToSpeak.length / sentencesRef.current.length;
+      const approxCharPerSentence = textToSpeak.length / (sentencesRef.current.length || 1);
       const nextIndex = Math.floor(targetIdx * approxCharPerSentence);
 
       stopSpeaking();
@@ -1490,7 +1774,11 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         setProgress(Math.min(100, Math.round((idx / totalLen) * 100)));
       };
       utteranceRef.current = utterance;
-      synthRef.current.speak(utterance);
+      try {
+        synthRef.current.speak(utterance);
+        if (synthRef.current.paused) synthRef.current.resume();
+        setIsPlaying(true);
+      } catch (e) {}
     }
   };
 
@@ -1502,16 +1790,34 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     seekToSentence(currentSentenceIdxRef.current - 1);
   };
 
-  // Click handler to jump to a sentence by clicking on the progress bar
-  const handleSeekBarClick = (e) => {
-    if (!sentencesRef.current || sentencesRef.current.length === 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
+  // Click & Touch handler để tua câu nhanh (hỗ trợ cả chạm vuốt trên mobile mà không kích hoạt kéo panel)
+  const calculateSeekTarget = (clientX, rect) => {
+    if (!sentencesRef.current || sentencesRef.current.length === 0) return -1;
+    const clickX = clientX - rect.left;
     const width = rect.width;
+    if (width <= 0) return -1;
     const percentage = Math.max(0, Math.min(1, clickX / width));
-    const targetIdx = Math.floor(percentage * sentencesRef.current.length);
-    if (targetIdx >= 0 && targetIdx < sentencesRef.current.length) {
-      logTrace(`[SeekBar] Seeking directly to sentence index: ${targetIdx}`);
+    return Math.min(sentencesRef.current.length - 1, Math.floor(percentage * sentencesRef.current.length));
+  };
+
+  const handleSeekBarClick = (e) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const targetIdx = calculateSeekTarget(e.clientX, rect);
+    if (targetIdx >= 0) {
+      logTrace(`[SeekBar Click] Tua trực tiếp đến câu idx=${targetIdx}`);
+      seekToSentence(targetIdx);
+    }
+  };
+
+  const handleSeekBarTouch = (e) => {
+    e.stopPropagation();
+    const touch = e.touches[0] || (e.changedTouches && e.changedTouches[0]);
+    if (!touch) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const targetIdx = calculateSeekTarget(touch.clientX, rect);
+    if (targetIdx >= 0) {
+      logTrace(`[SeekBar Touch] Vuốt tua trên mobile đến câu idx=${targetIdx}`);
       seekToSentence(targetIdx);
     }
   };
@@ -1523,14 +1829,17 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     if (!position) return {};
     
     const el = playerElRef.current;
-    const targetWidth = isMinimized ? 240 : 340;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    const targetWidth = isMinimized ? 240 : (isMobile ? Math.min(320, window.innerWidth - 20) : 320);
     const targetHeight = isMinimized ? 52 : (showSettings ? 385 : 210);
     const currentHeight = el ? el.offsetHeight : targetHeight;
     
     // Clamp coordinates on first render and subsequent renders to prevent out-of-bounds rendering
-    const safeLeft = Math.max(0, Math.min(position.x, window.innerWidth - targetWidth));
-    const maxSafeBottom = Math.max(0, window.innerHeight - currentHeight - 56);
-    const safeBottom = Math.max(0, Math.min(position.y, maxSafeBottom));
+    // Trên mobile, thanh Bottom Nav cao 64px, nên minSafeBottom phải ít nhất 76px để luôn nổi trên thanh đáy
+    const minSafeBottom = isMobile ? 76 : 16;
+    const safeLeft = Math.max(10, Math.min(position.x, window.innerWidth - targetWidth - 10));
+    const maxSafeBottom = Math.max(minSafeBottom, window.innerHeight - currentHeight - 56);
+    const safeBottom = Math.max(minSafeBottom, Math.min(position.y, maxSafeBottom));
     
     return {
       left: `${safeLeft}px`,
@@ -1548,10 +1857,10 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
     return (
       <div 
         ref={playerElRef}
-        style={{ ...dragStyle, minWidth: 240, WebkitAppRegion: 'no-drag' }}
+        style={{ ...dragStyle, minWidth: 260, WebkitAppRegion: 'no-drag' }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 sm:left-auto z-[100000] bg-[#121225]/97 border border-purple-500/40 rounded-2xl px-3 py-2 shadow-2xl flex items-center gap-2 cursor-grab active:cursor-grabbing hover:border-purple-400 transition-colors duration-200 select-none"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100050] bg-[#121225]/97 border border-purple-500/40 rounded-2xl px-3.5 py-2 shadow-2xl flex items-center gap-2.5 cursor-grab active:cursor-grabbing hover:border-purple-400 transition-colors duration-200 select-none max-w-[92vw]"
       >
         {/* Click background to expand */}
         <div 
@@ -1592,8 +1901,9 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
           )}
           <button
             onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-            disabled={isLoading}
-            className="p-1 bg-purple-600 hover:bg-purple-500 text-white rounded-full transition-all active:scale-95 disabled:opacity-40"
+            onTouchEnd={(e) => { e.stopPropagation(); }}
+            className="p-1.5 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white rounded-full transition-all active:scale-95 touch-manipulation cursor-pointer select-none"
+            title={isPlaying ? "Tạm dừng" : "Phát tiếp"}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current translate-x-[0.5px]" />}
           </button>
@@ -1619,81 +1929,81 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
       style={{ ...dragStyle, WebkitAppRegion: 'no-drag' }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
-      className="fixed bottom-0 left-0 right-0 sm:bottom-6 sm:right-6 sm:left-auto z-[100000] bg-[#121225]/97 border-t sm:border border-purple-500/30 backdrop-blur-md rounded-t-2xl sm:rounded-2xl p-4 shadow-2xl flex flex-col gap-3.5 w-full sm:max-w-sm sm:w-[340px] animate-in fade-in slide-in-from-bottom-5 duration-300 cursor-grab active:cursor-grabbing select-none"
+      className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100050] bg-[#0d0e17]/95 border border-purple-500/40 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 shadow-[0_8px_32px_rgba(0,0,0,0.85)] flex flex-col gap-2 w-[340px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-3 duration-250 cursor-grab active:cursor-grabbing select-none"
     >
       {/* Header Bar */}
-      <div className="flex justify-between items-center select-none pb-1.5 border-b border-white/5">
-        <span className="text-[9px] text-purple-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
-          <Volume2 className="w-3.5 h-3.5" /> 
-          {book.isChapter ? 'ĐANG ĐỌC CHƯƠNG...' : 'ĐANG NGHE TÓM TẮT...'}
+      <div className="flex justify-between items-center select-none pb-1 border-b border-white/5">
+        <span className="text-[8.5px] text-purple-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
+          <Volume2 className="w-3 h-3 text-purple-400 shrink-0" /> 
+          <span className="truncate max-w-[140px]">{book.isChapter ? 'ĐANG ĐỌC CHƯƠNG...' : 'NGHE TÓM TẮT...'}</span>
         </span>
-        <div className="flex items-center gap-1.5">
-          
+        <div className="flex items-center gap-0.5">
           <button 
             onClick={() => setShowSettings(!showSettings)}
-            className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-purple-600/20 text-purple-400' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            className={`p-1 rounded-md transition-colors ${showSettings ? 'bg-purple-600/30 text-purple-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
             title="Cấu hình giọng đọc"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
           </button>
           <button 
             onClick={() => setIsMinimized(true)}
-            className="p-1.5 text-slate-400 hover:bg-white/5 hover:text-white rounded-lg transition-colors"
-            title="Thu nhỏ"
+            className="p-1 text-slate-400 hover:bg-white/5 hover:text-white rounded-md transition-colors"
+            title="Thu nhỏ thanh mini"
           >
-            <Minimize2 className="w-4 h-4" />
+            <Minimize2 className="w-3.5 h-3.5" />
           </button>
           <button 
             onClick={handleClose}
-            className="p-1.5 text-slate-400 hover:bg-white/5 hover:text-white rounded-lg transition-colors"
-            title="Đóng"
+            className="p-1 text-slate-400 hover:bg-red-500/20 hover:text-red-400 rounded-md transition-colors"
+            title="Đóng trình phát"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Main Info */}
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-2.5 items-center">
         {book.cover ? (
           <img
             src={book.cover}
             alt="cover"
-            className={`w-12 h-16 object-cover rounded-lg border border-white/10 shadow-md shrink-0 bg-[#0f0f1a] ${isPlaying ? 'animate-pulse' : ''}`}
+            className={`w-9 h-12 object-cover rounded-lg border border-white/10 shadow-sm shrink-0 bg-[#07080e] ${isPlaying ? 'animate-pulse' : ''}`}
             onError={(e) => { e.target.remove(); }}
           />
         ) : (
-          <div className={`w-12 h-16 rounded-lg border border-white/10 bg-[#0f0f1a] flex items-center justify-center text-slate-500 shrink-0 ${isPlaying ? 'ring-2 ring-purple-500/40' : ''}`}>
-            <Music className="w-5 h-5 text-purple-400" />
+          <div className={`w-9 h-12 rounded-lg border border-white/10 bg-[#07080e] flex items-center justify-center text-slate-500 shrink-0 ${isPlaying ? 'ring-1.5 ring-purple-500/40' : ''}`}>
+            <Music className="w-4 h-4 text-purple-400" />
           </div>
         )}
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-white text-xs font-bold truncate">{book.title_vietphrase || book.title}</h4>
-          <p className="text-[10px] text-slate-500 truncate mt-0.5">✍ Tác giả: {book.author_hanviet || book.author || '—'}</p>
+          <h4 className="text-white text-[11px] font-bold truncate leading-tight">{book.title_vietphrase || book.title}</h4>
+          <p className="text-[9px] text-slate-400 truncate mt-0.5">✍ {book.author_hanviet || book.author || '—'}</p>
           
-          {/* Click-seekable Progress Bar */}
+          {/* Click & Touch-seekable Progress Bar */}
           <div 
             onClick={handleSeekBarClick}
-            className="w-full bg-[#0b0b14] rounded-full h-2 mt-2.5 relative overflow-hidden cursor-pointer group"
-            title="Click để tua câu nhanh"
+            onTouchStart={handleSeekBarTouch}
+            onTouchMove={handleSeekBarTouch}
+            className="w-full bg-[#07080e] rounded-full h-2 mt-1.5 relative overflow-hidden cursor-pointer group no-drag touch-none"
+            title="Click hoặc vuốt để tua câu nhanh"
           >
             <div 
-              className="bg-gradient-to-r from-purple-600 to-violet-500 h-full rounded-full transition-all duration-300 relative"
+              className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-150 relative pointer-events-none"
               style={{ width: `${progress}%` }}
             >
-              {/* Thumb dot */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity -mr-1" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-md transition-opacity -mr-1" />
             </div>
           </div>
           
           {/* Time & Sentence displays */}
-          <div className="flex justify-between items-center text-[8px] text-slate-400 mt-1.5 font-mono">
+          <div className="flex justify-between items-center text-[7.5px] text-slate-400 mt-1 font-mono">
             <span>{formatTime(currentTimeSec)}</span>
             {totalSentences > 0 ? (
-              <span className="text-slate-500 font-sans">Câu {currentSentenceDisplay}/{totalSentences}</span>
+              <span className="text-purple-300/80 font-sans font-semibold">Câu {currentSentenceDisplay}/{totalSentences}</span>
             ) : (
-              <span className="text-slate-500">{progress}%</span>
+              <span className="text-slate-400">{progress}%</span>
             )}
             <span>{formatTime(totalTimeSec)}</span>
           </div>
@@ -1702,107 +2012,98 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
 
       {/* Speech Settings Sub-panel */}
       {showSettings && (
-        <div className="bg-[#0b0b14]/75 border border-white/5 rounded-xl p-3 text-[10px] space-y-3 animate-in fade-in duration-200">
+        <div className="bg-[#07080e]/95 border border-white/10 rounded-xl p-2 text-[9px] space-y-2 animate-in fade-in duration-150 max-h-[180px] overflow-y-auto">
           {/* Engine Selector */}
           <div className="space-y-1">
-            <label className="text-slate-400 font-bold block">Động cơ đọc (TTS Engine):</label>
-            <div className="grid grid-cols-3 gap-1 bg-[#121225] p-1 rounded-lg border border-[#1f1f3a]">
+            <label className="text-slate-400 font-bold block text-[8.5px]">Động cơ đọc (TTS Engine):</label>
+            <div className="grid grid-cols-3 gap-1 bg-[#121225] p-0.5 rounded-lg border border-[#1f1f3a]">
               <button
                 type="button"
                 onClick={() => handleSaveEngine('browser')}
-                className={`py-1.5 rounded-md text-[11px] font-bold transition-all ${ttsEngine === 'browser' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`py-1 rounded text-[9.5px] font-bold transition-all ${ttsEngine === 'browser' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 Trình duyệt
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveEngine('matcha')}
-                className={`py-1.5 rounded-md text-[11px] font-bold transition-all ${ttsEngine === 'matcha' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`py-1 rounded text-[9.5px] font-bold transition-all ${ttsEngine === 'matcha' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
-                Matcha (Cloud)
+                Matcha (AI)
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveEngine('local')}
-                className={`py-1.5 rounded-md text-[11px] font-bold transition-all ${ttsEngine === 'local' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`py-1 rounded text-[9.5px] font-bold transition-all ${ttsEngine === 'local' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
               >
-                Local (Offline)
+                Local C++
               </button>
             </div>
           </div>
 
           {ttsEngine === 'local' && (
-            <div className="bg-[#121225] border border-[#1f1f3a] p-2.5 rounded-lg space-y-1">
-              <span className="text-[10px] text-purple-400 font-bold block">⚡ Động Cơ Ngoại Tuyến (Offline)</span>
-              <p className="text-[9px] text-slate-400 leading-tight">
-                Đang chạy trực tiếp model Matcha36-Vocos10 siêu nén trên máy của bạn. Không tốn tiền API, bảo mật và tốc độ cao.
+            <div className="bg-[#121225] border border-[#1f1f3a] p-1.5 rounded-lg">
+              <span className="text-[9px] text-purple-400 font-bold block">⚡ Matcha Offline (C++)</span>
+              <p className="text-[8px] text-slate-400 leading-tight">
+                Chạy trực tiếp trên thiết bị, không tốn data API.
               </p>
             </div>
           )}
 
           {ttsEngine === 'matcha' && (
             <>
-              {/* Matcha Voice */}
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">Giọng đọc AI (Matcha):</label>
+              <div className="space-y-0.5">
+                <label className="text-slate-400 font-bold block text-[8.5px]">Giọng đọc Matcha:</label>
                 <select
                   value={matchaVoice}
                   onChange={(e) => handleSaveVoice(e.target.value)}
-                  className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 p-2 rounded-lg outline-none focus:border-purple-500"
+                  className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 p-1.5 rounded-lg outline-none text-[9px]"
                 >
-                  <option value="the_gioi_hoan_my">Thế Giới Hoàn Mỹ (Giọng Nam)</option>
-                  <option value="vi_female">Giọng Nữ miền Bắc (Beta)</option>
+                  <option value="the_gioi_hoan_my">Thế Giới Hoàn Mỹ (Nam)</option>
+                  <option value="vi_female">Nữ miền Bắc (Beta)</option>
                 </select>
               </div>
 
-              {/* Matcha API Key */}
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">API Key (sk-tc-...):</label>
+              <div className="space-y-0.5">
+                <label className="text-slate-400 font-bold block text-[8.5px]">API Key:</label>
                 <input
                   type="password"
                   value={matchaApiKey}
                   onChange={(e) => handleSaveApiKey(e.target.value)}
-                  placeholder="Nhập API key của bạn để sử dụng"
-                  className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 px-2.5 py-1.5 rounded-lg outline-none focus:border-purple-500 text-xs"
+                  placeholder="sk-tc-..."
+                  className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 px-2 py-1 rounded-lg outline-none text-[9px]"
                 />
-                <span className="text-[8px] text-slate-500 block leading-tight">
-                  Lấy khóa API tại tab <strong>API Developer</strong>.
-                </span>
               </div>
             </>
           )}
 
           {ttsEngine === 'browser' && (
-            /* Browser Voice Selector */
-            <div className="space-y-1">
-              <label className="text-slate-400 font-bold block">Giọng đọc (Voice):</label>
+            <div className="space-y-0.5">
+              <label className="text-slate-400 font-bold block text-[8.5px]">Giọng đọc (Voice):</label>
               <select
                 value={selectedVoiceName}
                 onChange={(e) => setSelectedVoiceName(e.target.value)}
-                className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 p-2 rounded-lg outline-none focus:border-purple-500"
+                className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 p-1.5 rounded-lg outline-none text-[9px]"
               >
                 {voices.length > 0 ? (
                   voices.map((v, i) => (
-                    <option key={i} value={v.name}>
-                      {v.name} ({v.lang})
-                    </option>
+                    <option key={i} value={v.name}>{v.name} ({v.lang})</option>
                   ))
                 ) : (
-                  <option value="">Không có giọng nói hệ thống (Hãy dùng Local)</option>
+                  <option value="">Giọng mặc định</option>
                 )}
               </select>
             </div>
           )}
 
-          {/* Speed & Sleep Timer settings (PITCH REMOVED) */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Speed selection */}
-            <div className="space-y-1">
-              <label className="text-slate-400 font-bold block">Tốc độ ({rate}x):</label>
+          {/* Speed & Sleep Timer settings */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
+              <label className="text-slate-400 font-bold block text-[8.5px]">Tốc độ ({rate}x):</label>
               <input
                 type="range"
                 min="0.5"
-                max="4.0"
+                max="3.5"
                 step="0.05"
                 value={rate}
                 onChange={(e) => handleSaveRate(parseFloat(e.target.value))}
@@ -1810,16 +2111,15 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
               />
             </div>
             
-            {/* Sleep Timer Selection */}
-            <div className="space-y-1">
-              <label className="text-slate-400 font-bold block flex items-center gap-1">
-                <Timer className="w-3.5 h-3.5" />
+            <div className="space-y-0.5">
+              <label className="text-slate-400 font-bold block flex items-center gap-1 text-[8.5px]">
+                <Timer className="w-3 h-3" />
                 Hẹn giờ: {sleepTimer > 0 ? `${timeLeftMin}p` : 'Tắt'}
               </label>
               <select
                 value={sleepTimer}
                 onChange={(e) => setSleepTimer(parseInt(e.target.value))}
-                className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 p-1.5 rounded-lg outline-none focus:border-purple-500"
+                className="w-full bg-[#121225] border border-[#1f1f3a] text-slate-200 p-1 rounded-lg outline-none text-[9px]"
               >
                 <option value={0}>Không hẹn giờ</option>
                 <option value={15}>15 phút</option>
@@ -1832,59 +2132,78 @@ export default function AudioPlayer({ book, onClose, onNextChapter, onPrevChapte
         </div>
       )}
 
-      {/* Control Buttons (Chương trước, Câu trước, Play/Pause, Câu tiếp, Chương sau) */}
-      <div className="flex items-center justify-center gap-1 border-t border-white/5 pt-2">
+      {/* Control Buttons (Chương trước, Tua -10s, Câu trước, Play/Pause, Câu tiếp, Tua +10s, Chương sau) */}
+      <div className="flex items-center justify-center gap-1 border-t border-white/5 pt-1.5 no-drag">
         {/* Chương trước */}
         <button
-          onClick={onPrevChapter}
+          onClick={(e) => { e.stopPropagation(); onPrevChapter && onPrevChapter(); }}
           disabled={!onPrevChapter}
-          className="p-2 text-slate-500 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1 text-slate-400 hover:text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
           title="Chương trước"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+
+        {/* Tua lùi ~10s (-2 câu) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); seekToSentence(currentSentenceIdxRef.current - 2); }}
+          className="px-1 py-0.5 text-slate-400 hover:text-purple-300 transition-colors text-[8.5px] font-bold font-mono active:scale-90"
+          title="Tua lùi ~10 giây (-2 câu)"
+        >
+          -10s
         </button>
 
         {/* Câu trước */}
         <button
-          onClick={skipBackward}
-          className="p-2 text-slate-400 hover:text-white transition-colors"
+          onClick={(e) => { e.stopPropagation(); skipBackward(); }}
+          className="p-1 text-slate-300 hover:text-white transition-colors active:scale-90"
           title="Câu trước"
         >
-          <SkipBack className="w-4.5 h-4.5" />
+          <SkipBack className="w-3.5 h-3.5" />
         </button>
 
         {/* Play/Pause Button */}
         <button
-          onClick={togglePlay}
-          disabled={isLoading}
-          className="p-3 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-full shadow-lg transition-all disabled:opacity-40 mx-2"
+          onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+          onTouchEnd={(e) => { e.stopPropagation(); }}
+          className="p-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white rounded-full shadow-[0_0_15px_rgba(147,51,234,0.6)] transition-all mx-2 touch-manipulation cursor-pointer select-none"
+          title={isPlaying ? "Tạm dừng" : "Phát tiếp"}
         >
           {isLoading ? (
-            <Loader className="w-5.5 h-5.5 animate-spin" />
+            <Loader className="w-4 h-4 animate-spin" />
           ) : isPlaying ? (
-            <Pause className="w-5.5 h-5.5" />
+            <Pause className="w-4 h-4" />
           ) : (
-            <Play className="w-5.5 h-5.5 fill-current translate-x-[1px]" />
+            <Play className="w-4 h-4 fill-current translate-x-[0.5px]" />
           )}
         </button>
 
         {/* Câu tiếp */}
         <button
-          onClick={skipForward}
-          className="p-2 text-slate-400 hover:text-white transition-colors"
+          onClick={(e) => { e.stopPropagation(); skipForward(); }}
+          className="p-1 text-slate-300 hover:text-white transition-colors active:scale-90"
           title="Câu tiếp"
         >
-          <SkipForward className="w-4.5 h-4.5" />
+          <SkipForward className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Tua tới ~10s (+2 câu) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); seekToSentence(currentSentenceIdxRef.current + 2); }}
+          className="px-1 py-0.5 text-slate-400 hover:text-purple-300 transition-colors text-[8.5px] font-bold font-mono active:scale-90"
+          title="Tua tới ~10 giây (+2 câu)"
+        >
+          +10s
         </button>
 
         {/* Chương sau */}
         <button
-          onClick={onNextChapter}
+          onClick={(e) => { e.stopPropagation(); onNextChapter && onNextChapter(); }}
           disabled={!onNextChapter}
-          className="p-2 text-slate-500 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1 text-slate-400 hover:text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
           title="Chương sau"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm8.5-6L18 18V6z"/></svg>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm8.5-6L18 18V6z"/></svg>
         </button>
       </div>
     </div>

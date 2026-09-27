@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Settings2, Home, Search, ArrowRight, Globe, Sparkles, Volume2, Moon, SkipForward, SkipBack, Bookmark, Plus, Target, ShieldCheck, Shield } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Settings2, Home, Search, ArrowRight, Globe, Sparkles, Volume2, Moon, SkipForward, SkipBack, Bookmark, Plus, Target, ShieldCheck, Shield, MoreVertical, Layers, Trash2, Languages } from 'lucide-react';
 import { isElectron } from '../utils/electron';
 import { Capacitor } from '@capacitor/core';
 
@@ -8,6 +8,10 @@ import api from '../services/api';
 import AudioPlayer from '../components/AudioPlayer';
 import TranslationSettingsModal from '../components/TranslationSettingsModal';
 import ReaderQuickTools from '../components/ReaderQuickTools';
+import ChromeMobileNewTab from '../components/ChromeMobileNewTab';
+import ChromeMobileTabSwitcher from '../components/ChromeMobileTabSwitcher';
+import ChromeMobileMenu from '../components/ChromeMobileMenu';
+import ChromeMobileBookmarksModal from '../components/ChromeMobileBookmarksModal';
 import { localTranslator } from '../utils/localTranslator';
 import { createTranslateScript } from '../utils/webviewInjectedScript';
 
@@ -24,6 +28,53 @@ function setCachedTranslation(text, mode, translated) {
     translationTextCache.delete(firstKey);
   }
   translationTextCache.set(`${mode}::${text}`, translated);
+}
+
+export function chineseNumberToArabic(chStr) {
+  if (!chStr) return '';
+  if (/^\d+$/.test(chStr)) return chStr;
+  const digits = { '零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+  const units = { '十': 10, '百': 100, '千': 1000, '万': 10000 };
+  let result = 0;
+  let current = 0;
+  for (let i = 0; i < chStr.length; i++) {
+    const char = chStr[i];
+    if (digits[char] !== undefined) {
+      current = digits[char];
+    } else if (units[char] !== undefined) {
+      const u = units[char];
+      if (current === 0 && u === 10) current = 1;
+      result += (current || 1) * u;
+      current = 0;
+    }
+  }
+  result += current;
+  return result > 0 ? String(result) : chStr;
+}
+
+export function cleanNovelTabTitle(title) {
+  if (!title || typeof title !== 'string') return 'Tab mới';
+  let t = title.trim();
+  // Khử các hậu tố web novel rác
+  t = t.replace(/\s*[-_|\s]+(69书吧|69shu|UU看书|uukanshu|起点中文网|起点中文|笔趣阁|八一中文网|番茄小说|飞卢小说网|纵横中文网|晋江文学城|truyenfull|tangthuvien|tàng thư viện|metruyenchu|đọc truyện online|手机版|wap).*$/i, '');
+  t = t.replace(/\s*\(\d+\/\d+\)\s*$/i, '');
+  t = t.replace(/\s*[-_|\s]+$/, '');
+
+  // Chuyển đổi định dạng chương Hán sang Tiếng Việt
+  t = t.replace(/第\s*([0-9一二两三四五六七八九十百千万]+)\s*章/g, (m, p1) => {
+    return 'Chương ' + chineseNumberToArabic(p1) + ':';
+  });
+  t = t.replace(/第\s*([0-9一二两三四五六七八九十百千万]+)\s*节/g, (m, p1) => {
+    return 'Tiết ' + chineseNumberToArabic(p1) + ':';
+  });
+  t = t.replace(/第\s*([0-9一二两三四五六七八九十百千万]+)\s*回/g, (m, p1) => {
+    return 'Hồi ' + chineseNumberToArabic(p1) + ':';
+  });
+  t = t.replace(/第\s*([0-9一二两三四五六七八九十百千万]+)\s*卷/g, (m, p1) => {
+    return 'Quyển ' + chineseNumberToArabic(p1) + ':';
+  });
+  t = t.replace(/\s*:\s*/g, ': ');
+  return t.trim() || 'Trang web';
 }
 
 // Unified robust translate executor with local engine first, cloud fallback, and 15s timeout
@@ -88,13 +139,80 @@ async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP202
 import { BrowserContext, useBrowser } from './BrowserContextCore';
 export { BrowserContext, useBrowser };
 
+const EXTERNAL_MEDIA_HOSTS = [
+  'google.com', 'google.com.vn', 'youtube.com', 'youtu.be', 'tiktok.com', 'facebook.com', 'fb.com',
+  'instagram.com', 'twitter.com', 'x.com', 'bilibili.com', 'douyin.com',
+  'netflix.com', 'spotify.com'
+];
+
+const isExternalMediaUrl = (url) => {
+  if (!url) return false;
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return EXTERNAL_MEDIA_HOSTS.some(d => h.includes(d));
+  } catch { return false; }
+};
+
+const openExternalNative = async (url) => {
+  if (isCapacitor) {
+    try {
+      const { Browser: CapBrowser } = await import('@capacitor/browser');
+      await CapBrowser.open({ url, presentationStyle: 'fullscreen' });
+      return true;
+    } catch (e) {
+      window.open(url, '_blank');
+      return true;
+    }
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return true;
+  }
+};
+
 export const BrowserProvider = ({ children }) => {
-  const [tabs, setTabs] = useState([]);
-  const [activeTabId, setActiveTabId] = useState(null);
+  const [tabs, setTabs] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('__browser_tabs_v2'));
+      if (Array.isArray(saved) && saved.length > 0) {
+        // Chỉ khôi phục tab thường (không private) và bỏ dữ liệu html lớn
+        return saved
+          .filter(t => !t.isPrivate)
+          .map(t => ({ ...t, loading: false, error: null }));
+      }
+    } catch {}
+    return [];
+  });
+  const [activeTabId, setActiveTabId] = useState(() => {
+    try {
+      return localStorage.getItem('__browser_active_tab_v2') || null;
+    } catch { return null; }
+  });
+  const [activeTabType, setActiveTabType] = useState('normal'); // 'normal' | 'private'
+  const [isTabSwitcherOpen, setIsTabSwitcherOpen] = useState(false);
+  const [isChromeMenuOpen, setIsChromeMenuOpen] = useState(false);
+  const [isDesktopMode, setIsDesktopMode] = useState(false);
   const [activeAudioObj, setActiveAudioObj] = useState(null);
+  const activeAudioObjRef = React.useRef(null);
+  React.useEffect(() => {
+    activeAudioObjRef.current = activeAudioObj;
+  }, [activeAudioObj]);
   const [isVisible, setIsVisible] = useState(false);
+  const [isTabConfigOpen, setIsTabConfigOpen] = useState(false);
+  const tabElementsRef = React.useRef({});
+  React.useEffect(() => {
+    if (activeTabId && tabElementsRef.current[activeTabId]) {
+      try {
+        tabElementsRef.current[activeTabId].scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest'
+        });
+      } catch(e) {}
+    }
+  }, [activeTabId]);
   // Map of tabId -> { html: string, loading: bool, error: string } for proxy-fetched content
   const [tabProxyContent, setTabProxyContent] = useState({});
+  const tabProxyContentRef = React.useRef({});
   const [isTranslationSettingsOpen, setIsTranslationSettingsOpen] = useState(false);
   const [pinnedTools, setPinnedTools] = useState(() => {
     try {
@@ -129,26 +247,178 @@ export const BrowserProvider = ({ children }) => {
     } catch { return []; }
   });
 
+  // Thông báo Toast giao diện người dùng
+  const [toastInfo, setToastInfo] = useState(null);
+  const showToast = React.useCallback((message, type = 'info') => {
+    setToastInfo({ message, type, id: Date.now() });
+  }, []);
+
+  React.useEffect(() => {
+    if (!toastInfo) return;
+    const timer = setTimeout(() => {
+      setToastInfo(null);
+    }, 3800);
+    return () => clearTimeout(timer);
+  }, [toastInfo]);
+
+  React.useEffect(() => {
+    const handleAppToast = (e) => {
+      if (e && e.detail && e.detail.message) {
+        showToast(e.detail.message, e.detail.type || 'info');
+      }
+    };
+    window.addEventListener('app-toast', handleAppToast);
+    return () => window.removeEventListener('app-toast', handleAppToast);
+  }, [showToast]);
+
+  const targetStartSentenceIdxRef = React.useRef({});
+  const targetStartSnippetRef = React.useRef({});
+
+  const visibleTabs = React.useMemo(() => {
+    return tabs.filter(t => (t.isPrivate ? 'private' : 'normal') === activeTabType);
+  }, [tabs, activeTabType]);
+
+  const normalTabCount = React.useMemo(() => tabs.filter(t => !t.isPrivate).length, [tabs]);
+  const privateTabCount = React.useMemo(() => tabs.filter(t => t.isPrivate).length, [tabs]);
+
+  const openNewTab = (isPrivate = activeTabType === 'private') => {
+    if (isPrivate && activeTabType !== 'private') {
+      setActiveTabType('private');
+    } else if (!isPrivate && activeTabType !== 'normal') {
+      setActiveTabType('normal');
+    }
+    openInBrowser('about:newtab', { isPrivate });
+  };
+
+  const closeAllTabs = (onlyCurrentType = true) => {
+    if (onlyCurrentType) {
+      const remaining = tabs.filter(t => (t.isPrivate ? 'private' : 'normal') !== activeTabType);
+      setTabs(remaining);
+      if (remaining.length > 0) {
+        setActiveTabId(remaining[remaining.length - 1].id);
+      } else {
+        setActiveTabId(null);
+      }
+    } else {
+      setTabs([]);
+      setActiveTabId(null);
+      setIsVisible(false);
+    }
+  };
+
+  // Lưu tabs vào localStorage mỗi khi thay đổi (chỉ tab thường)
+  useEffect(() => {
+    try {
+      const normalTabs = tabs.filter(t => !t.isPrivate).map(t => ({
+        id: t.id, url: t.url, title: t.title, isPrivate: false,
+        history: (t.history || []).slice(-20),
+        historyIndex: t.historyIndex || 0,
+      }));
+      localStorage.setItem('__browser_tabs_v2', JSON.stringify(normalTabs));
+    } catch {}
+  }, [tabs]);
+
+  // Lưu activeTabId
+  useEffect(() => {
+    try {
+      if (activeTabId) localStorage.setItem('__browser_active_tab_v2', activeTabId);
+    } catch {}
+  }, [activeTabId]);
+
   useEffect(() => {
     if (isVisible && tabs.length === 0) {
-      openInBrowser('https://www.quanben5.com/');
+      openInBrowser('https://www.69shuba.com/');
     }
   }, [isVisible, tabs.length]);
 
   const addToHistory = (url, title = '') => {
-    if (!url || url === 'about:blank' || url.includes('iframe_proxy')) return;
+    if (!url || url === 'about:blank' || url === 'about:newtab' || url.includes('iframe_proxy')) return;
+    
+    // Check if the current tab is private or if currently in incognito mode
+    const currentTab = tabs.find(t => t.id === activeTabId);
+    if (currentTab?.isPrivate || activeTabType === 'private') {
+      return; // DO NOT record history in Incognito / Private mode
+    }
+
     setHistory(prev => {
-      // Bỏ trùng lặp gần nhất
       if (prev.length > 0 && prev[0].url === url) return prev;
-      const updated = [{ url, title: title || url, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 100);
-      localStorage.setItem('browserHistory', JSON.stringify(updated));
+      let domain = '';
+      try { domain = new URL(url).hostname; } catch {}
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateStr = now.toLocaleDateString('vi-VN');
+      const updated = [
+        {
+          id: Date.now() + Math.random().toString(36).slice(2, 6),
+          url,
+          title: title || domain || url,
+          time: timeStr,
+          date: dateStr,
+          domain
+        },
+        ...prev
+      ].slice(0, 200);
+      try {
+        localStorage.setItem('browserHistory', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // Web Bookmarks management (⭐️ Dấu trang)
+  const [webBookmarks, setWebBookmarks] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('__tienhiep_web_bookmarks') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [isBookmarksModalOpen, setIsBookmarksModalOpen] = useState(false);
+
+  const toggleBookmark = (url, title = '') => {
+    if (!url || url === 'about:newtab' || url === 'about:blank') return;
+    setWebBookmarks(prev => {
+      const exists = prev.some(b => b.url === url);
+      let updated;
+      if (exists) {
+        updated = prev.filter(b => b.url !== url);
+      } else {
+        let domain = '';
+        try { domain = new URL(url).hostname; } catch {}
+        updated = [
+          {
+            id: Date.now().toString(),
+            url,
+            title: title || domain || url,
+            domain,
+            createdAt: Date.now()
+          },
+          ...prev
+        ];
+      }
+      try {
+        localStorage.setItem('__tienhiep_web_bookmarks', JSON.stringify(updated));
+      } catch(e) {}
+      return updated;
+    });
+  };
+
+  const deleteBookmark = (idOrUrl) => {
+    setWebBookmarks(prev => {
+      const updated = prev.filter(b => b.id !== idOrUrl && b.url !== idOrUrl);
+      try {
+        localStorage.setItem('__tienhiep_web_bookmarks', JSON.stringify(updated));
+      } catch(e) {}
       return updated;
     });
   };
   
   const autoStatesRef = React.useRef({});
   const autoAudioStatesRef = React.useRef({});
+  const audioExtractRetriesRef = React.useRef({});
   const scriptContentRef = React.useRef(createTranslateScript(false));
+  const proxyHtmlCacheRef = React.useRef(new Map());
+  const activeProxyServerRef = React.useRef(null);
 
   const activeHost = React.useMemo(() => {
     try {
@@ -171,7 +441,10 @@ export const BrowserProvider = ({ children }) => {
     if (!url) return false;
     if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('10.0.2.2')) return false;
     if (url.startsWith('about:')) return false;
-    if (isCapacitor) return true; // Proxy everything on mobile to bypass CSP / X-Frame-Options inside iframe
+    if (isCapacitor) {
+      // On mobile: mọi trang web mở trong in-app browser đều qua proxy để gỡ X-Frame-Options/CSP & tiêm công cụ dịch/TTS
+      return true;
+    }
     try {
       const hostname = new URL(url).hostname.toLowerCase();
       return PROXY_DOMAINS.some(d => hostname.includes(d));
@@ -183,39 +456,61 @@ export const BrowserProvider = ({ children }) => {
     if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('10.0.2.2')) {
       return url;
     }
-    // Only proxy novel sites — everything else navigates directly
     if (!shouldUseProxy(url)) return url;
-    return `${host}/api/iframe_proxy?url=${encodeURIComponent(url)}`;
+    return `${host}/api/iframe_proxy?url=${encodeURIComponent(url)}&desktop=${isDesktopMode ? 1 : 0}`;
   };
 
-  const openInBrowser = (url) => {
+  const openInBrowser = async (url, options = {}) => {
     if (!url) return;
+
+    // Tự động chuyển YouTube sang bản Mobile m.youtube.com để tương thích tốt nhất trên điện thoại
+    if (url.includes('youtube.com') && !url.includes('m.youtube.com')) {
+      url = url.replace('www.youtube.com', 'm.youtube.com').replace('https://youtube.com', 'https://m.youtube.com');
+    }
+
     // On Web (not running in Electron or native Capacitor app), open directly in a new browser tab
     if (!window.electron && !isCapacitor) {
       window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
 
+    const isPrivate = options.isPrivate ?? (activeTabType === 'private');
     const newId = Date.now().toString();
+    const isNewTab = url === 'about:newtab';
+    const initialTitle = isNewTab ? (isPrivate ? 'Tab ẩn danh mới' : 'Tab mới') : 'Đang tải...';
+
     setTabs(prev => [...prev, {
       id: newId,
       url,
       initialUrl: url,
-      title: 'Đang tải...',
+      title: initialTitle,
+      isPrivate,
       history: [url],
       historyIndex: 0
     }]);
     setActiveTabId(newId);
     setIsVisible(true);
-    addToHistory(url);
-    // On Capacitor, fetch proxy content for novel sites via fetch() instead of iframe src
-    if (isCapacitor && shouldUseProxy(url)) {
-      // Use setTimeout to allow state update before fetch (fetchProxyContent needs tabId registered)
+    if (!isPrivate && !isNewTab) {
+      addToHistory(url, initialTitle);
+    }
+    // On Capacitor, fetch proxy content via fetch() instead of iframe src
+    if (isCapacitor && shouldUseProxy(url) && !isNewTab) {
       setTimeout(() => fetchProxyContent(newId, url), 100);
     }
   };
 
-  const navigateTabToUrl = (tabId, targetUrl) => {
+  const navigateTabToUrl = async (tabId, targetUrl) => {
+    if (!targetUrl) return;
+
+    if (targetUrl.includes('youtube.com') && !targetUrl.includes('m.youtube.com')) {
+      targetUrl = targetUrl.replace('www.youtube.com', 'm.youtube.com').replace('https://youtube.com', 'https://m.youtube.com');
+    }
+
+    if (tabId === activeTabId) {
+      setUrlInput(targetUrl === 'about:newtab' ? '' : targetUrl);
+    }
+    addToHistory(targetUrl, targetUrl);
+
     setTabs(prev => prev.map(t => {
       if (t.id !== tabId) return t;
       if (t.url === targetUrl) return t;
@@ -231,51 +526,144 @@ export const BrowserProvider = ({ children }) => {
       };
     }));
     // If this is a novel proxy site on Capacitor, trigger fetch
-    if (isCapacitor && shouldUseProxy(targetUrl)) {
+    if (isCapacitor && shouldUseProxy(targetUrl) && targetUrl !== 'about:newtab') {
       fetchProxyContent(tabId, targetUrl);
     }
   };
 
-  // Fetch proxy HTML content for Capacitor (thử 127.0.0.1:5051 [adb reverse] -> 10.0.2.2:5051 [emulator] -> Cloud API)
-  const fetchProxyContent = React.useCallback(async (tabId, url) => {
+  // Fetch proxy HTML content for Capacitor with cache, candidate priority, and reliable timeouts
+  const fetchProxyContent = React.useCallback(async (tabId, url, forceRefresh = false) => {
     if (!url || !shouldUseProxy(url)) return;
 
-    const proxyCandidates = [
-      `http://127.0.0.1:5051/api/iframe_proxy?url=${encodeURIComponent(url)}`,
-      `http://10.0.2.2:5051/api/iframe_proxy?url=${encodeURIComponent(url)}`,
-      `https://cong123779-tienhiep-api.hf.space/api/iframe_proxy?url=${encodeURIComponent(url)}`
-    ];
+    const cacheKey = `${url}_${isDesktopMode ? 'dt' : 'mb'}`;
 
-    setTabProxyContent(prev => ({ ...prev, [tabId]: { html: null, loading: true, error: null } }));
+    // 1. Kiểm tra cache frontend (TTL 5 phút)
+    if (!forceRefresh) {
+      const cached = proxyHtmlCacheRef.current.get(cacheKey);
+      if (cached && (Date.now() - cached.time < 300000)) {
+        setTabProxyContent(prev => ({ ...prev, [tabId]: { html: cached.html, loading: false, error: null } }));
+        const titleMatch = cached.html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        if (titleMatch) {
+          setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title: cleanNovelTabTitle(titleMatch[1].trim()) } : t));
+        }
+        return;
+      }
+    }
+
+    // Khi tải mới hoặc F5: nếu là forceRefresh thì giữ nguyên nội dung html cũ để màn hình không bị chớp trắng
+    setTabProxyContent(prev => ({
+      ...prev,
+      [tabId]: {
+        html: forceRefresh ? (prev[tabId]?.html || null) : (prev[tabId]?.html || null),
+        loading: true,
+        error: null
+      }
+    }));
+
+    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> local adb reverse -> local emulator -> cloud HF
+    const baseCandidates = [
+      'http://127.0.0.1:5051',
+      'http://10.0.2.2:5051',
+      'https://cong123779-tienhiep-api.hf.space'
+    ];
+    const orderedServers = [];
+    if (activeProxyServerRef.current && baseCandidates.includes(activeProxyServerRef.current)) {
+      orderedServers.push(activeProxyServerRef.current);
+    }
+    for (const s of baseCandidates) {
+      if (!orderedServers.includes(s)) orderedServers.push(s);
+    }
 
     let html = null;
     let lastError = null;
 
-    for (const pUrl of proxyCandidates) {
+    for (const server of orderedServers) {
+      const pUrl = `${server}/api/iframe_proxy?url=${encodeURIComponent(url)}&desktop=${isDesktopMode ? 1 : 0}`;
       try {
-        const timeoutMs = pUrl.includes('hf.space') ? 10000 : 2500;
+        // Local: 18s timeout (backend crawl timeout là 16s), Cloud: 25s timeout
+        const isCloud = server.includes('hf.space');
+        const timeoutMs = isCloud ? 25000 : 18000;
         const res = await fetch(pUrl, { signal: AbortSignal.timeout(timeoutMs) });
         if (res.ok) {
-          html = await res.text();
-          lastError = null;
-          break;
+          const text = await res.text();
+          if (text && text.length > 50) {
+            html = text;
+            activeProxyServerRef.current = server;
+            lastError = null;
+            break;
+          }
+        } else {
+          lastError = new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
       } catch (err) {
         lastError = err;
+        console.warn(`[ProxyFetch] Server ${server} failed:`, err?.message || err);
       }
     }
 
     if (html) {
+      // Lưu cache frontend (giữ tối đa 60 trang)
+      proxyHtmlCacheRef.current.set(cacheKey, { html, time: Date.now() });
+      if (proxyHtmlCacheRef.current.size > 60) {
+        const firstKey = proxyHtmlCacheRef.current.keys().next().value;
+        proxyHtmlCacheRef.current.delete(firstKey);
+      }
+
+      tabProxyContentRef.current[tabId] = { html, loading: false, error: null };
       setTabProxyContent(prev => ({ ...prev, [tabId]: { html, loading: false, error: null } }));
-      // Update tab title from HTML
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       if (titleMatch) {
-        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title: titleMatch[1].trim() } : t));
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title: cleanNovelTabTitle(titleMatch[1].trim()) } : t));
       }
+
+      // Nạp trực tiếp nội dung vào iframe qua DOMParser (Loại bỏ lỗi màn hình trắng và lỗi reset vô tận của srcdoc trên Android)
+      [0, 50, 150, 350, 800].forEach(delay => {
+        setTimeout(() => {
+          const el = document.getElementById('global-wv-' + tabId);
+          if (el && el.contentDocument) {
+            const doc = el.contentDocument;
+            if (doc.documentElement) {
+              doc.documentElement.style.backgroundColor = '#121214';
+            }
+            if (el.__renderedHtmlHash === html && doc.body && doc.body.children.length > 0) return;
+            try {
+              const parser = new DOMParser();
+              const parsed = parser.parseFromString(html, 'text/html');
+              if (parsed) {
+                if (parsed.head) doc.head.innerHTML = parsed.head.innerHTML;
+                if (parsed.body) {
+                  doc.body.innerHTML = parsed.body.innerHTML;
+                  if (parsed.body.className) doc.body.className = parsed.body.className;
+                  if (parsed.body.getAttribute('style')) doc.body.setAttribute('style', parsed.body.getAttribute('style'));
+                }
+                if (parsed.title) doc.title = parsed.title;
+              }
+              el.__renderedHtmlHash = html;
+              handleIframeLoaded(tabId, el);
+            } catch(e) {}
+          }
+        }, delay);
+      });
     } else {
-      setTabProxyContent(prev => ({ ...prev, [tabId]: { html: null, loading: false, error: lastError?.message || 'Failed to fetch' } }));
+      let friendlyError = 'Không thể tải trang truyện từ nguồn này.';
+      const errMsg = String(lastError?.message || lastError || '');
+      if (lastError?.name === 'TimeoutError' || errMsg.includes('timed out') || errMsg.includes('timeout')) {
+        friendlyError = 'Trang nguồn phản hồi quá chậm (Timeout). Vui lòng thử lại.';
+      } else if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
+        friendlyError = 'Không thể kết nối máy chủ Proxy. Vui lòng kiểm tra mạng.';
+      } else if (errMsg) {
+        friendlyError = errMsg;
+      }
+      setTabProxyContent(prev => ({
+        ...prev,
+        [tabId]: {
+          html: prev[tabId]?.html || null,
+          loading: false,
+          error: friendlyError
+        }
+      }));
     }
-  }, []);  // eslint-disable-line
+  }, [shouldUseProxy, isDesktopMode]);
 
   const handleAddressSubmit = (e) => {
     if (e) e.preventDefault();
@@ -360,8 +748,8 @@ export const BrowserProvider = ({ children }) => {
     if (wv && wv.tagName.toLowerCase() === 'webview') {
       wv.reload();
     } else if (isCapacitor && shouldUseProxy(currentUrl)) {
-      // Re-fetch proxy content
-      fetchProxyContent(activeTabId, currentUrl);
+      // Re-fetch proxy content (force fresh fetch)
+      fetchProxyContent(activeTabId, currentUrl, true);
     } else if (wv) {
       const currentSrc = wv.src;
       wv.src = '';
@@ -379,13 +767,66 @@ export const BrowserProvider = ({ children }) => {
   }, [activeTabId, activeTab?.url]);
 
   const closeTab = (tabId, e) => {
-    if (e) e.stopPropagation();
+    if (e) {
+      try { e.preventDefault(); e.stopPropagation(); } catch(err) {}
+    }
     const newTabs = tabs.filter(t => t.id !== tabId);
+    if (newTabs.length === 0) {
+      const newTabId = 'tab_' + Date.now();
+      const freshTab = {
+        id: newTabId,
+        url: 'about:newtab',
+        initialUrl: 'about:newtab',
+        title: 'Tab mới',
+        isPrivate: activeTabType === 'private',
+        history: ['about:newtab'],
+        historyIndex: 0
+      };
+      setTabs([freshTab]);
+      setActiveTabId(newTabId);
+      setUrlInput('');
+      return;
+    }
     setTabs(newTabs);
-    if (activeTabId === tabId && newTabs.length > 0) {
-      setActiveTabId(newTabs[newTabs.length - 1].id);
-    } else if (newTabs.length === 0) {
-      setActiveTabId(null);
+    if (activeTabId === tabId) {
+      const closedIndex = tabs.findIndex(t => t.id === tabId);
+      const nextTab = newTabs[Math.min(closedIndex, newTabs.length - 1)] || newTabs[0];
+      setActiveTabId(nextTab.id);
+      setUrlInput(nextTab.url === 'about:newtab' ? '' : (nextTab.url || ''));
+    }
+  };
+
+  const closeOtherTabs = (keepTabId) => {
+    const keepTab = tabs.find(t => t.id === keepTabId) || tabs[0];
+    if (keepTab) {
+      setTabs([keepTab]);
+      setActiveTabId(keepTab.id);
+      setUrlInput(keepTab.url === 'about:newtab' ? '' : (keepTab.url || ''));
+    }
+  };
+
+  const translateAllTabTitles = async () => {
+    const titlesToTranslate = [];
+    const tabIndices = [];
+    tabs.forEach((t) => {
+      if (t.title && /[\u4e00-\u9fa5]/.test(t.title)) {
+        titlesToTranslate.push(cleanNovelTabTitle(t.title));
+        tabIndices.push(t.id);
+      }
+    });
+    if (titlesToTranslate.length > 0) {
+      try {
+        const results = await executeTranslate(titlesToTranslate, 'vietphrase');
+        if (results && results.length === titlesToTranslate.length) {
+          setTabs(prev => prev.map(t => {
+            const idx = tabIndices.indexOf(t.id);
+            if (idx !== -1 && results[idx]) {
+              return { ...t, title: cleanNovelTabTitle(results[idx]) };
+            }
+            return t;
+          }));
+        }
+      } catch(e) {}
     }
   };
 
@@ -422,14 +863,44 @@ export const BrowserProvider = ({ children }) => {
       const iframe = document.getElementById('global-wv-' + tabId);
       if (!iframe) return;
 
+      // Helper gửi message an toàn — tránh crash khi iframe.contentWindow = null
+      const send = (msg) => {
+        const el = document.getElementById('global-wv-' + tabId);
+        if (el && el.contentWindow) {
+          try { el.contentWindow.postMessage(msg, '*'); } catch(e) {}
+        }
+      };
+      const sendAfter = (msg, ms) => setTimeout(() => send(msg), ms);
+
       if (data.type === 'IFRAME_READY' || data.type === 'PAGE_LOADED') {
+        // Phục hồi body ngay lập tức nếu Android WebView bị lỗi trắng trang không parse srcdoc
+        try {
+          const ifr = document.getElementById('global-wv-' + tabId);
+          if (ifr && ifr.contentDocument) {
+            const doc = ifr.contentDocument;
+            if (!doc.body || doc.body.children.length === 0 || (doc.body.innerText || '').trim().length === 0) {
+              const rawHtml = tabProxyContentRef.current[tabId]?.html || tabProxyContent[tabId]?.html || ifr.getAttribute('srcdoc') || ifr.srcdoc || '';
+              if (rawHtml && rawHtml.length > 50) {
+                const parser = new DOMParser();
+                const parsedDoc = parser.parseFromString(rawHtml, 'text/html');
+                if (parsedDoc && parsedDoc.body && (parsedDoc.body.innerHTML || '').trim().length > 0) {
+                  doc.body.innerHTML = parsedDoc.body.innerHTML;
+                  if (parsedDoc.body.className) doc.body.className = parsedDoc.body.className;
+                  if (parsedDoc.body.getAttribute('style')) doc.body.setAttribute('style', parsedDoc.body.getAttribute('style'));
+                  console.log(`[BrowserContext IPC] Phục hồi body thành công khi IFRAME_READY cho tab ${tabId}`);
+                }
+              }
+            }
+          }
+        } catch(e) {}
+
         let realUrl = data.url;
-        if (realUrl === 'about:srcdoc') {
-          // Keep current tab URL to prevent overwriting with about:srcdoc
+        const isLocalHost = !realUrl || realUrl === 'about:srcdoc' || realUrl.includes('localhost') || realUrl.includes('127.0.0.1') || realUrl.includes('10.0.2.2');
+        if (isLocalHost) {
+          // Giữ nguyên URL truyện thực sự của tab, không bao giờ ghi đè bằng localhost của app
           const existingTab = tabs.find(t => t.id === tabId);
           realUrl = existingTab ? existingTab.url : null;
-        }
-        if (realUrl && realUrl.includes('iframe_proxy')) {
+        } else if (realUrl && realUrl.includes('iframe_proxy')) {
           try {
             const urlObj = new URL(realUrl);
             const decodedUrl = urlObj.searchParams.get('url');
@@ -437,23 +908,58 @@ export const BrowserProvider = ({ children }) => {
           } catch (e) {}
         }
 
-        // Update tab URL and title
-        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, url: realUrl || t.url, title: data.title || t.title || 'Đã tải' } : t));
-        if (realUrl && realUrl !== 'about:srcdoc') addToHistory(realUrl);
+        // Update tab URL and title (làm sạch và tự dịch sang Tiếng Việt nếu còn chữ Hán)
+        const rawTitle = data.title || 'Đã tải';
+        const initialCleanTitle = cleanNovelTabTitle(rawTitle);
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, url: realUrl || t.url, title: initialCleanTitle } : t));
+        if (realUrl && !realUrl.includes('localhost') && realUrl !== 'about:srcdoc') addToHistory(realUrl);
+
+        if (/[\u4e00-\u9fa5]/.test(initialCleanTitle)) {
+          const capTabId = tabId;
+          executeTranslate([initialCleanTitle], 'vietphrase').then(trans => {
+            if (trans && trans[0]) {
+              const viTitle = cleanNovelTabTitle(trans[0]);
+              setTabs(prev => prev.map(t => t.id === capTabId ? { ...t, title: viTitle } : t));
+            }
+          }).catch(() => {});
+        }
         
         // Inject translation script to iframe
         const script = scriptContentRef.current;
-        if (script && iframe && iframe.contentWindow) {
-          iframe.contentWindow.postMessage({ action: 'INJECT_SCRIPT', script }, '*');
+        if (script) send({ action: 'INJECT_SCRIPT', script });
+
+        // Auto translate trigger if enabled (kiểm tra cả ref tab và localStorage)
+        const isEnabled = autoStatesRef.current[tabId] || autoAudioStatesRef.current[tabId] || (localStorage.getItem('__tienhiep_auto_translate_active') === 'true');
+        if (isEnabled) {
+          autoStatesRef.current[tabId] = true;
+          setAutoStates(prev => ({ ...prev, [tabId]: true }));
+          sendAfter({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, 80);
+          sendAfter({ action: 'FORCE_TRANSLATE' }, 300);
         }
 
-        // Auto translate trigger if enabled
-        const isEnabled = autoStatesRef.current[tabId] || false;
-        if (isEnabled && iframe && iframe.contentWindow) {
-          setTimeout(() => {
-            iframe.contentWindow.postMessage({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, '*');
-          }, 100);
+        // Tap-to-Read: Gán data-tts-idx sau khi trang render xong
+        sendAfter({ action: 'EXEC_HELPER', fn: 'indexParagraphsForTTS', args: [] }, 600);
+
+        // Auto TTS: Nếu tab này đang bật Audio TTS HOẶC AudioPlayer đang mở trên tab này, tự động trích xuất nội dung chương mới để phát tiếp
+        if (autoAudioStatesRef.current[tabId] || (activeAudioObjRef.current && (!activeAudioObjRef.current.tabId || activeAudioObjRef.current.tabId === tabId))) {
+          autoAudioStatesRef.current[tabId] = true;
+          audioExtractRetriesRef.current[tabId] = 0;
+          showToast("📖 Đang tải nội dung chương mới...", "info");
+          sendAfter({ action: 'EXTRACT_TEXT' }, 800);
         }
+      }
+
+      if (data.type === 'NEXT_CHAPTER_FOUND') {
+        showToast("📖 Đã tìm thấy nút chương tiếp. Đang chuyển trang...", "info");
+      }
+
+      if (data.type === 'NEXT_CHAPTER_NOT_FOUND') {
+        showToast("⚠️ Không tìm thấy nút chuyển chương tự động. Vui lòng bật Tâm Ngắm 🎯 để chỉ định nút cho truyện này!", "warning");
+      }
+
+      if (data.type === 'LAST_CHAPTER_REACHED') {
+        autoAudioStatesRef.current[tabId] = false;
+        showToast("🎉 Bạn đã đọc/nghe đến chương mới nhất của truyện này! Hãy chờ tác giả ra chương mới.", "info");
       }
 
       if (data.type === 'NAVIGATE_REQ') {
@@ -510,30 +1016,46 @@ export const BrowserProvider = ({ children }) => {
           }
 
           // Send back translations to iframe
-          iframe.contentWindow.postMessage({ action: 'TRANSLATE_RES', id: reqId, translations }, '*');
+          send({ action: 'TRANSLATE_RES', id: reqId, translations });
+          if (event.source && typeof event.source.postMessage === 'function') {
+            try { event.source.postMessage({ action: 'TRANSLATE_RES', id: reqId, translations }, '*'); } catch(e) {}
+          }
+          const iframeEl = document.getElementById('global-wv-' + tabId);
+          if (iframeEl && iframeEl.contentWindow && typeof iframeEl.contentWindow.__receiveTranslations === 'function') {
+            try { iframeEl.contentWindow.__receiveTranslations(reqId, translations); } catch(e) {}
+          }
         } catch (err) {
           console.error("Iframe IPC Translate Error:", err);
           const fallbackId = data.id !== undefined ? data.id : (data.payload ? data.payload.id : null);
-          iframe.contentWindow.postMessage({ action: 'TRANSLATE_RES', id: fallbackId, translations: [] }, '*');
+          send({ action: 'TRANSLATE_RES', id: fallbackId, translations: [] });
+          if (event.source && typeof event.source.postMessage === 'function') {
+            try { event.source.postMessage({ action: 'TRANSLATE_RES', id: fallbackId, translations: [] }, '*'); } catch(e) {}
+          }
+          const iframeEl = document.getElementById('global-wv-' + tabId);
+          if (iframeEl && iframeEl.contentWindow && typeof iframeEl.contentWindow.__receiveTranslations === 'function') {
+            try { iframeEl.contentWindow.__receiveTranslations(fallbackId, []); } catch(e) {}
+          }
         }
       }
 
+      if (data.type === 'TITLE_UPDATED' && data.title) {
+        const viTitle = cleanNovelTabTitle(data.title);
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title: viTitle } : t));
+      }
+
       if (data.type === 'TRANSLATION_COMPLETE') {
+        if (data.title) {
+          const viTitle = cleanNovelTabTitle(data.title);
+          setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title: viTitle } : t));
+        }
         if (autoAudioStatesRef.current[tabId]) {
+          const capturedTabId = tabId;
           setTimeout(() => {
-            if (autoAudioStatesRef.current[tabId]) {
-              // Trigger activeAudioObj
-              setActiveAudioObj({ 
-                tabId: tabId, 
-                title_vietphrase: data.title || 'Chương truyện', 
-                title: data.title || 'Chương truyện', 
-                description: data.text || '', 
-                isChapter: true,
-                onBoundary: (charIdx, sentenceText) => {
-                  iframe.contentWindow.postMessage({ action: 'TTS_BOUNDARY', charIdx, sentenceText }, '*');
-                }
-              });
-              iframe.contentWindow.postMessage({ action: 'SET_TTS_PLAYING', playing: true }, '*');
+            if (autoAudioStatesRef.current[capturedTabId]) {
+              const el = document.getElementById('global-wv-' + capturedTabId);
+              if (el && el.contentWindow) {
+                try { el.contentWindow.postMessage({ action: 'EXTRACT_TEXT' }, '*'); } catch(e) {}
+              }
             }
           }, 300);
         }
@@ -548,22 +1070,191 @@ export const BrowserProvider = ({ children }) => {
         }
       }
 
+      if (data.type === 'CONTENT_AREA_SAVED') {
+        const { selector, host } = data;
+        showToast(`📌 Đã lưu vùng đọc theo cây DOM: "${selector}" cho ${host || 'trang này'}!`, 'info');
+      }
+
       if (data.type === 'AUDIO_TEXT_RES') {
-        if (data.text && data.text.length > 50) {
-          setActiveAudioObj({ 
+        const textLen = (data.text || '').trim().length;
+        if (data.error === "NOT_CHAPTER_PAGE" || textLen < 30) {
+          const currentRetries = (audioExtractRetriesRef.current[tabId] || 0) + 1;
+          audioExtractRetriesRef.current[tabId] = currentRetries;
+
+          if (currentRetries <= 6) {
+            console.log(`[Auto TTS] Nội dung chương chưa sẵn sàng (lần ${currentRetries}/6), đang phục hồi DOM và thử lại...`);
+            // Phục hồi body iframe nếu Android WebView bị rỗng do parse srcdoc
+            const iframeEl = document.getElementById('global-wv-' + tabId);
+            if (iframeEl && iframeEl.contentDocument) {
+              try {
+                const doc = iframeEl.contentDocument;
+                if (!doc.body || doc.body.children.length === 0 || (doc.body.innerText || '').trim().length === 0) {
+                  const rawHtml = tabProxyContentRef.current[tabId]?.html || tabProxyContent[tabId]?.html || iframeEl.getAttribute('srcdoc') || iframeEl.srcdoc || '';
+                  if (rawHtml && rawHtml.length > 50) {
+                    const parser = new DOMParser();
+                    const parsed = parser.parseFromString(rawHtml, 'text/html');
+                    if (parsed && parsed.body && (parsed.body.innerHTML || '').trim().length > 0) {
+                      doc.body.innerHTML = parsed.body.innerHTML;
+                      if (parsed.body.className) doc.body.className = parsed.body.className;
+                      if (parsed.body.getAttribute('style')) doc.body.setAttribute('style', parsed.body.getAttribute('style'));
+                      console.log(`[Auto TTS Retry] Phục hồi body thành công cho tab ${tabId}`);
+                    }
+                  }
+                }
+              } catch(e) {}
+            }
+
+            setTimeout(() => {
+              if (autoAudioStatesRef.current[tabId]) {
+                const el = document.getElementById('global-wv-' + tabId);
+                if (el && el.contentWindow) {
+                  try { el.contentWindow.postMessage({ action: 'EXTRACT_TEXT' }, '*'); } catch(e) {}
+                }
+              }
+            }, 750);
+            return;
+          }
+
+          autoAudioStatesRef.current[tabId] = false;
+          audioExtractRetriesRef.current[tabId] = 0;
+          console.warn("[Auto TTS] Trang hiện tại không tìm thấy vùng nội dung chương truyện theo cây HTML sau 6 lần thử:", data);
+          showToast('⚠️ Không tìm thấy nội dung chương truyện theo cây HTML. Vui lòng mở chương đọc hoặc dùng Tâm Ngắm 🎯 để chỉ định vùng đọc!', 'warning');
+          return;
+        }
+
+        if (data.text && data.text.length > 30) {
+          // Kiểm tra xem nội dung đã dịch sang tiếng Việt chưa (tránh đọc tiếng Trung khi trang mới chuyển chương)
+          if (autoStatesRef.current[tabId]) {
+            const chineseMatches = data.text.match(/[\u4e00-\u9fa5]/g) || [];
+            const chineseRatio = chineseMatches.length / data.text.length;
+            if (chineseRatio > 0.15) {
+              const currentRetries = (audioExtractRetriesRef.current[tabId] || 0) + 1;
+              audioExtractRetriesRef.current[tabId] = currentRetries;
+              if (currentRetries <= 10) {
+                console.log(`[Auto TTS] Nội dung đang dịch (${Math.round(chineseRatio * 100)}% chữ Hán), chờ hoàn tất lần ${currentRetries}/10...`);
+                if (currentRetries === 1) {
+                  showToast("⏳ Đang chờ dịch chương mới sang tiếng Việt...", "info");
+                }
+                setTimeout(() => {
+                  if (autoAudioStatesRef.current[tabId]) {
+                    send({ action: 'EXTRACT_TEXT' });
+                  }
+                }, 1000);
+                return;
+              }
+            }
+          }
+
+          audioExtractRetriesRef.current[tabId] = 0;
+          const capturedTabId = tabId;
+          // Tách đoạn văn — hỗ trợ cả \n\n thực và literal \n
+          const paragraphsList = (data.text || '')
+            .split(/\n\n|\\n\\n/)
+            .map(p => p.trim())
+            .filter(p => p.length > 0);
+          const safeSendAudio = (msg) => {
+            const el = document.getElementById('global-wv-' + capturedTabId);
+            if (el && el.contentWindow) try { el.contentWindow.postMessage(msg, '*'); } catch(e) {}
+          };
+
+          const targetStartIdx = targetStartSentenceIdxRef.current[capturedTabId];
+          delete targetStartSentenceIdxRef.current[capturedTabId];
+          const targetSnippet = targetStartSnippetRef.current[capturedTabId];
+          delete targetStartSnippetRef.current[capturedTabId];
+
+          // Ánh xạ vị trí đọc chính xác theo chuỗi snippet của đoạn được chỉ định
+          let calculatedStartSentenceIdx = 0;
+          if (targetSnippet && paragraphsList.length > 0) {
+            const cleanTarget = targetSnippet.replace(/^["“'‘\s]+|["”'’\s]+$/g, '').slice(0, 30).toLowerCase();
+            const matchedParaIdx = paragraphsList.findIndex(p => {
+              const cleanP = p.toLowerCase();
+              return cleanP.includes(cleanTarget) || cleanTarget.includes(cleanP.slice(0, 20));
+            });
+            if (matchedParaIdx !== -1) {
+              calculatedStartSentenceIdx = matchedParaIdx + (data.title ? 1 : 0);
+            }
+          }
+          if (calculatedStartSentenceIdx === 0 && typeof targetStartIdx === 'number' && !isNaN(targetStartIdx)) {
+            calculatedStartSentenceIdx = targetStartIdx + (data.title ? 1 : 0);
+          }
+          const startSentenceIdx = calculatedStartSentenceIdx;
+
+          const titleOffset = data.title ? (data.title.trim().length + 3) : 0;
+
+          const audioObjForTab = { 
             title_vietphrase: data.title || 'Chương truyện', 
             author_hanviet: "Trang Web Nhúng", 
             description: data.text, 
             isChapter: true,
-            tabId: tabId,
-            onBoundary: (charIdx, sentenceText) => {
-              iframe.contentWindow.postMessage({ action: 'TTS_BOUNDARY', charIdx, sentenceText }, '*');
+            tabId: capturedTabId,
+            paragraphs: paragraphsList,
+            startSnippet: targetSnippet,
+            startParaIdx: targetStartIdx,
+            startSentenceIdx: startSentenceIdx,
+            onBoundary: (charIdx, sentenceText, sentenceId) => {
+              safeSendAudio({ action: 'TTS_BOUNDARY', charIdx, sentenceText, sentenceId });
+              safeSendAudio({ action: 'HIGHLIGHT_SENTENCE', sentenceText, sentenceId });
             }
-          });
-          iframe.contentWindow.postMessage({ action: 'SET_TTS_PLAYING', playing: true }, '*');
+          };
+          if (data.title) {
+            const viTitle = cleanNovelTabTitle(data.title);
+            setTabs(prev => prev.map(t => t.id === capturedTabId ? { ...t, title: viTitle } : t));
+          }
+          setActiveAudioObj(audioObjForTab);
+          send({ action: 'SET_TTS_PLAYING', playing: true });
         } else {
+          // Thử lại nếu đang bật Auto Audio hoặc Audio Player đang mở (trang web đang tải hoặc đang dịch)
+          const isAudioActive = autoAudioStatesRef.current[tabId] || (activeAudioObjRef.current && (!activeAudioObjRef.current.tabId || activeAudioObjRef.current.tabId === tabId));
+          if (isAudioActive) {
+            autoAudioStatesRef.current[tabId] = true;
+            const currentRetries = (audioExtractRetriesRef.current[tabId] || 0) + 1;
+            audioExtractRetriesRef.current[tabId] = currentRetries;
+            if (currentRetries <= 8) {
+              console.log(`[Auto TTS] Nội dung chưa sẵn sàng (${data.text ? data.text.length : 0} ký tự), thử lại lần ${currentRetries}/8 sau 1000ms...`);
+              setTimeout(() => {
+                if (autoAudioStatesRef.current[tabId] || activeAudioObjRef.current) {
+                  send({ action: 'EXTRACT_TEXT' });
+                }
+              }, 1000);
+              return;
+            }
+            // Sau 8 lần vẫn không có chữ: Cảnh báo chi tiết cho người dùng
+            showToast("⚠️ Không trích xuất được nội dung chương mới. Vui lòng kiểm tra lại trang web.", "warning");
+          }
           autoAudioStatesRef.current[tabId] = false;
-          alert("Không đủ chữ để đọc hoặc trang web chưa được dịch xong. Hãy đợi một chút và thử lại.");
+          console.warn("[Auto TTS] Không đủ chữ để đọc sau các lần thử lại.");
+        }
+      }
+
+      // ── Tap-to-Read & Chỉ định đoạn đọc từ Tâm Ngắm ──
+      if (data.type === 'TAP_PARAGRAPH' || data.type === 'START_TTS_FROM_PARAGRAPH') {
+        const paraIdx = data.paraIdx;
+        const sentenceSnippet = data.sentenceText || '';
+        if (typeof paraIdx !== 'number' || isNaN(paraIdx)) return;
+        const capturedTabIdTap = tabId;
+        targetStartSentenceIdxRef.current[capturedTabIdTap] = paraIdx;
+        targetStartSnippetRef.current[capturedTabIdTap] = sentenceSnippet;
+
+        const safeSendTap = (msg) => {
+          const el = document.getElementById('global-wv-' + capturedTabIdTap);
+          if (el && el.contentWindow) try { el.contentWindow.postMessage(msg, '*'); } catch(e) {}
+        };
+        // Highlight đoạn được tap ngay lập tức trong webview
+        safeSendTap({ action: 'EXEC_HELPER', fn: 'highlightActiveParagraph', args: [paraIdx] });
+
+        // Nếu AudioPlayer đang mở, phát sự kiện seek tới câu/đoạn tương ứng kèm snippet
+        if (activeAudioObjRef.current) {
+          window.dispatchEvent(new CustomEvent('global-tts-seek', {
+            detail: { 
+              sentenceIdx: paraIdx,
+              paraIdx: paraIdx,
+              sentenceSnippet: sentenceSnippet
+            }
+          }));
+        } else {
+          // Nếu AudioPlayer chưa mở, kích hoạt Auto Audio để trích xuất và đọc từ đoạn đó
+          autoAudioStatesRef.current[tabId] = true;
+          safeSendTap({ action: 'EXTRACT_TEXT' });
         }
       }
     };
@@ -1190,9 +1881,10 @@ export const BrowserProvider = ({ children }) => {
           setActiveTabId(newId);
         });
         wv.addEventListener('page-title-updated', (e) => {
-          setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, title: e.title } : t));
+          const cleanedTitle = cleanNovelTabTitle(e.title);
+          setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, title: cleanedTitle } : t));
           setHistory(prev => {
-            const updated = prev.map(item => item.url === wv.src ? { ...item, title: e.title } : item);
+            const updated = prev.map(item => item.url === wv.src ? { ...item, title: cleanedTitle } : item);
             localStorage.setItem('browserHistory', JSON.stringify(updated));
             return updated;
           });
@@ -1379,6 +2071,160 @@ export const BrowserProvider = ({ children }) => {
     }
   }, [activeTabId]);
 
+  const handleIframeLoaded = React.useCallback((tabId, iframeEl) => {
+    if (!iframeEl) return;
+    try {
+      const doc = iframeEl.contentDocument;
+      const win = iframeEl.contentWindow;
+      if (!doc || !win) return;
+
+      // BẢO VỆ CHỐNG LỖI MÀN HÌNH TRẮNG TRÊN ANDROID WEBVIEW:
+      // Thuộc tính srcdoc trên Android WebView thường xuyên bị lỗi không parse phần body của HTML truyện dài / ký tự tiếng Trung
+      // Nếu doc.body bị rỗng hoặc bị cắt cụt (truncated), lập tức dùng DOMParser để nạp lại đầy đủ nội dung vào doc.body!
+      try {
+        const rawHtml = tabProxyContentRef.current[tabId]?.html || tabProxyContent[tabId]?.html || iframeEl.getAttribute('srcdoc') || iframeEl.srcdoc || '';
+        if (rawHtml && rawHtml.length > 50) {
+          try {
+            const parser = new DOMParser();
+            const parsedDoc = parser.parseFromString(rawHtml, 'text/html');
+            if (parsedDoc && parsedDoc.body && (parsedDoc.body.innerHTML || '').trim().length > 0) {
+              const parsedLen = (parsedDoc.body.innerHTML || '').length;
+              const currentLen = (doc.body ? doc.body.innerHTML || '' : '').length;
+              if (!doc.body || doc.body.children.length === 0 || currentLen < parsedLen * 0.7) {
+                if (parsedDoc.head && (!doc.head || doc.head.children.length === 0)) {
+                  doc.head.innerHTML = parsedDoc.head.innerHTML;
+                }
+                doc.body.innerHTML = parsedDoc.body.innerHTML;
+                if (parsedDoc.body.className) doc.body.className = parsedDoc.body.className;
+                if (parsedDoc.body.getAttribute('style')) doc.body.setAttribute('style', parsedDoc.body.getAttribute('style'));
+                console.log(`[BrowserContext] Phục hồi body thành công cho tab ${tabId} (${doc.body.children.length} elements)`);
+              }
+            }
+          } catch(e) {
+            console.warn('[BrowserContext] DOMParser error:', e);
+          }
+        }
+      } catch(recoverErr) {
+        console.warn('[BrowserContext] Lỗi phục hồi body iframe:', recoverErr);
+      }
+
+      console.log(`[BrowserContext] Iframe loaded for tab ${tabId}. Direct injecting scripts...`);
+
+      const targetTab = tabs.find(t => t.id === tabId);
+      if (targetTab && targetTab.url) {
+        win.__originalUrl = targetTab.url;
+      }
+
+      // 1. Inject script dịch thuật & TienHiepHelpers trực tiếp vào DOM iframe
+      const scriptCode = scriptContentRef.current || createTranslateScript(false);
+      try {
+        const existingScript = doc.getElementById('__tienhiep_injected_script');
+        if (existingScript) existingScript.remove();
+      } catch(e) {}
+
+      try {
+        const scriptTag = doc.createElement('script');
+        scriptTag.id = '__tienhiep_injected_script';
+        scriptTag.textContent = scriptCode;
+        (doc.head || doc.body || doc.documentElement).appendChild(scriptTag);
+      } catch(e) {
+        console.warn('appendChild script tag failed:', e);
+      }
+
+      // CHẠY TRỰC TIẾP QUA win.eval ĐỂ ĐẢM BẢO CHẮC CHẮN SCRIPT ĐƯỢC THỰC THI NGAY
+      try {
+        win.eval(scriptCode);
+      } catch(e) {
+        console.warn('Direct win.eval scriptCode error:', e);
+      }
+
+      // 2. Cập nhật tiêu đề tab
+      const rawTitle = doc.title || 'Đã tải';
+      const cleanTitle = cleanNovelTabTitle(rawTitle);
+      setTabs(prev => {
+        const target = prev.find(t => t.id === tabId);
+        if (target && target.title === cleanTitle) return prev;
+        return prev.map(t => t.id === tabId ? { ...t, title: cleanTitle } : t);
+      });
+
+      // 3. Phân đoạn TTS
+      setTimeout(() => {
+        try {
+          if (win.__TienHiepHelpers && typeof win.__TienHiepHelpers.indexParagraphsForTTS === 'function') {
+            win.__TienHiepHelpers.indexParagraphsForTTS();
+          }
+        } catch(e) {}
+      }, 300);
+
+      // 4. Tự động kích hoạt dịch thuật nếu tab bật HOẶC đã lưu tự động dịch trong localStorage
+      const isAutoTranslate = autoStatesRef.current[tabId] || (localStorage.getItem('__tienhiep_auto_translate_active') === 'true');
+      if (isAutoTranslate) {
+        autoStatesRef.current[tabId] = true;
+        setAutoStates(prev => ({ ...prev, [tabId]: true }));
+        setTimeout(() => {
+          try {
+            if (typeof win.toggleAutoTranslate === 'function') {
+              win.toggleAutoTranslate(true);
+            }
+            if (typeof win.__collectAndTranslateNodes === 'function') {
+              win.__collectAndTranslateNodes(doc.body || doc.documentElement);
+            }
+          } catch(e) {}
+        }, 150);
+      }
+
+      // 5. Nếu tab đang phát Audio TTS, tự động nạp chương mới để đọc tiếp
+      if (autoAudioStatesRef.current[tabId] || (activeAudioObjRef.current && (!activeAudioObjRef.current.tabId || activeAudioObjRef.current.tabId === tabId))) {
+        autoAudioStatesRef.current[tabId] = true;
+        audioExtractRetriesRef.current[tabId] = 0;
+        setTimeout(() => {
+          try {
+            if (win.parent && win.parent !== win) {
+              win.postMessage({ action: 'EXTRACT_TEXT' }, '*');
+            }
+          } catch(e) {}
+        }, 800);
+      }
+    } catch(err) {
+      console.warn(`[BrowserContext] Direct iframe inject error for tab ${tabId}:`, err);
+    }
+  }, [setTabs, setAutoStates]);
+
+  const ensureIframeRendered = React.useCallback((tabId, iframeEl) => {
+    if (!iframeEl) return;
+    try {
+      const doc = iframeEl.contentDocument;
+      if (!doc) return;
+      
+      // Ngăn ngừa chớp màn hình trắng bằng việc áp dụng background tối
+      if (doc.documentElement) {
+        doc.documentElement.style.backgroundColor = '#121214';
+      }
+
+      const rawHtml = tabProxyContentRef.current[tabId]?.html || tabProxyContent[tabId]?.html || '';
+      if (!rawHtml || rawHtml.length < 50) return;
+      if (iframeEl.__renderedHtmlHash === rawHtml && doc.body && doc.body.children.length > 0) return;
+
+      try {
+        const parser = new DOMParser();
+        const parsedDoc = parser.parseFromString(rawHtml, 'text/html');
+        if (parsedDoc) {
+          if (parsedDoc.head) doc.head.innerHTML = parsedDoc.head.innerHTML;
+          if (parsedDoc.body) {
+            doc.body.innerHTML = parsedDoc.body.innerHTML;
+            if (parsedDoc.body.className) doc.body.className = parsedDoc.body.className;
+            if (parsedDoc.body.getAttribute('style')) doc.body.setAttribute('style', parsedDoc.body.getAttribute('style'));
+          }
+          if (parsedDoc.title) doc.title = parsedDoc.title;
+        }
+        iframeEl.__renderedHtmlHash = rawHtml;
+        handleIframeLoaded(tabId, iframeEl);
+      } catch(e) {}
+    } catch(e) {
+      console.warn('[BrowserContext] ensureIframeRendered error:', e);
+    }
+  }, [handleIframeLoaded, tabProxyContent]);
+
   // Lắng nghe F5 / Ctrl+R từ Electron để chỉ reload riêng webview hiện tại
   useEffect(() => {
     if (window.electron && typeof window.electron.onActiveTabReload === 'function') {
@@ -1393,6 +2239,47 @@ export const BrowserProvider = ({ children }) => {
       return unsub;
     }
   }, [activeTabId]);
+
+  // Đảm bảo nội dung body của iframe luôn được hiển thị (Chống lỗi màn hình trắng của Android WebView)
+  useEffect(() => {
+    if (!isCapacitor) return;
+    const checkAndFixIframes = () => {
+      tabs.forEach(tab => {
+        const rawHtml = tabProxyContentRef.current[tab.id]?.html || tabProxyContent[tab.id]?.html;
+        if (rawHtml) {
+          const iframe = document.getElementById('global-wv-' + tab.id);
+          if (iframe && iframe.contentDocument) {
+            const doc = iframe.contentDocument;
+            if (doc.documentElement) {
+              doc.documentElement.style.backgroundColor = '#121214';
+            }
+            if (iframe.__renderedHtmlHash === rawHtml && doc.body && doc.body.children.length > 0) {
+              return;
+            }
+            try {
+              const parser = new DOMParser();
+              const parsedDoc = parser.parseFromString(rawHtml, 'text/html');
+              if (parsedDoc) {
+                if (parsedDoc.head) doc.head.innerHTML = parsedDoc.head.innerHTML;
+                if (parsedDoc.body) {
+                  doc.body.innerHTML = parsedDoc.body.innerHTML;
+                  if (parsedDoc.body.className) doc.body.className = parsedDoc.body.className;
+                  if (parsedDoc.body.getAttribute('style')) doc.body.setAttribute('style', parsedDoc.body.getAttribute('style'));
+                }
+                if (parsedDoc.title) doc.title = parsedDoc.title;
+              }
+              iframe.__renderedHtmlHash = rawHtml;
+              handleIframeLoaded(tab.id, iframe);
+            } catch(e2) {}
+          }
+        }
+      });
+    };
+
+    checkAndFixIframes();
+    const interval = setInterval(checkAndFixIframes, 1000);
+    return () => clearInterval(interval);
+  }, [tabProxyContent, tabs, isCapacitor, handleIframeLoaded]);
 
   const togglePin = (toolId) => {
     setPinnedTools(prev => {
@@ -1434,14 +2321,25 @@ export const BrowserProvider = ({ children }) => {
         }
         setAutoStates(prev => ({ ...prev, [tabId]: newState }));
         
-        if (isIframe) {
+        if (isIframe && wv.contentWindow) {
           const script = scriptContentRef.current || createTranslateScript(false);
+          try {
+            if (!wv.contentWindow.__TienHiepHelpers && script) {
+              wv.contentWindow.eval(script);
+            }
+            if (typeof wv.contentWindow.toggleAutoTranslate === 'function') {
+              wv.contentWindow.toggleAutoTranslate(newState);
+            }
+            if (newState && typeof wv.contentWindow.__collectAndTranslateNodes === 'function') {
+              wv.contentWindow.__collectAndTranslateNodes(wv.contentDocument ? (wv.contentDocument.body || wv.contentDocument.documentElement) : null);
+            }
+          } catch(e) {
+            console.warn('[handleTool translate] Direct eval/call error:', e);
+          }
           if (script) {
             wv.contentWindow.postMessage({ action: 'INJECT_SCRIPT', script }, '*');
           }
-          setTimeout(() => {
-            wv.contentWindow.postMessage({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: newState }, '*');
-          }, 100);
+          wv.contentWindow.postMessage({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: newState }, '*');
         } else {
           if (newState) {
             await translateWebviewPage(wv);
@@ -1452,25 +2350,45 @@ export const BrowserProvider = ({ children }) => {
       }
 
       else if (action === 'audio') {
+        if (activeAudioObj) {
+          console.log("[Audio] Người dùng bấm tắt TTS khi đang phát.");
+          setActiveAudioObj(null);
+          autoAudioStatesRef.current[tabId] = false;
+          if (isIframe && wv.contentWindow) {
+            wv.contentWindow.postMessage({ action: 'SET_TTS_PLAYING', playing: false }, '*');
+          } else {
+            wv.executeJavaScript(`window.isTtsPlaying = false;`).catch(() => {});
+          }
+          return;
+        }
+
         autoAudioStatesRef.current[tabId] = true;
-        if (isIframe) {
+        if (isIframe && wv.contentWindow) {
           const script = scriptContentRef.current || createTranslateScript(false);
-          if (script && wv.contentWindow) {
+          try {
+            if (!wv.contentWindow.__TienHiepHelpers && script) {
+              wv.contentWindow.eval(script);
+            }
+          } catch(e) {}
+          if (script) {
             wv.contentWindow.postMessage({ action: 'INJECT_SCRIPT', script }, '*');
           }
           if (!autoStates[tabId]) {
             autoStatesRef.current[tabId] = true;
             localStorage.setItem('__tienhiep_auto_translate_active', 'true');
             setAutoStates(prev => ({ ...prev, [tabId]: true }));
-            if (wv.contentWindow) {
-              wv.contentWindow.postMessage({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, '*');
-            }
+            try {
+              if (typeof wv.contentWindow.toggleAutoTranslate === 'function') {
+                wv.contentWindow.toggleAutoTranslate(true);
+              }
+            } catch(e) {}
+            wv.contentWindow.postMessage({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, '*');
           }
           setTimeout(() => {
             if (wv.contentWindow) {
               wv.contentWindow.postMessage({ action: 'EXTRACT_TEXT' }, '*');
             }
-          }, 300);
+          }, 150);
         } else {
           // Nếu trang web chưa được kích hoạt dịch, tự động dịch trang trước để có nội dung tiếng Việt
           if (!autoStates[tabId]) {
@@ -1484,6 +2402,13 @@ export const BrowserProvider = ({ children }) => {
           const result = await wv.executeJavaScript(`
             (window.__TienHiepHelpers ? window.__TienHiepHelpers.extractCleanChapterText() : { title: document.title, text: document.body.innerText })
           `);
+
+          if (result && result.error === "NOT_CHAPTER_PAGE") {
+            autoAudioStatesRef.current[tabId] = false;
+            console.warn("[Audio] Trang hiện tại không phải là chương truyện theo cây HTML:", result);
+            showToast('⚠️ Không tìm thấy nội dung chương truyện theo cây HTML. Vui lòng mở một chương truyện cụ thể hoặc dùng Tâm Ngắm 🎯 để chỉ định vùng đọc!', 'warning');
+            return;
+          }
 
           if (result && result.text && result.text.length > 50) {
              setActiveAudioObj({ 
@@ -1538,7 +2463,14 @@ export const BrowserProvider = ({ children }) => {
         }
 
         if (isIframe) {
-          wv.contentWindow.postMessage({ action: 'TRIGGER_NEXT' }, '*');
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.checkAndTriggerAutoNext === 'function') {
+              wv.contentWindow.__TienHiepHelpers.checkAndTriggerAutoNext(true, 0);
+            }
+          } catch(e) {}
+          if (wv.contentWindow) {
+            try { wv.contentWindow.postMessage({ action: 'TRIGGER_NEXT' }, '*'); } catch(e) {}
+          }
         } else {
           const script = scriptContentRef.current || createTranslateScript(false);
           await wv.executeJavaScript(script).catch(() => {});
@@ -1555,7 +2487,16 @@ export const BrowserProvider = ({ children }) => {
           autoAudioStatesRef.current[tabId] = true;
         }
 
-        if (!isIframe) {
+        if (isIframe) {
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.checkAndTriggerAutoNext === 'function') {
+              wv.contentWindow.__TienHiepHelpers.checkAndTriggerAutoNext(true, delay);
+            }
+          } catch(e) {}
+          if (wv.contentWindow) {
+            try { wv.contentWindow.postMessage({ action: 'TRIGGER_NEXT', delay }, '*'); } catch(e) {}
+          }
+        } else {
           const script = scriptContentRef.current || createTranslateScript(false);
           await wv.executeJavaScript(script).catch(() => {});
           await wv.executeJavaScript(`if (window.__TienHiepHelpers) window.__TienHiepHelpers.checkAndTriggerAutoNext(true, ${delay});`);
@@ -1568,7 +2509,14 @@ export const BrowserProvider = ({ children }) => {
         setAutoStates(prev => ({ ...prev, [tabId]: true }));
 
         if (isIframe) {
-          wv.contentWindow.postMessage({ action: 'TRIGGER_PREV' }, '*');
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.checkAndTriggerAutoPrev === 'function') {
+              wv.contentWindow.__TienHiepHelpers.checkAndTriggerAutoPrev();
+            }
+          } catch(e) {}
+          if (wv.contentWindow) {
+            try { wv.contentWindow.postMessage({ action: 'TRIGGER_PREV' }, '*'); } catch(e) {}
+          }
         } else {
           const script = scriptContentRef.current || createTranslateScript(false);
           await wv.executeJavaScript(script).catch(() => {});
@@ -1728,7 +2676,35 @@ export const BrowserProvider = ({ children }) => {
       }
       else if (action === 'teach_next') {
         if (isIframe) {
-          wv.contentWindow.postMessage({ action: 'TEACH_NEXT' }, '*');
+          const script = createTranslateScript(false);
+          // 1. Thử inject & gọi trực tiếp trên contentWindow
+          try {
+            if (wv.contentWindow) {
+              if (!wv.contentWindow.__TienHiepHelpers && script) {
+                if (typeof wv.contentWindow.eval === 'function') {
+                  wv.contentWindow.eval(script);
+                } else if (wv.contentDocument) {
+                  const s = wv.contentDocument.createElement('script');
+                  s.textContent = script;
+                  (wv.contentDocument.head || wv.contentDocument.documentElement).appendChild(s);
+                }
+              }
+              if (wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.startTeachNextMode === 'function') {
+                wv.contentWindow.__TienHiepHelpers.startTeachNextMode();
+              }
+            }
+          } catch(e) {
+            console.warn('[teach_next] direct call error:', e);
+          }
+          // 2. Đồng thời gửi qua postMessage IPC để đảm bảo mọi loại iframe đều nhận được
+          if (script && wv.contentWindow) {
+            try { wv.contentWindow.postMessage({ action: 'INJECT_SCRIPT', script }, '*'); } catch(e) {}
+          }
+          setTimeout(() => {
+            if (wv.contentWindow) {
+              try { wv.contentWindow.postMessage({ action: 'TEACH_NEXT' }, '*'); } catch(e) {}
+            }
+          }, 80);
         } else {
           try {
             // Luôn cập nhật script mới nhất để không dùng code cũ trong bộ nhớ đệm webview
@@ -1741,7 +2717,17 @@ export const BrowserProvider = ({ children }) => {
         }
       }
       else if (action === 'get_next_rule') {
-        if (!isIframe) {
+        if (isIframe) {
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.getNovelKeys === 'function') {
+              const keys = wv.contentWindow.__TienHiepHelpers.getNovelKeys();
+              const rule = wv.contentWindow.__TienHiepHelpers.getSavedNextRule();
+              const history = typeof wv.contentWindow.__TienHiepHelpers.getSavedNextRules === 'function' ? wv.contentWindow.__TienHiepHelpers.getSavedNextRules() : (rule ? [rule] : []);
+              return { ...keys, rule, history };
+            }
+          } catch(e) {}
+          return { host: '', novelKey: '', rule: null, history: [], url: '' };
+        } else {
           return await wv.executeJavaScript(`
             (() => {
               if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.getNovelKeys === 'function') {
@@ -1756,7 +2742,14 @@ export const BrowserProvider = ({ children }) => {
         }
       }
       else if (action === 'save_next_rule') {
-        if (!isIframe) {
+        if (isIframe) {
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.saveNextRule === 'function') {
+              return wv.contentWindow.__TienHiepHelpers.saveNextRule(payload);
+            }
+          } catch(e) {}
+          return false;
+        } else {
           return await wv.executeJavaScript(`
             (() => {
               if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.saveNextRule === 'function') {
@@ -1768,7 +2761,14 @@ export const BrowserProvider = ({ children }) => {
         }
       }
       else if (action === 'select_next_rule') {
-        if (!isIframe) {
+        if (isIframe) {
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.selectNextRule === 'function') {
+              return wv.contentWindow.__TienHiepHelpers.selectNextRule(payload?.ruleId);
+            }
+          } catch(e) {}
+          return false;
+        } else {
           return await wv.executeJavaScript(`
             (() => {
               if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.selectNextRule === 'function') {
@@ -1780,7 +2780,14 @@ export const BrowserProvider = ({ children }) => {
         }
       }
       else if (action === 'delete_next_rule') {
-        if (!isIframe) {
+        if (isIframe) {
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.deleteNextRule === 'function') {
+              return wv.contentWindow.__TienHiepHelpers.deleteNextRule(payload?.ruleId || null);
+            }
+          } catch(e) {}
+          return false;
+        } else {
           return await wv.executeJavaScript(`
             (() => {
               if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.deleteNextRule === 'function') {
@@ -1792,7 +2799,14 @@ export const BrowserProvider = ({ children }) => {
         }
       }
       else if (action === 'clear_all_next_rules') {
-        if (!isIframe) {
+        if (isIframe) {
+          try {
+            if (wv.contentWindow && wv.contentWindow.__TienHiepHelpers && typeof wv.contentWindow.__TienHiepHelpers.clearAllNextRules === 'function') {
+              return wv.contentWindow.__TienHiepHelpers.clearAllNextRules();
+            }
+          } catch(e) {}
+          return false;
+        } else {
           return await wv.executeJavaScript(`
             (() => {
               if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.clearAllNextRules === 'function') {
@@ -2290,7 +3304,19 @@ export const BrowserProvider = ({ children }) => {
       isVisible: isNativeApp ? isVisible : false,
       setIsVisible: (val) => { if (isNativeApp) setIsVisible(val); },
       activeAudioObj,
-      setActiveAudioObj
+      setActiveAudioObj,
+      history,
+      clearBrowserHistory: () => {
+        setHistory([]);
+        try { localStorage.removeItem('browserHistory'); } catch {}
+      },
+      deleteBrowserHistoryItem: (id) => {
+        setHistory(prev => {
+          const updated = prev.filter(item => item.id !== id);
+          try { localStorage.setItem('browserHistory', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
     }}>
       {children}
       {tabs.length > 0 && isNativeApp && isVisible && (
@@ -2301,51 +3327,48 @@ export const BrowserProvider = ({ children }) => {
           {/* ═══ TOP NAVIGATION BAR ═══ */}
           <div className="flex flex-col bg-gradient-to-b from-[#0f0c24] to-[#110e26] border-b border-indigo-500/20 shadow-xl">
 
-            {/* Row 1: Safari Header - Nav controls + Search Capsule with Quick Actions + Close */}
-            <div className="flex items-center gap-1.5 px-2.5 py-2">
+            {/* Row 1: Chrome Mobile Header — Clean, Spacious & Non-crowded */}
+            <div className="flex items-center gap-2 px-2.5 py-2">
               {/* Home */}
               <button
                 onClick={() => setIsVisible(false)}
-                className="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-all shrink-0 active:scale-95"
+                className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-all shrink-0 active:scale-95"
                 title="Về trang chủ"
               >
                 <Home className="w-4 h-4" />
               </button>
 
-              {/* Back / Forward */}
+              {/* Back button (Only shown when can go back, keeping header clean) */}
               {(() => {
                 const activeTab = tabs.find(t => t.id === activeTabId);
                 const canGoBack = isElectron ? true : (activeTab?.historyIndex > 0);
-                const canGoForward = isElectron ? true : (activeTab?.history && activeTab.historyIndex < activeTab.history.length - 1);
-                
+                if (!canGoBack) return null;
                 return (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      onClick={handleGoBack}
-                      disabled={!canGoBack}
-                      className={`p-1.5 rounded-full transition-all ${canGoBack ? 'hover:bg-white/10 text-slate-300 hover:text-white active:scale-95' : 'text-slate-600 cursor-not-allowed opacity-30'}`}
-                      title="Quay lại"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleGoForward}
-                      disabled={!canGoForward}
-                      className={`p-1.5 rounded-full transition-all ${canGoForward ? 'hover:bg-white/10 text-slate-300 hover:text-white active:scale-95' : 'text-slate-600 cursor-not-allowed opacity-30'}`}
-                      title="Tiến tới"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleGoBack}
+                    className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-all shrink-0 active:scale-95"
+                    title="Quay lại"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
                 );
               })()}
 
-              {/* Safari Integrated Search Capsule - Tối ưu độ tương phản cao cho chế độ tối */}
+              {/* Chrome Omnibox / Search Capsule — Takes all remaining width (flex-1 min-w-0) */}
               <form
-                className="flex-1 min-w-0 flex items-center gap-2 bg-[#1c1936] hover:bg-[#231f45] border border-indigo-500/40 focus-within:border-indigo-400 focus-within:bg-[#231f45] focus-within:ring-2 focus-within:ring-indigo-500/30 rounded-full px-3 py-1.5 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
+                className={`flex-1 min-w-0 flex items-center gap-2 rounded-full px-3 py-1.5 transition-all shadow-inner border ${
+                  activeTabType === 'private'
+                    ? 'bg-[#181528] border-purple-500/40 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-500/25'
+                    : 'bg-[#1c1936] hover:bg-[#231f45] border-indigo-500/30 focus-within:border-indigo-400 focus-within:bg-[#231f45] focus-within:ring-2 focus-within:ring-indigo-500/25'
+                }`}
                 onSubmit={handleAddressSubmit}
               >
-                <Globe className="w-4 h-4 text-indigo-400 shrink-0" />
+                {activeTabType === 'private' ? (
+                  <Shield className="w-3.5 h-3.5 text-purple-400 shrink-0" title="Tab Ẩn danh" />
+                ) : (
+                  <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                )}
+
                 <input
                   type="text"
                   value={urlInput}
@@ -2355,141 +3378,182 @@ export const BrowserProvider = ({ children }) => {
                     if (activeTab && !urlInput) setUrlInput(activeTab.url || '');
                     e.target.select();
                   }}
-                  placeholder="Nhập địa chỉ web hoặc tìm kiếm..."
-                  className="flex-1 bg-transparent text-[13px] font-medium text-white placeholder-slate-400 outline-none min-w-0 selection:bg-indigo-600 selection:text-white"
+                  placeholder={activeTabType === 'private' ? "Tìm kiếm ẩn danh hoặc nhập URL..." : "Tìm kiếm hoặc nhập URL..."}
+                  className="flex-1 bg-transparent text-xs sm:text-[13px] font-medium text-white placeholder-slate-400 outline-none min-w-0 selection:bg-indigo-600 selection:text-white"
                 />
-                
-                {/* Reload inside capsule */}
-                <button
-                  type="button"
-                  onClick={handleReload}
-                  className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-                  title="Tải lại"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
+
+                {/* AI / Audio status indicators inside Omnibox */}
+                {autoStates[activeTabId] && (
+                  <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shrink-0" title="Đang dịch tự động" />
+                )}
+                {activeAudioObj && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" title="Đang phát giọng đọc TTS" />
+                )}
+
+                {/* Reload or Clear inside capsule */}
+                {urlInput && urlInput !== (tabs.find(t => t.id === activeTabId)?.url || '') ? (
+                  <button
+                    type="button"
+                    onClick={() => setUrlInput('')}
+                    className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                    title="Xóa chữ"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleReload}
+                    className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                    title="Tải lại trang"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                )}
               </form>
 
-              {/* Quick Action Group on Header (Safari Extensions style) */}
-              <div className="flex items-center gap-1.5 shrink-0 bg-white/10 p-1 rounded-full border border-white/10 shadow-sm">
-                {/* ═══ NHÓM 1: AI DỊCH THUẬT & ĐỌC GIỌNG NÓI ═══ */}
-                <div className="flex items-center gap-1">
-                  {/* Dịch / Auto Dịch */}
-                  <button
-                    onClick={() => handleTool('translate', activeTabId)}
-                    className={`px-2 py-1 rounded-full transition-all flex items-center gap-1 text-[11px] font-bold active:scale-95 ${
-                      autoStates[activeTabId]
-                        ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-[0_0_12px_rgba(217,70,239,0.7)]'
-                        : 'bg-white/5 hover:bg-white/15 text-fuchsia-300 hover:text-white'
-                    }`}
-                    title={autoStates[activeTabId] ? 'Đang Auto Dịch (Bấm để tắt)' : 'Dịch trang / Bật Auto Dịch'}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-fuchsia-300" />
-                    <span className="hidden md:inline">{autoStates[activeTabId] ? 'Đang Dịch' : 'Dịch'}</span>
-                  </button>
-
-                  {/* Nghe Audio TTS */}
-                  <button
-                    onClick={() => handleTool('audio', activeTabId)}
-                    className={`px-2 py-1 rounded-full transition-all flex items-center gap-1 text-[11px] font-bold active:scale-95 ${
-                      activeAudioObj
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.7)]'
-                        : 'bg-white/5 hover:bg-white/15 text-amber-300 hover:text-white'
-                    }`}
-                    title="Nghe đọc giọng AI (TTS)"
-                  >
-                    <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="hidden md:inline">{activeAudioObj ? 'Đang Đọc' : 'Đọc AI'}</span>
-                  </button>
-                </div>
-
-                {/* Vạch phân chia */}
-                <div className="h-4 w-px bg-white/15 mx-0.5 shrink-0" />
-
-                {/* ═══ NHÓM 2: BÓNG TỐI, CHẶN QUẢNG CÁO & CÀI ĐẶT TOÀN CỤC ═══ */}
-                <div className="flex items-center gap-1">
-                  {/* Bật/Tắt chế độ tối (Bóng tối) */}
-                  <button
-                    onClick={() => handleTool('dark_mode', activeTabId)}
-                    className={`p-1.5 rounded-full transition-all flex items-center justify-center active:scale-90 ${
-                      darkModeActive
-                        ? 'bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
-                        : 'text-slate-400 hover:text-amber-200 hover:bg-white/10'
-                    }`}
-                    title={darkModeActive ? 'Chế độ tối: Đang BẬT (Bấm để chuyển chế độ sáng)' : 'Bật chế độ tối (Bóng tối)'}
-                  >
-                    <Moon className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Cố định chức năng Tắt Quảng Cáo tự hiện linh tinh */}
-                  <button
-                    onClick={() => handleTool('clean_ads', activeTabId)}
-                    className={`p-1.5 rounded-full transition-all flex items-center justify-center active:scale-90 ${
-                      cleanAdsActive
-                        ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
-                        : 'text-slate-400 hover:text-emerald-300 hover:bg-white/10'
-                    }`}
-                    title={cleanAdsActive ? 'Chặn quảng cáo & Pop-up tự hiện: Đang BẬT (Bấm để tắt)' : 'Bật chặn quảng cáo & Pop-up tự hiện'}
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Cài đặt công cụ Tools */}
-                  <button
-                    onClick={() => setIsTranslationSettingsOpen(true)}
-                    className="p-1.5 rounded-full text-indigo-400 hover:text-indigo-200 hover:bg-indigo-500/20 transition-all flex items-center justify-center active:scale-90"
-                    title="Bảng điều khiển & Cài đặt công cụ"
-                  >
-                    <Settings2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+              {/* Desktop-only quick action extensions (hidden on mobile) */}
+              <div className="hidden lg:flex items-center gap-1 shrink-0 bg-white/5 p-1 rounded-full border border-white/10 shadow-sm">
+                <button
+                  onClick={() => handleTool('translate', activeTabId)}
+                  className={`px-2 py-1 rounded-full transition-all flex items-center gap-1 text-[11px] font-bold active:scale-95 ${
+                    autoStates[activeTabId]
+                      ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-[0_0_12px_rgba(217,70,239,0.7)]'
+                      : 'bg-white/5 hover:bg-white/15 text-fuchsia-300 hover:text-white'
+                  }`}
+                  title="Dịch trang"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Dịch</span>
+                </button>
+                <button
+                  onClick={() => handleTool('audio', activeTabId)}
+                  className={`px-2 py-1 rounded-full transition-all flex items-center gap-1 text-[11px] font-bold active:scale-95 ${
+                    activeAudioObj
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.7)]'
+                      : 'bg-white/5 hover:bg-white/15 text-amber-300 hover:text-white'
+                  }`}
+                  title="Nghe Audio TTS"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span>Đọc AI</span>
+                </button>
+                <button
+                  onClick={() => handleTool('dark_mode', activeTabId)}
+                  className={`p-1.5 rounded-full transition-all flex items-center justify-center active:scale-90 ${
+                    darkModeActive ? 'bg-amber-500/25 text-amber-300' : 'text-slate-400 hover:text-amber-200'
+                  }`}
+                  title="Chế độ tối"
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleTool('clean_ads', activeTabId)}
+                  className={`p-1.5 rounded-full transition-all flex items-center justify-center active:scale-90 ${
+                    cleanAdsActive ? 'bg-emerald-500/25 text-emerald-300' : 'text-slate-400 hover:text-emerald-300'
+                  }`}
+                  title="Chặn quảng cáo"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setIsTranslationSettingsOpen(true)}
+                  className="p-1.5 rounded-full text-indigo-400 hover:text-indigo-200 hover:bg-indigo-500/20 transition-all flex items-center justify-center active:scale-90"
+                  title="Cài đặt công cụ"
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              {/* Close Browser */}
+              {/* Tab Switcher Button (Chrome Mobile style badge) */}
               <button
-                onClick={() => setIsVisible(false)}
-                className="p-1.5 rounded-full hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-all shrink-0 active:scale-95"
-                title="Đóng trình duyệt"
+                type="button"
+                onClick={() => setIsTabSwitcherOpen(true)}
+                className={`w-7 h-7 rounded-lg border text-[11px] font-bold transition-all shrink-0 active:scale-90 flex items-center justify-center shadow-sm ${
+                  activeTabType === 'private'
+                    ? 'border-purple-500/50 bg-purple-950/40 text-purple-200'
+                    : 'border-white/20 bg-white/10 hover:bg-white/15 text-white'
+                }`}
+                title="Quản lý Tab (Kiểu Chrome Mobile)"
               >
-                <X className="w-4 h-4" />
+                <span>{visibleTabs.length}</span>
+              </button>
+
+              {/* Chrome Mobile 3-Dots Menu Button */}
+              <button
+                type="button"
+                onClick={() => setIsChromeMenuOpen(!isChromeMenuOpen)}
+                className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-all shrink-0 active:scale-90"
+                title="Tùy chọn khác (Kiểu Chrome Mobile)"
+              >
+                <MoreVertical className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Row 2: Safari Tab Bar (Pill tabs + Add Tab) */}
-            <div className="flex items-center gap-1.5 px-2.5 pb-2 border-t border-white/5 pt-1 overflow-x-auto no-scrollbar">
-              {tabs.map(tab => (
-                <div
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTabId(tab.id);
-                    setUrlInput(tab.url || '');
-                  }}
-                  className={`group relative flex items-center gap-1.5 px-3 py-1 min-w-[90px] max-w-[160px] rounded-full cursor-pointer transition-all duration-200 border shrink-0 ${
-                    activeTabId === tab.id
-                      ? 'bg-indigo-600/30 text-indigo-100 border-indigo-400/40 shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
-                      : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 border-transparent'
-                  }`}
-                >
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === tab.id ? 'bg-indigo-400 animate-pulse' : 'bg-slate-600'}`} />
-                  <span className="truncate text-[11px] font-medium flex-1">{tab.title || tab.url}</span>
-                  <button
-                    type="button"
-                    onClick={e => closeTab(tab.id, e)}
-                    className="p-0.5 rounded-full hover:bg-white/20 text-slate-400 hover:text-white transition-all shrink-0 opacity-60 group-hover:opacity-100"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              ))}
+            {/* Row 2: Modern Mobile Tab Bar with Auto-Scroll & Easy Touch Targets */}
+            <div className={`relative flex items-center px-2 py-1.5 border-t transition-colors ${
+              activeTabType === 'private' ? 'border-purple-500/20 bg-[#16141e]' : 'border-white/5 bg-[#121216]'
+            }`}>
+              {/* Vùng cuộn các tab */}
+              <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth min-w-0 pr-1.5">
+                {visibleTabs.map(tab => {
+                  const isActive = activeTabId === tab.id;
+                  const isAudioPlaying = activeAudioObj && activeAudioObj.tabId === tab.id;
+                  return (
+                    <div
+                      key={tab.id}
+                      ref={el => { if (el) tabElementsRef.current[tab.id] = el; }}
+                      onClick={() => {
+                        setActiveTabId(tab.id);
+                        setUrlInput(tab.url === 'about:newtab' ? '' : (tab.url || ''));
+                      }}
+                      className={`group relative flex items-center gap-2 px-3.5 h-8.5 min-w-[105px] max-w-[200px] rounded-xl cursor-pointer transition-all duration-200 border shrink-0 select-none ${
+                        isActive
+                          ? tab.isPrivate
+                            ? 'bg-gradient-to-r from-purple-600/35 to-pink-600/25 text-purple-100 border-purple-400/60 shadow-[0_2px_12px_rgba(168,85,247,0.3)]'
+                            : 'bg-gradient-to-r from-indigo-600/35 to-purple-600/25 text-indigo-100 border-indigo-400/50 shadow-[0_2px_12px_rgba(99,102,241,0.25)]'
+                          : 'bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-200 border-white/5'
+                      }`}
+                    >
+                      <span className="text-xs shrink-0">
+                        {isAudioPlaying ? '🔊' : tab.isPrivate ? '🕶️' : tab.url === 'about:newtab' ? '✨' : '📖'}
+                      </span>
+                      <span className="truncate text-[11.5px] font-semibold flex-1 tracking-tight">
+                        {tab.url === 'about:newtab' ? (tab.isPrivate ? 'Tab ẩn danh' : 'Tab mới') : (tab.title || tab.url)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={e => closeTab(tab.id, e)}
+                        title="Đóng tab này"
+                        className="w-5.5 h-5.5 rounded-full hover:bg-white/20 active:scale-90 text-slate-400 hover:text-white transition-all flex items-center justify-center shrink-0 -mr-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
 
-              {/* Nút thêm tab mới kiểu Safari */}
-              <button
-                onClick={() => openInBrowser('https://www.google.com/')}
-                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-all shrink-0"
-                title="Mở tab mới"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
+              {/* Nhóm nút tiện ích ghim cố định góc phải */}
+              <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-white/10">
+                {/* Nút thêm tab mới */}
+                <button
+                  onClick={() => openNewTab(activeTabType === 'private')}
+                  className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.12] text-slate-300 hover:text-white border border-white/10 transition-all flex items-center justify-center shrink-0 active:scale-95 shadow-sm"
+                  title={activeTabType === 'private' ? 'Mở tab ẩn danh mới' : 'Mở tab mới'}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+
+                {/* Nút Cấu Hình & Quản Lý Tab */}
+                <button
+                  onClick={() => setIsTabConfigOpen(true)}
+                  className="w-8 h-8 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white border border-indigo-500/30 transition-all flex items-center justify-center shrink-0 active:scale-95 shadow-sm"
+                  title="Cấu hình & Quản lý Tab"
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2498,6 +3562,27 @@ export const BrowserProvider = ({ children }) => {
             {tabs.map(tab => {
               const isTabActive = activeTabId === tab.id;
               const isTransitioning = !!tabTransitioning[tab.id];
+              const rawUrl = tab.url || tab.initialUrl;
+              const isNewTab = rawUrl === 'about:newtab' || !rawUrl;
+
+              if (isNewTab) {
+                return (
+                  <div
+                    key={tab.id}
+                    className={isTabActive ? 'w-full h-full relative' : 'w-0 h-0 invisible absolute'}
+                  >
+                    <ChromeMobileNewTab
+                      isPrivate={tab.isPrivate}
+                      onNavigate={(url) => navigateTabToUrl(tab.id, url)}
+                      onTogglePrivate={() => {
+                        const targetMode = tab.isPrivate ? 'normal' : 'private';
+                        setActiveTabType(targetMode);
+                        openNewTab(targetMode === 'private');
+                      }}
+                    />
+                  </div>
+                );
+              }
 
               if (isElectron) {
                 return (
@@ -2527,7 +3612,6 @@ export const BrowserProvider = ({ children }) => {
                   </div>
                 );
               } else {
-                const rawUrl = tab.url || tab.initialUrl;
                 const isProxied = shouldUseProxy(rawUrl);
 
                 if (isCapacitor && isProxied) {
@@ -2545,33 +3629,57 @@ export const BrowserProvider = ({ children }) => {
                   return (
                     <div
                       key={tab.id}
-                      className={isTabActive ? 'w-full h-full relative bg-white' : 'w-0 h-0 invisible absolute'}
+                      className={isTabActive ? 'w-full h-full relative bg-[#121214]' : 'w-0 h-0 invisible absolute'}
                     >
-                      {isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                          <div className="text-center text-gray-500">
-                            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                            <p className="text-sm">Đang tải...</p>
+                      {/* Khi F5 và đã có sẵn nội dung: hiện thanh tiến trình mỏng phía trên cùng, không che mất nội dung */}
+                      {isLoading && srcdocHtml && (
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 z-30 animate-pulse shadow-sm" />
+                      )}
+
+                      {/* Khi tải trang mới chưa có nội dung: hiện màn hình loading Dark Mode êm dịu */}
+                      {isLoading && !srcdocHtml && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-[#121214] z-20">
+                          <div className="text-center text-slate-200 px-6 py-5 bg-[#1a1a22] rounded-2xl shadow-2xl border border-slate-700/50 flex flex-col items-center max-w-xs mx-auto animate-fade-in">
+                            <div className="w-9 h-9 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3" />
+                            <p className="text-sm font-semibold text-slate-100">Đang tải trang...</p>
+                            <p className="text-xs text-slate-400 mt-1">Đang tối ưu giao diện & chống quảng cáo</p>
                           </div>
                         </div>
                       )}
+
                       {proxyError && !srcdocHtml && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10 p-6">
-                          <div className="text-center text-red-500">
-                            <p className="font-bold mb-1">Không thể tải trang</p>
-                            <p className="text-sm text-gray-500">{proxyError}</p>
-                            <button
-                              onClick={() => fetchProxyContent(tab.id, rawUrl)}
-                              className="mt-3 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg"
-                            >Thử lại</button>
+                        <div className="absolute inset-0 flex items-center justify-center bg-[#121214] z-20 p-6">
+                          <div className="text-center bg-[#1a1a22] p-6 rounded-2xl shadow-2xl border border-slate-700/50 max-w-sm w-full mx-auto">
+                            <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3 border border-amber-500/20">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                            </div>
+                            <p className="font-semibold text-slate-100 text-base mb-1">Không thể tải trang</p>
+                            <p className="text-xs text-slate-400 mb-4 leading-relaxed">{proxyError}</p>
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                onClick={() => fetchProxyContent(tab.id, rawUrl, true)}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg transition-transform active:scale-95 flex items-center gap-1.5 mx-auto"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Thử lại ngay
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
                       <iframe
+                        key={tab.id}
                         id={`global-wv-${tab.id}`}
-                        srcDoc={srcdocHtml}
-                        className="w-full h-full border-none bg-white"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                        className="w-full h-full border-none bg-[#121214]"
+                        style={{ backgroundColor: '#121214', colorScheme: 'dark' }}
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                        allowFullScreen
+                        onLoad={(e) => ensureIframeRendered(tab.id, e.target)}
                       />
                     </div>
                   );
@@ -2584,11 +3692,14 @@ export const BrowserProvider = ({ children }) => {
                       key={tab.id}
                       id={`global-wv-${tab.id}`}
                       src={iframeSrc}
-                      className={isTabActive ? 'w-full h-full border-none bg-white' : 'w-0 h-0 invisible absolute'}
+                      className={isTabActive ? 'w-full h-full border-none bg-[#121214]' : 'w-0 h-0 invisible absolute'}
                       sandbox={isProxied
-                        ? 'allow-scripts allow-same-origin allow-forms allow-popups'
-                        : 'allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-top-navigation-by-user-activation'
+                        ? 'allow-scripts allow-same-origin allow-forms allow-presentation'
+                        : 'allow-scripts allow-same-origin allow-forms allow-top-navigation allow-top-navigation-by-user-activation allow-presentation'
                       }
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                      allowFullScreen
+                      onLoad={(e) => handleIframeLoaded(tab.id, e.target)}
                     />
                   );
                 }
@@ -2596,15 +3707,109 @@ export const BrowserProvider = ({ children }) => {
             })}
           </div>
 
-          {/* FLOATING READER QUICK TOOLS (TIỆN ÍCH ĐỌC THU GỌN) */}
-          <ReaderQuickTools
+          {/* FLOATING READER QUICK TOOLS (CHUYỂN CHƯƠNG & CHỈ ĐỊNH) */}
+          {!activeAudioObj && (
+            <ReaderQuickTools
+              onToolAction={(action, payload) => handleTool(action, activeTabId, payload)}
+            />
+          )}
+
+          {/* CHROME MOBILE TAB SWITCHER MODAL */}
+          <ChromeMobileTabSwitcher
+            isOpen={isTabSwitcherOpen}
+            onClose={() => setIsTabSwitcherOpen(false)}
+            tabs={tabs}
             activeTabId={activeTabId}
-            isAutoTranslate={autoStates[activeTabId]}
-            isAudioPlaying={!!activeAudioObj}
-            darkModeActive={darkModeActive}
-            cleanAdsActive={cleanAdsActive}
-            onToolAction={(action, payload) => handleTool(action, activeTabId, payload)}
+            onSelectTab={(id) => {
+              setActiveTabId(id);
+              const targetTab = tabs.find(t => t.id === id);
+              if (targetTab) {
+                setActiveTabType(targetTab.isPrivate ? 'private' : 'normal');
+              }
+            }}
+            onCloseTab={(id, e) => closeTab(id, e)}
+            onCloseAllTabs={closeAllTabs}
+            onNewTab={(isPrivate) => {
+              openNewTab(isPrivate);
+              setIsTabSwitcherOpen(false);
+            }}
+            activeTabType={activeTabType}
+            onToggleTabType={(type) => setActiveTabType(type)}
           />
+
+          {/* CHROME MOBILE 3-DOTS MENU */}
+          {(() => {
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            return (
+              <ChromeMobileMenu
+                isOpen={isChromeMenuOpen}
+                onClose={() => setIsChromeMenuOpen(false)}
+                onNewTab={(isPriv) => openNewTab(isPriv)}
+                isPrivate={activeTabType === 'private'}
+                onTogglePrivate={() => {
+                  const nextType = activeTabType === 'normal' ? 'private' : 'normal';
+                  setActiveTabType(nextType);
+                  openNewTab(nextType === 'private');
+                }}
+                onReload={handleReload}
+                onOpenHistory={() => {
+                  setIsVisible(false);
+                  window.location.hash = '#/history';
+                }}
+                isDesktopMode={isDesktopMode}
+                onToggleDesktopMode={() => {
+                  setIsDesktopMode(!isDesktopMode);
+                  handleReload();
+                }}
+                onOpenTabConfig={() => setIsTabConfigOpen(true)}
+                isAutoTranslate={autoStates[activeTabId]}
+                onToggleTranslate={() => handleTool('translate', activeTabId)}
+                isAudioPlaying={!!activeAudioObj}
+                onToggleAudio={() => handleTool('audio', activeTabId)}
+                cleanAdsActive={cleanAdsActive}
+                onToggleCleanAds={() => setCleanAdsActive(!cleanAdsActive)}
+                currentUrl={activeTab?.url || ''}
+                currentTitle={activeTab?.title || ''}
+                onOpenExternal={(url) => {
+                  if (isCapacitor) {
+                    openExternalNative(url);
+                  } else {
+                    window.open(url, '_blank');
+                  }
+                }}
+                isBookmarked={webBookmarks.some(b => b.url === (activeTab?.url || ''))}
+                onToggleBookmark={() => toggleBookmark(activeTab?.url, activeTab?.title)}
+                onOpenBookmarks={() => setIsBookmarksModalOpen(true)}
+                canGoBack={isElectron ? true : (activeTab?.historyIndex > 0)}
+                onGoBack={handleGoBack}
+                canGoForward={isElectron ? true : (activeTab?.history && activeTab.historyIndex < activeTab.history.length - 1)}
+                onGoForward={handleGoForward}
+              />
+            );
+          })()}
+
+          {/* CHROME MOBILE BOOKMARKS MODAL */}
+          {(() => {
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            return (
+              <ChromeMobileBookmarksModal
+                isOpen={isBookmarksModalOpen}
+                onClose={() => setIsBookmarksModalOpen(false)}
+                bookmarks={webBookmarks}
+                onSelectBookmark={(url) => {
+                  if (activeTabId) {
+                    navigateTabToUrl(activeTabId, url);
+                  } else {
+                    openInBrowser(url);
+                  }
+                }}
+                onDeleteBookmark={deleteBookmark}
+                onAddCurrentPage={() => toggleBookmark(activeTab?.url, activeTab?.title)}
+                currentUrl={activeTab?.url || ''}
+                currentTitle={activeTab?.title || ''}
+              />
+            );
+          })()}
 
           {/* TRANSLATION SETTINGS MODAL */}
           <TranslationSettingsModal
@@ -2625,6 +3830,144 @@ export const BrowserProvider = ({ children }) => {
               setIsTranslationSettingsOpen(false);
             }}
           />
+
+          {/* TAB CONFIGURATION & MANAGER MODAL */}
+          {isTabConfigOpen && (
+            <div className="fixed inset-0 z-[200050] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200" onClick={() => setIsTabConfigOpen(false)}>
+              <div 
+                className="w-full sm:max-w-md bg-[#18181b] border border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden pb-6 sm:pb-0 safe-bottom"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.02]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Quản lý & Cấu hình Tab</h3>
+                      <p className="text-[11px] text-slate-400">Đang mở {tabs.length} thẻ</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsTabConfigOpen(false)}
+                    className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Quick actions */}
+                <div className="p-4 space-y-2.5 border-b border-white/10 bg-white/[0.01]">
+                  <button
+                    onClick={() => {
+                      translateAllTabTitles();
+                      setIsTabConfigOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-all text-xs font-medium group"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Languages className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+                      Dịch tất cả tiêu đề tab sang Tiếng Việt
+                    </span>
+                    <span className="text-[10px] bg-indigo-500/30 px-2 py-0.5 rounded-full text-indigo-200">Tự động</span>
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        openNewTab(false);
+                        setIsTabConfigOpen(false);
+                      }}
+                      className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 text-xs font-medium border border-white/10 transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm tab thường
+                    </button>
+                    <button
+                      onClick={() => {
+                        openNewTab(true);
+                        setIsTabConfigOpen(false);
+                      }}
+                      className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-medium border border-purple-500/20 transition-all"
+                    >
+                      <Shield className="w-3.5 h-3.5" /> Thêm tab ẩn danh
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        closeOtherTabs(activeTabId);
+                        setIsTabConfigOpen(false);
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 text-xs font-medium border border-white/5 hover:border-amber-500/30 transition-all"
+                    >
+                      Đóng các tab khác
+                    </button>
+                    <button
+                      onClick={() => {
+                        closeAll();
+                        setIsTabConfigOpen(false);
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-medium border border-rose-500/20 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Đóng tất cả tab
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of open tabs */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-1.5 max-h-[300px]">
+                  <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-2 px-1">Danh sách thẻ đang mở</p>
+                  {tabs.map((t) => {
+                    const isTabActive = t.id === activeTabId;
+                    return (
+                      <div
+                        key={t.id}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                          isTabActive
+                            ? 'bg-indigo-600/15 border-indigo-500/40 text-white shadow-sm'
+                            : 'bg-white/[0.03] border-white/5 text-slate-300 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <div 
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer pr-2"
+                          onClick={() => {
+                            setActiveTabId(t.id);
+                            setUrlInput(t.url === 'about:newtab' ? '' : (t.url || ''));
+                            setIsTabConfigOpen(false);
+                          }}
+                        >
+                          <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${isTabActive ? 'bg-indigo-500/30 text-indigo-400' : 'bg-white/10 text-slate-400'}`}>
+                            {t.isPrivate ? <Shield className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate leading-tight">
+                              {t.title || 'Tab mới'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                              {t.url || 'about:newtab'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closeTab(t.id);
+                          }}
+                          className="w-7 h-7 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center shrink-0 transition-colors"
+                          title="Đóng tab này"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {/* GLOBAL PERSISTENT AUDIO PLAYER */}
@@ -2649,6 +3992,27 @@ export const BrowserProvider = ({ children }) => {
           onNextChapter={handleGlobalNextChapter}
           onPrevChapter={handleGlobalPrevChapter}
         />
+      )}
+      {/* TOAST THÔNG BÁO HỆ THỐNG / CHỈ ĐỊNH VÙNG ĐỌC */}
+      {toastInfo && (
+        <div 
+          className="fixed top-14 left-1/2 -translate-x-1/2 z-[200060] max-w-[92vw] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto"
+          style={{
+            background: toastInfo.type === 'warning' ? 'linear-gradient(135deg, rgba(30, 20, 10, 0.95), rgba(45, 25, 10, 0.92))' : 'linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 27, 75, 0.94))',
+            borderColor: toastInfo.type === 'warning' ? '#f59e0b' : '#6366f1',
+            color: '#ffffff',
+            boxShadow: toastInfo.type === 'warning' ? '0 10px 30px rgba(245, 158, 11, 0.35)' : '0 10px 30px rgba(99, 102, 241, 0.4)'
+          }}
+        >
+          <span className="text-base shrink-0">{toastInfo.type === 'warning' ? '⚠️' : '📌'}</span>
+          <span className="text-xs font-semibold leading-relaxed flex-1">{toastInfo.message}</span>
+          <button 
+            onClick={() => setToastInfo(null)}
+            className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded-md ml-1"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </BrowserContext.Provider>
   );

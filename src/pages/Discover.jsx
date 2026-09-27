@@ -680,7 +680,7 @@ export default function Discover() {
               </h3>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                 {[
-                  { name: 'Quanben', logo: '全', color: 'bg-indigo-600', url: 'https://www.quanben5.com', desc: 'Quanben5' },
+                  { name: 'UUKanshu', logo: 'U', color: 'bg-indigo-600', url: 'https://uukanshu.cc', desc: 'UU Kanshu' },
                   { name: 'Qidian', logo: 'Q', color: 'bg-red-600', url: 'https://m.qidian.com', desc: 'VIP Qidian' },
                   { name: 'Fanqie', logo: 'F', color: 'bg-orange-500', url: 'https://fanqienovel.com', desc: 'Free Novel' },
                   { name: 'Faloo', logo: 'F', color: 'bg-amber-500', url: 'https://m.faloo.com', desc: 'Faloo System' },

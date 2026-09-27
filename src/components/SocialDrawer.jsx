@@ -2,14 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useLang } from '../contexts/LangContext';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, MessageSquare, Bell, Send, Plus, Check, X, 
-  ChevronLeft, UserPlus, Search, Share2, ExternalLink, Loader 
+  ChevronLeft, UserPlus, Search, Share2, ExternalLink, Loader, BookOpen
 } from 'lucide-react';
 
 export default function SocialDrawer({ isOpen, onClose, defaultTab }) {
   const { user } = useAuth();
   const { lang } = useLang();
+  const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState(defaultTab || 'friends'); // 'friends', 'chat', 'notifications'
   const [friendsList, setFriendsList] = useState([]);
@@ -313,40 +315,76 @@ export default function SocialDrawer({ isOpen, onClose, defaultTab }) {
                 ) : (
                   chatMessages.map((msg, i) => {
                     const isSelf = msg.sender_id === user.id;
-                    const isShare = msg.message.includes("[Chia sẻ truyện]");
+                    const isShare = msg.message && (msg.message.includes("[Chia sẻ truyện]") || msg.message.includes("/book/"));
+                    
+                    let shareData = null;
+                    if (isShare) {
+                      const msgText = msg.message || "";
+                      let title = "Truyện được chia sẻ";
+                      const titleMatch = msgText.match(/\[Chia sẻ truyện\]\s*['"“](.*?)['"”]/i) || msgText.match(/\[Chia sẻ truyện\]\s*(.*?)(?:\s*-\s*Xem|\s*\n|$)/i);
+                      if (titleMatch && titleMatch[1]) {
+                        title = titleMatch[1].trim();
+                      } else {
+                        const firstPart = msgText.split(' - ')[0].replace('[Chia sẻ truyện]', '').replace(/['"]/g, '').trim();
+                        if (firstPart) title = firstPart;
+                      }
+
+                      let bookId = "";
+                      const idMatch = msgText.match(/\/book\/([a-zA-Z0-9_\-]+)/);
+                      if (idMatch && idMatch[1]) {
+                        bookId = idMatch[1].trim();
+                      }
+
+                      let note = "";
+                      const noteMatch = msgText.match(/Lời nhắn:\s*["“']?(.*?)["”']?$/im);
+                      if (noteMatch && noteMatch[1]) {
+                        note = noteMatch[1].trim();
+                      }
+
+                      shareData = { title, bookId, note };
+                    }
+
                     return (
                       <div key={msg.id || i} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed border ${
+                        <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed border ${
                           isSelf 
                             ? 'bg-purple-600/20 border-purple-500/30 text-purple-200 rounded-tr-none' 
-                            : 'bg-slate-900/50 border-slate-800 text-slate-300 rounded-tl-none'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-300 rounded-tl-none'
                         }`}>
-                          {isShare ? (
-                            <div className="space-y-1">
+                          {shareData ? (
+                            <div className="space-y-2">
                               <span className="text-[10px] font-extrabold uppercase text-amber-400 tracking-wider flex items-center gap-1">
                                 <Share2 className="w-3 h-3" />
-                                {lang === 'vi' ? 'Được chia sẻ' : 'Shared novel'}
+                                {lang === 'vi' ? 'Truyện được chia sẻ' : 'Shared novel'}
                               </span>
-                              <p className="font-medium text-slate-100">{msg.message.split(' - ')[0]}</p>
-                              {msg.message.includes("Xem chi tiết tại") && (
-                                <a 
-                                  href={msg.message.split("Xem chi tiết tại ")[1]}
+                              <div className="bg-black/30 p-2.5 rounded-xl border border-white/5 space-y-1.5">
+                                <p className="font-extrabold text-white text-xs leading-snug">{shareData.title}</p>
+                                {shareData.note && (
+                                  <p className="text-[11px] text-slate-300 italic bg-white/5 p-1.5 rounded-lg border border-white/5">
+                                    "{shareData.note}"
+                                  </p>
+                                )}
+                              </div>
+                              {shareData.bookId && (
+                                <button 
+                                  type="button"
                                   onClick={(e) => {
                                     e.preventDefault();
-                                    window.location.href = msg.message.split("Xem chi tiết tại ")[1];
+                                    e.stopPropagation();
+                                    navigate(`/book/${shareData.bookId}`);
                                     onClose();
                                   }}
-                                  className="inline-flex items-center gap-1 mt-1 text-[10px] text-brand-400 font-extrabold hover:underline"
+                                  className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[11px] rounded-xl shadow-md transition-all active:scale-95"
                                 >
-                                  {lang === 'vi' ? 'Xem chi tiết' : 'View detail'}
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                  <span>{lang === 'vi' ? 'Mở đọc ngay' : 'Read now'}</span>
+                                </button>
                               )}
                             </div>
                           ) : (
-                            msg.message
+                            <span className="whitespace-pre-wrap">{msg.message}</span>
                           )}
-                          <span className="block text-[8px] text-slate-500 text-right mt-1">
+                          <span className="block text-[8px] text-slate-500 text-right mt-1.5">
                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -552,18 +590,19 @@ export default function SocialDrawer({ isOpen, onClose, defaultTab }) {
                         )}
 
                         {notif.type === 'book_share' && (
-                          <a 
-                            href={`/book/${notif.related_id}`}
+                          <button 
+                            type="button"
                             onClick={(e) => {
                               e.preventDefault();
-                              window.location.href = `/book/${notif.related_id}`;
+                              e.stopPropagation();
+                              navigate(`/book/${notif.related_id}`);
                               onClose();
                             }}
-                            className="inline-flex items-center gap-1 text-[10px] text-brand-400 font-extrabold hover:underline pt-1"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-[10px] font-black transition-all active:scale-95 shadow-md mt-1"
                           >
-                            Đọc truyện ngay
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
+                            <BookOpen className="w-3 h-3" />
+                            <span>Đọc truyện ngay</span>
+                          </button>
                         )}
 
                         <span className="block text-[8px] text-slate-500 italic">

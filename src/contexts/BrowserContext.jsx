@@ -487,26 +487,28 @@ export const BrowserProvider = ({ children }) => {
     }
   }, []);
 
-  // Domains that need backend proxy (for translation/TTS script injection on Chinese raw novel sites)
-  const RAW_NOVEL_DOMAINS = [
+  // Domains that need backend proxy (for translation/TTS or bypassing ISP blocks / X-Frame-Options SAMEORIGIN)
+  const NOVEL_DOMAINS = [
     '69shuba', '69shu', '69xinshu',
     'ixdzs', 'biquge', 'bqg', 'uukanshu', 'piaotia', 'twkan',
     'qidian.com', 'faloo.com', 'fanqie', 'huanqixiaoshuo',
     'hjwzw.com', 'sto9.com', 'quanben', 'xbiquge', 'esjzone',
-    'b520', '5200', 'shuku'
+    'b520', '5200', 'shuku',
+    // Các trang web truyện chữ thường bị nhà mạng chặn DNS hoặc chặn iframe SAMEORIGIN
+    'truyenfull', 'tangthuvien', 'metruyenchu', 'sangtacviet', 'wikidich', 'dtruyen', 'truyenchu'
   ];
 
   const shouldUseProxy = (url) => {
     if (!url) return false;
     if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('10.0.2.2')) return false;
     if (url.startsWith('about:')) return false;
-    // Không bao giờ proxy Google, YouTube, media ngoài hay các trang truyện tiếng Việt
-    if (isGoogleUrl(url) || isExternalMediaUrl(url) || isVietnameseSite(url)) return false;
+    // Không bao giờ proxy Google, YouTube, media ngoài
+    if (isGoogleUrl(url) || isExternalMediaUrl(url)) return false;
     try {
       const hostname = new URL(url).hostname.toLowerCase();
-      return RAW_NOVEL_DOMAINS.some(d => hostname.includes(d));
+      return NOVEL_DOMAINS.some(d => hostname.includes(d));
     } catch {
-      return RAW_NOVEL_DOMAINS.some(d => (url || '').toLowerCase().includes(d));
+      return NOVEL_DOMAINS.some(d => (url || '').toLowerCase().includes(d));
     }
   };
 
@@ -612,11 +614,11 @@ export const BrowserProvider = ({ children }) => {
       }
     }));
 
-    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> local adb reverse -> local emulator -> cloud HF
+    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> cloud HF chính thức -> local adb reverse -> local emulator
     const baseCandidates = [
+      'https://cong123779-tienhiep-api.hf.space',
       'http://127.0.0.1:5051',
-      'http://10.0.2.2:5051',
-      'https://cong123779-tienhiep-api.hf.space'
+      'http://10.0.2.2:5051'
     ];
     const orderedServers = [];
     if (activeProxyServerRef.current && baseCandidates.includes(activeProxyServerRef.current)) {
@@ -674,7 +676,7 @@ export const BrowserProvider = ({ children }) => {
           const el = document.getElementById('global-wv-' + tabId);
           if (el && el.contentDocument) {
             const doc = el.contentDocument;
-            if (doc.documentElement) {
+            if (darkModeActive && doc && doc.documentElement) {
               doc.documentElement.style.backgroundColor = '#121214';
             }
             if (el.__renderedHtmlHash === html && doc.body && doc.body.children.length > 0) return;
@@ -2260,8 +2262,7 @@ export const BrowserProvider = ({ children }) => {
       const doc = iframeEl.contentDocument;
       if (!doc) return;
       
-      // Ngăn ngừa chớp màn hình trắng bằng việc áp dụng background tối
-      if (doc.documentElement) {
+      if (darkModeActive && doc.documentElement) {
         doc.documentElement.style.backgroundColor = '#121214';
       }
 
@@ -2314,7 +2315,7 @@ export const BrowserProvider = ({ children }) => {
           const iframe = document.getElementById('global-wv-' + tab.id);
           if (iframe && iframe.contentDocument) {
             const doc = iframe.contentDocument;
-            if (doc.documentElement) {
+            if (darkModeActive && doc.documentElement) {
               doc.documentElement.style.backgroundColor = '#121214';
             }
             if (iframe.__renderedHtmlHash === rawHtml && doc.body && doc.body.children.length > 0) {
@@ -3756,12 +3757,16 @@ export const BrowserProvider = ({ children }) => {
                       <iframe
                         key={tab.id}
                         id={`global-wv-${tab.id}`}
-                        className="w-full h-full border-none bg-[#121214]"
-                        style={{ backgroundColor: '#121214', colorScheme: 'dark' }}
+                        srcDoc={srcdocHtml || undefined}
+                        className={`w-full h-full border-none ${darkModeActive ? 'bg-[#121214]' : 'bg-white'}`}
+                        style={{ backgroundColor: darkModeActive ? '#121214' : '#ffffff', colorScheme: darkModeActive ? 'dark' : 'normal' }}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                         allowFullScreen
-                        onLoad={(e) => ensureIframeRendered(tab.id, e.target)}
+                        onLoad={(e) => {
+                          ensureIframeRendered(tab.id, e.target);
+                          handleIframeLoaded(tab.id, e.target);
+                        }}
                       />
                     </div>
                   );

@@ -37,6 +37,10 @@ export function createTranslateScript(useTypewriter = false) {
 
         const adaptDesktopLayout = () => {
           try {
+            const host = (window.location.hostname || '').toLowerCase();
+            const isChinese = /[\u4e00-\u9fa5]/.test(document.title) || /(69shu|biquge|uukanshu|faloo|fanqie|ptwxz|b520|qidian)/i.test(host);
+            if (!isChinese) return; // Giữ nguyên 100% giao diện gốc cho các web Việt Nam và web thông thường
+
             document.querySelectorAll('table, td, th, div, span, p').forEach(el => {
               const w = el.getAttribute('width');
               if (w && (w.endsWith('px') || parseInt(w) >= 450)) {
@@ -417,11 +421,12 @@ export function createTranslateScript(useTypewriter = false) {
               }
 
               // ── CSS highlight đoạn đang đọc (Bôi màu vàng dạ quang nổi bật chuẩn sách, viền tím đậm) ──
+              // ── CSS highlight đoạn đang đọc (Chỉ kích hoạt khi đang phát Audio TTS) ──
               let ttsStyle = document.getElementById('__tienhiep_tts_para_style');
               if (!ttsStyle) {
                   ttsStyle = document.createElement('style');
                   ttsStyle.id = '__tienhiep_tts_para_style';
-                  ttsStyle.textContent = '[data-tts-idx]:hover { outline: 2px dashed rgba(139,92,246,0.6) !important; outline-offset: 3px !important; border-radius: 4px !important; } [data-tts-active="true"] { background: #fef08a !important; color: #0f172a !important; border-left: 6px solid #7c3aed !important; padding: 6px 12px !important; border-radius: 6px !important; box-shadow: 0 4px 18px rgba(124, 58, 237, 0.35) !important; transition: all 0.2s ease !important; display: block !important; } [data-tts-active="true"] * { color: #0f172a !important; } .tienhiep-tts-active-span { background: #fef08a !important; color: #0f172a !important; border-left: 4px solid #7c3aed !important; padding: 2px 6px !important; border-radius: 4px !important; box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35) !important; display: inline-block !important; }';
+                  ttsStyle.textContent = '[data-tts-active="true"] { background: rgba(254, 240, 138, 0.45) !important; border-left: 4px solid #7c3aed !important; padding: 4px 8px !important; border-radius: 4px !important; transition: all 0.2s ease !important; display: block !important; } .tienhiep-tts-active-span { background: rgba(254, 240, 138, 0.5) !important; border-left: 3px solid #7c3aed !important; padding: 1px 4px !important; border-radius: 3px !important; display: inline-block !important; }';
                   (document.head || document.documentElement).appendChild(ttsStyle);
               }
 
@@ -430,6 +435,11 @@ export function createTranslateScript(useTypewriter = false) {
                   window.__tienhiepTapToReadInstalled = true;
                   document.addEventListener('click', (e) => {
                       if (window.__isTeachingNext) return;
+                      // Cho phép click bình thường vào mọi thẻ link, button, input... không can thiệp
+                      if (e.target && e.target.closest('a, button, input, select, textarea, [onclick], [role="button"]')) return;
+                      // Chỉ kích hoạt chạm-để-đọc khi Audio TTS đang được bật
+                      if (!window.isTtsPlaying && !window.__audioActive) return;
+
                       const el = e.target && e.target.closest ? e.target.closest('[data-tts-idx]') : null;
                       if (!el) return;
                       const paraIdx = parseInt(el.getAttribute('data-tts-idx'), 10);

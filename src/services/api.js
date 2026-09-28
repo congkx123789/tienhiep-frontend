@@ -58,7 +58,7 @@ async function getBestServer() {
   // 2. Kiểm tra cache trong localStorage
   try {
     const cached = localStorage.getItem(CACHE_KEY);
-    if (cached && (cached.includes(':8001') || cached.includes('api-tienhiep.lyvuha.com'))) {
+    if (cached && cached.includes(':8001')) {
       localStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(`${CACHE_KEY}_expiry`);
     } else {
@@ -84,8 +84,8 @@ async function getBestServer() {
     }
   }
 
-  // 4. Fallback an toàn mặc định
-  return isCapacitorNative ? 'http://10.0.2.2:5051' : 'http://127.0.0.1:5051';
+  // 4. Fallback an toàn mặc định (về server online chính thức, không bao giờ dùng 10.0.2.2 trên thiết bị thật)
+  return isCapacitorNative ? 'https://api-tienhiep.lyvuha.com' : 'http://127.0.0.1:5051';
 }
 
 // Tạo axios instance động theo server đang dùng

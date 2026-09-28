@@ -82,13 +82,16 @@ async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP202
   const candidateServers = [];
   if (typeof window !== 'undefined' && (window.electron || isCapacitor)) {
     if (isCapacitor) {
+      candidateServers.push('https://api-tienhiep.lyvuha.com');
       candidateServers.push('http://127.0.0.1:5051');
       candidateServers.push('http://10.0.2.2:5051');
     } else {
       candidateServers.push('http://127.0.0.1:5051');
+      candidateServers.push('https://api-tienhiep.lyvuha.com');
     }
   } else {
     candidateServers.push('http://127.0.0.1:5051');
+    candidateServers.push('https://api-tienhiep.lyvuha.com');
   }
 
   // Check stored user settings
@@ -96,7 +99,7 @@ async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP202
     const stored = localStorage.getItem('translationSettings');
     if (stored) {
       const s = JSON.parse(stored);
-      if (s.serverUrl && !s.serverUrl.includes('tienhiep.lyvuha.com') && !candidateServers.includes(s.serverUrl)) {
+      if (s.serverUrl && !candidateServers.includes(s.serverUrl)) {
         candidateServers.unshift(s.serverUrl);
       }
     }
@@ -560,8 +563,9 @@ export const BrowserProvider = ({ children }) => {
       }
     }));
 
-    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> local adb reverse -> local emulator -> cloud HF
+    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> server chính thức online -> local adb reverse -> local emulator -> cloud HF
     const baseCandidates = [
+      'https://api-tienhiep.lyvuha.com',
       'http://127.0.0.1:5051',
       'http://10.0.2.2:5051',
       'https://cong123779-tienhiep-api.hf.space'

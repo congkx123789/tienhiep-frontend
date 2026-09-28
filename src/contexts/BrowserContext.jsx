@@ -143,28 +143,61 @@ import { BrowserContext, useBrowser } from './BrowserContextCore';
 export { BrowserContext, useBrowser };
 
 const EXTERNAL_MEDIA_HOSTS = [
-  'google.com', 'google.com.vn', 'youtube.com', 'youtu.be', 'tiktok.com', 'facebook.com', 'fb.com',
+  'google.', 'youtube.com', 'youtu.be', 'tiktok.com', 'facebook.com', 'fb.com',
   'instagram.com', 'twitter.com', 'x.com', 'bilibili.com', 'douyin.com',
   'netflix.com', 'spotify.com'
 ];
+
+const isGoogleUrl = (url) => {
+  if (!url) return false;
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return h.includes('google.') || h === 'goo.gl';
+  } catch {
+    return (url || '').toLowerCase().includes('google.');
+  }
+};
 
 const isExternalMediaUrl = (url) => {
   if (!url) return false;
   try {
     const h = new URL(url).hostname.toLowerCase();
     return EXTERNAL_MEDIA_HOSTS.some(d => h.includes(d));
-  } catch { return false; }
+  } catch {
+    return EXTERNAL_MEDIA_HOSTS.some(d => (url || '').toLowerCase().includes(d));
+  }
+};
+
+const VIETNAMESE_NOVEL_HOSTS = [
+  'truyenfull', 'tangthuvien', 'metruyenchu', 'truyenchu', 'dtruyen', 'wikidich', 'sstruyen'
+];
+
+const isVietnameseSite = (url) => {
+  if (!url) return false;
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return VIETNAMESE_NOVEL_HOSTS.some(d => h.includes(d));
+  } catch {
+    return VIETNAMESE_NOVEL_HOSTS.some(d => (url || '').toLowerCase().includes(d));
+  }
 };
 
 const openExternalNative = async (url) => {
   if (isCapacitor) {
     try {
-      const { Browser: CapBrowser } = await import('@capacitor/browser');
-      await CapBrowser.open({ url, presentationStyle: 'fullscreen' });
+      const { registerPlugin } = await import('@capacitor/core');
+      const NativeBrowser = registerPlugin('NativeBrowser');
+      await NativeBrowser.open({ url });
       return true;
     } catch (e) {
-      window.open(url, '_blank');
-      return true;
+      try {
+        const { Browser: CapBrowser } = await import('@capacitor/browser');
+        await CapBrowser.open({ url, presentationStyle: 'fullscreen' });
+        return true;
+      } catch (err) {
+        window.open(url, '_blank');
+        return true;
+      }
     }
   } else {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -444,8 +477,10 @@ export const BrowserProvider = ({ children }) => {
     if (!url) return false;
     if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('10.0.2.2')) return false;
     if (url.startsWith('about:')) return false;
+    // Không bao giờ proxy Google hay các trang media ngoài
+    if (isGoogleUrl(url) || isExternalMediaUrl(url)) return false;
     if (isCapacitor) {
-      // On mobile: mọi trang web mở trong in-app browser đều qua proxy để gỡ X-Frame-Options/CSP & tiêm công cụ dịch/TTS
+      // On mobile: các trang đọc truyện web qua proxy để giải quyết CORS & chống chặn ISP
       return true;
     }
     try {
@@ -465,6 +500,11 @@ export const BrowserProvider = ({ children }) => {
 
   const openInBrowser = async (url, options = {}) => {
     if (!url) return;
+
+    if (isCapacitor && (isGoogleUrl(url) || isExternalMediaUrl(url))) {
+      openExternalNative(url);
+      return;
+    }
 
     // Tự động chuyển YouTube sang bản Mobile m.youtube.com để tương thích tốt nhất trên điện thoại
     if (url.includes('youtube.com') && !url.includes('m.youtube.com')) {
@@ -504,6 +544,11 @@ export const BrowserProvider = ({ children }) => {
 
   const navigateTabToUrl = async (tabId, targetUrl) => {
     if (!targetUrl) return;
+
+    if (isCapacitor && (isGoogleUrl(targetUrl) || isExternalMediaUrl(targetUrl))) {
+      openExternalNative(targetUrl);
+      return;
+    }
 
     if (targetUrl.includes('youtube.com') && !targetUrl.includes('m.youtube.com')) {
       targetUrl = targetUrl.replace('www.youtube.com', 'm.youtube.com').replace('https://youtube.com', 'https://m.youtube.com');
@@ -679,6 +724,11 @@ export const BrowserProvider = ({ children }) => {
       } else {
         targetUrl = 'https://www.google.com/search?q=' + encodeURIComponent(targetUrl);
       }
+    }
+
+    if (isCapacitor && (isGoogleUrl(targetUrl) || isExternalMediaUrl(targetUrl))) {
+      openExternalNative(targetUrl);
+      return;
     }
     
     if (activeTabId) {
@@ -932,13 +982,24 @@ export const BrowserProvider = ({ children }) => {
         const script = scriptContentRef.current;
         if (script) send({ action: 'INJECT_SCRIPT', script });
 
-        // Auto translate trigger if enabled (kiểm tra cả ref tab và localStorage)
-        const isEnabled = autoStatesRef.current[tabId] || autoAudioStatesRef.current[tabId] || (localStorage.getItem('__tienhiep_auto_translate_active') === 'true');
-        if (isEnabled) {
-          autoStatesRef.current[tabId] = true;
-          setAutoStates(prev => ({ ...prev, [tabId]: true }));
-          sendAfter({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, 80);
-          sendAfter({ action: 'FORCE_TRANSLATE' }, 300);
+        // Auto translate trigger: CHỈ KHI CÓ CHỮ TRUNG VÀ KHÔNG PHẢI TRANG VIỆT NAM (như Truyenfull)
+        const isViSite = isVietnameseSite(realUrl);
+        const tabHtml = tabProxyContentRef.current[tabId]?.html || '';
+        const hasChineseContent = /[\u4e00-\u9fa5]/.test(initialCleanTitle) || /[\u4e00-\u9fa5]/.test(tabHtml);
+
+        if (!isViSite && hasChineseContent) {
+          const isEnabled = autoStatesRef.current[tabId] || autoAudioStatesRef.current[tabId] || (localStorage.getItem('__tienhiep_auto_translate_active') === 'true');
+          if (isEnabled) {
+            autoStatesRef.current[tabId] = true;
+            setAutoStates(prev => ({ ...prev, [tabId]: true }));
+            sendAfter({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: true }, 80);
+            sendAfter({ action: 'FORCE_TRANSLATE' }, 300);
+          }
+        } else {
+          // Trang thuần tiếng Việt (Truyện Full...) hoặc không có chữ Trung: Tắt dịch, để bình thường
+          autoStatesRef.current[tabId] = false;
+          setAutoStates(prev => ({ ...prev, [tabId]: false }));
+          sendAfter({ action: 'TOGGLE_AUTO_TRANSLATE', enabled: false }, 80);
         }
 
         // Tap-to-Read: Gán data-tts-idx sau khi trang render xong
@@ -2317,6 +2378,20 @@ export const BrowserProvider = ({ children }) => {
       if (action === 'translate') {
         const current = autoStates[tabId] || false;
         const newState = !current;
+
+        if (newState) {
+          const tab = tabs.find(t => t.id === tabId);
+          const currentUrl = tab?.url || '';
+          const isViSite = isVietnameseSite(currentUrl);
+          const tabHtml = tabProxyContentRef.current[tabId]?.html || '';
+          const hasChinese = /[\u4e00-\u9fa5]/.test(tab?.title || '') || /[\u4e00-\u9fa5]/.test(tabHtml) || (wv.contentDocument && /[\u4e00-\u9fa5]/.test(wv.contentDocument.body?.innerText || ''));
+
+          if (isViSite || !hasChinese) {
+            showToast("ℹ️ Trang này không có chữ Trung Quốc, giữ nguyên nội dung gốc.", "info");
+            return;
+          }
+        }
+
         autoStatesRef.current[tabId] = newState;
         if (newState) {
           localStorage.setItem('__tienhiep_auto_translate_active', 'true');

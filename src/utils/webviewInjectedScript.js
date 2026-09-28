@@ -2510,6 +2510,12 @@ export function createTranslateScript(useTypewriter = false) {
         const currentRoot = root || document.body || document.documentElement;
         if (!currentRoot) return;
 
+        // Chỉ dịch khi trên trang có chữ Trung Quốc (Selective Chinese Translation)
+        const sampleCheckText = (document.body ? document.body.innerText : '') || document.title || '';
+        if (!chineseRegex.test(sampleCheckText)) {
+          return;
+        }
+
         // 1. Dịch document.title nếu có chữ Trung
         if (document.title && chineseRegex.test(document.title)) {
           const rawTitle = document.title.trim();
@@ -3002,6 +3008,14 @@ export function createTranslateScript(useTypewriter = false) {
       }, 1500);
 
       window.toggleAutoTranslate = (enabled) => {
+        if (enabled) {
+          const chineseRegex = /[\\u4e00-\\u9fa5]/;
+          const sampleCheckText = (document.body ? document.body.innerText : '') || document.title || '';
+          if (!chineseRegex.test(sampleCheckText)) {
+            window.__autoTranslateEnabled = false;
+            return;
+          }
+        }
         window.__autoTranslateEnabled = enabled;
         if (window.__TienHiepHelpers) window.__TienHiepHelpers.__autoTranslateEnabled = enabled;
         if (enabled) {
@@ -3104,6 +3118,12 @@ export function createTranslateScript(useTypewriter = false) {
             fn(data.enabled);
           }
         } else if (action === 'FORCE_TRANSLATE') {
+          const chineseRegex = /[\\u4e00-\\u9fa5]/;
+          const sampleCheckText = (document.body ? document.body.innerText : '') || document.title || '';
+          if (!chineseRegex.test(sampleCheckText)) {
+            window.__autoTranslateEnabled = false;
+            return;
+          }
           window.__autoTranslateEnabled = true;
           if (typeof window.__collectAndTranslateNodes === 'function') {
             window.__collectAndTranslateNodes(document.body || document.documentElement);

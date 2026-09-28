@@ -18,15 +18,15 @@ export default function ChromeMobileNewTab({ onNavigate, isPrivate = false, onTo
   };
 
   const SHORTCUTS = [
-    { name: 'Google', icon: '🔍', url: 'https://www.google.com', color: 'from-blue-500 to-indigo-600', isExternal: false },
-    { name: 'YouTube', icon: '🎬', url: 'https://m.youtube.com', color: 'from-red-500 to-rose-600', isExternal: false },
-    { name: 'TikTok', icon: '📱', url: 'https://www.tiktok.com', color: 'from-neutral-900 to-zinc-700', isExternal: false },
+    { name: 'Google', icon: '🔍', url: 'https://www.google.com', color: 'from-blue-500 to-indigo-600', isExternal: true },
+    { name: 'Truyện Full', icon: '📖', url: 'https://truyenfull.vn', color: 'from-emerald-500 to-teal-600', isExternal: false },
     { name: '69 Thư Ba', icon: '📚', url: 'https://www.69shuba.com/', color: 'from-amber-500 to-orange-600', isExternal: false },
+    { name: 'YouTube', icon: '🎬', url: 'https://m.youtube.com', color: 'from-red-500 to-rose-600', isExternal: true },
+    { name: 'TikTok', icon: '📱', url: 'https://www.tiktok.com', color: 'from-neutral-900 to-zinc-700', isExternal: true },
     { name: 'Hoàng Kim Ốc', icon: '📖', url: 'https://m.hjwzw.com', color: 'from-emerald-500 to-teal-600', isExternal: false },
     { name: 'Bút Thú Các', icon: '⚡', url: 'https://www.b520.cc', color: 'from-purple-500 to-violet-600', isExternal: false },
     { name: 'UU Đọc Sách', icon: '📗', url: 'https://uukanshu.cc', color: 'from-cyan-500 to-blue-600', isExternal: false },
     { name: 'Phiêu Thiên', icon: '☁️', url: 'https://www.ptwxz.com', color: 'from-sky-500 to-indigo-600', isExternal: false },
-    { name: 'Toàn Bản', icon: '📜', url: 'https://quanben5.com', color: 'from-teal-500 to-emerald-600', isExternal: false },
   ];
 
   return (

@@ -1,10 +1,19 @@
-import { SkipBack, SkipForward, Target, Volume2, Languages } from 'lucide-react';
+import { SkipBack, SkipForward, Target, Volume2, Languages, SlidersHorizontal } from 'lucide-react';
 
 export default function ReaderQuickTools({ onToolAction }) {
   return (
     <>
-      {/* ═══ CỤM NỔI LỀ TRÁI: VỀ CHƯƠNG TRƯỚC & NÚT DỊCH ═══ */}
-      <div className="fixed left-3 bottom-24 z-[9990] flex flex-col items-center gap-2.5 select-none pointer-events-auto">
+      {/* ═══ CỤM NỔI LỀ TRÁI: VỀ CHƯƠNG TRƯỚC, NÚT DỊCH & CÀI ĐẶT ═══ */}
+      <div className="fixed left-3 bottom-24 z-[9990] flex flex-col items-center gap-2 select-none pointer-events-auto">
+        {/* Nút Cài Đặt Dịch & Bảng Tiện Ích [ ⚙️ ] */}
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToolAction && onToolAction('settings'); }}
+          className="w-8 h-8 rounded-full flex items-center justify-center bg-[#1e1b2e] hover:bg-[#2a2444] text-indigo-300 hover:text-white transition-all duration-200 active:scale-90 border border-indigo-500/40 shadow-[0_4px_16px_rgba(99,102,241,0.4)] backdrop-blur-md group touch-manipulation cursor-pointer"
+          title="Bảng Cài Đặt Dịch Thuật & Công Cụ (⚙️)"
+        >
+          <span className="flex items-center justify-center"><SlidersHorizontal className="w-3.5 h-3.5 transition-transform group-hover:rotate-45" /></span>
+        </button>
+
         {/* Nút Bật / Tắt Dịch Trang [ 🌐 ] */}
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToolAction && onToolAction('translate'); }}

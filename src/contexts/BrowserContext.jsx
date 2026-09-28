@@ -77,21 +77,16 @@ export function cleanNovelTabTitle(title) {
   return t.trim() || 'Trang web';
 }
 
-// Unified robust translate executor with local engine first, cloud fallback, and 15s timeout
+// Unified robust translate executor with local engine first, cloud fallback
 async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP2026') {
   const candidateServers = [];
   if (typeof window !== 'undefined' && (window.electron || isCapacitor)) {
+    candidateServers.push('http://127.0.0.1:5051');
     if (isCapacitor) {
-      candidateServers.push('https://api-tienhiep.lyvuha.com');
-      candidateServers.push('http://127.0.0.1:5051');
       candidateServers.push('http://10.0.2.2:5051');
-    } else {
-      candidateServers.push('http://127.0.0.1:5051');
-      candidateServers.push('https://api-tienhiep.lyvuha.com');
     }
   } else {
     candidateServers.push('http://127.0.0.1:5051');
-    candidateServers.push('https://api-tienhiep.lyvuha.com');
   }
 
   // Check stored user settings
@@ -99,7 +94,7 @@ async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP202
     const stored = localStorage.getItem('translationSettings');
     if (stored) {
       const s = JSON.parse(stored);
-      if (s.serverUrl && !candidateServers.includes(s.serverUrl)) {
+      if (s.serverUrl && !s.serverUrl.includes('lyvuha.com') && !candidateServers.includes(s.serverUrl)) {
         candidateServers.unshift(s.serverUrl);
       }
     }
@@ -109,6 +104,8 @@ async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP202
 
   for (const srv of candidateServers) {
     try {
+      const isCloud = srv.includes('hf.space');
+      const timeoutMs = isCloud ? 12000 : 4000;
       const res = await fetch(`${srv}/api/translate`, {
         method: 'POST',
         headers: {
@@ -116,7 +113,7 @@ async function executeTranslate(texts, mode = 'vietphrase', userVipKey = 'VIP202
           'X-VIP-Key': userVipKey || 'VIP2026'
         },
         body: JSON.stringify({ texts, mode, vip_key: userVipKey || 'VIP2026' }),
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(timeoutMs)
       });
       if (res.ok) {
         const json = await res.json();
@@ -180,6 +177,32 @@ const isVietnameseSite = (url) => {
   } catch {
     return VIETNAMESE_NOVEL_HOSTS.some(d => (url || '').toLowerCase().includes(d));
   }
+};
+
+export const normalizeUrlForIframe = (url) => {
+  if (!url) return url;
+  if (url.startsWith('about:')) return url;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    // Bắt buộc igu=1 cho Google để có thể nhúng hiển thị trơn tru bên trong tab iframe
+    if (host.includes('google.') || host === 'goo.gl') {
+      if (!parsed.searchParams.has('igu')) {
+        parsed.searchParams.set('igu', '1');
+      }
+      return parsed.toString();
+    }
+    // YouTube mobile thích hợp cho màn hình điện thoại
+    if (host.includes('youtube.com') && !host.includes('m.youtube.com')) {
+      parsed.hostname = 'm.youtube.com';
+      return parsed.toString();
+    }
+  } catch (e) {
+    if (url.includes('google.') && !url.includes('igu=1')) {
+      return url.includes('?') ? `${url}&igu=1` : `${url}?igu=1`;
+    }
+  }
+  return url;
 };
 
 const openExternalNative = async (url) => {
@@ -464,29 +487,27 @@ export const BrowserProvider = ({ children }) => {
     }
   }, []);
 
-  // Domains that need backend proxy (for translation/TTS script injection)
-  const PROXY_DOMAINS = [
-    '69shuba.com', '69shu.com', '69shu.me', '69shu.pro',
+  // Domains that need backend proxy (for translation/TTS script injection on Chinese raw novel sites)
+  const RAW_NOVEL_DOMAINS = [
+    '69shuba', '69shu', '69xinshu',
     'ixdzs', 'biquge', 'bqg', 'uukanshu', 'piaotia', 'twkan',
     'qidian.com', 'faloo.com', 'fanqie', 'huanqixiaoshuo',
     'hjwzw.com', 'sto9.com', 'quanben', 'xbiquge', 'esjzone',
-    'truyenfull', 'tangthuvien', 'metruyenchu', 'truyenchu',
+    'b520', '5200', 'shuku'
   ];
 
   const shouldUseProxy = (url) => {
     if (!url) return false;
     if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('10.0.2.2')) return false;
     if (url.startsWith('about:')) return false;
-    // Không bao giờ proxy Google hay các trang media ngoài
-    if (isGoogleUrl(url) || isExternalMediaUrl(url)) return false;
-    if (isCapacitor) {
-      // On mobile: các trang đọc truyện web qua proxy để giải quyết CORS & chống chặn ISP
-      return true;
-    }
+    // Không bao giờ proxy Google, YouTube, media ngoài hay các trang truyện tiếng Việt
+    if (isGoogleUrl(url) || isExternalMediaUrl(url) || isVietnameseSite(url)) return false;
     try {
       const hostname = new URL(url).hostname.toLowerCase();
-      return PROXY_DOMAINS.some(d => hostname.includes(d));
-    } catch { return false; }
+      return RAW_NOVEL_DOMAINS.some(d => hostname.includes(d));
+    } catch {
+      return RAW_NOVEL_DOMAINS.some(d => (url || '').toLowerCase().includes(d));
+    }
   };
 
   const getProxyUrl = (url, host) => {
@@ -500,16 +521,7 @@ export const BrowserProvider = ({ children }) => {
 
   const openInBrowser = async (url, options = {}) => {
     if (!url) return;
-
-    if (isCapacitor && (isGoogleUrl(url) || isExternalMediaUrl(url))) {
-      openExternalNative(url);
-      return;
-    }
-
-    // Tự động chuyển YouTube sang bản Mobile m.youtube.com để tương thích tốt nhất trên điện thoại
-    if (url.includes('youtube.com') && !url.includes('m.youtube.com')) {
-      url = url.replace('www.youtube.com', 'm.youtube.com').replace('https://youtube.com', 'https://m.youtube.com');
-    }
+    url = normalizeUrlForIframe(url);
 
     // On Web (not running in Electron or native Capacitor app), open directly in a new browser tab
     if (!window.electron && !isCapacitor) {
@@ -544,15 +556,7 @@ export const BrowserProvider = ({ children }) => {
 
   const navigateTabToUrl = async (tabId, targetUrl) => {
     if (!targetUrl) return;
-
-    if (isCapacitor && (isGoogleUrl(targetUrl) || isExternalMediaUrl(targetUrl))) {
-      openExternalNative(targetUrl);
-      return;
-    }
-
-    if (targetUrl.includes('youtube.com') && !targetUrl.includes('m.youtube.com')) {
-      targetUrl = targetUrl.replace('www.youtube.com', 'm.youtube.com').replace('https://youtube.com', 'https://m.youtube.com');
-    }
+    targetUrl = normalizeUrlForIframe(targetUrl);
 
     if (tabId === activeTabId) {
       setUrlInput(targetUrl === 'about:newtab' ? '' : targetUrl);
@@ -608,9 +612,8 @@ export const BrowserProvider = ({ children }) => {
       }
     }));
 
-    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> server chính thức online -> local adb reverse -> local emulator -> cloud HF
+    // Thứ tự candidates: Ưu tiên server vừa chạy thành công -> local adb reverse -> local emulator -> cloud HF
     const baseCandidates = [
-      'https://api-tienhiep.lyvuha.com',
       'http://127.0.0.1:5051',
       'http://10.0.2.2:5051',
       'https://cong123779-tienhiep-api.hf.space'
@@ -629,9 +632,9 @@ export const BrowserProvider = ({ children }) => {
     for (const server of orderedServers) {
       const pUrl = `${server}/api/iframe_proxy?url=${encodeURIComponent(url)}&desktop=${isDesktopMode ? 1 : 0}`;
       try {
-        // Local: 18s timeout (backend crawl timeout là 16s), Cloud: 25s timeout
+        // Local: 4s timeout (nhanh chóng chuyển sang cloud nếu local tắt), Cloud: 12s timeout
         const isCloud = server.includes('hf.space');
-        const timeoutMs = isCloud ? 25000 : 18000;
+        const timeoutMs = isCloud ? 12000 : 4000;
         const res = await fetch(pUrl, { signal: AbortSignal.timeout(timeoutMs) });
         if (res.ok) {
           const text = await res.text();
@@ -722,14 +725,10 @@ export const BrowserProvider = ({ children }) => {
       if (targetUrl.includes('.') && !targetUrl.includes(' ')) {
         targetUrl = 'https://' + targetUrl;
       } else {
-        targetUrl = 'https://www.google.com/search?q=' + encodeURIComponent(targetUrl);
+        targetUrl = 'https://www.google.com/search?q=' + encodeURIComponent(targetUrl) + '&igu=1';
       }
     }
-
-    if (isCapacitor && (isGoogleUrl(targetUrl) || isExternalMediaUrl(targetUrl))) {
-      openExternalNative(targetUrl);
-      return;
-    }
+    targetUrl = normalizeUrlForIframe(targetUrl);
     
     if (activeTabId) {
       const wv = document.getElementById('global-wv-' + activeTabId);
@@ -2366,6 +2365,10 @@ export const BrowserProvider = ({ children }) => {
 
   const handleTool = async (action, tabId, payload = null) => {
     console.log("[BrowserContext Tool] handleTool action:", action, "tabId:", tabId, "payload:", payload);
+    if (action === 'settings' || action === 'translation_settings') {
+      setIsTranslationSettingsOpen(true);
+      return;
+    }
     const wv = document.getElementById('global-wv-' + tabId);
     if (!wv) {
       console.warn("[BrowserContext Tool] No element found for global-wv-" + tabId);
@@ -3774,7 +3777,7 @@ export const BrowserProvider = ({ children }) => {
                       className={isTabActive ? 'w-full h-full border-none bg-[#121214]' : 'w-0 h-0 invisible absolute'}
                       sandbox={isProxied
                         ? 'allow-scripts allow-same-origin allow-forms allow-presentation'
-                        : 'allow-scripts allow-same-origin allow-forms allow-top-navigation allow-top-navigation-by-user-activation allow-presentation'
+                        : 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation allow-presentation'
                       }
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                       allowFullScreen
@@ -3787,7 +3790,7 @@ export const BrowserProvider = ({ children }) => {
           </div>
 
           {/* FLOATING READER QUICK TOOLS (CHUYỂN CHƯƠNG & CHỈ ĐỊNH) */}
-          {!activeAudioObj && (
+          {!activeAudioObj && activeTab && activeTab.url && activeTab.url !== 'about:newtab' && (
             <ReaderQuickTools
               onToolAction={(action, payload) => handleTool(action, activeTabId, payload)}
             />
@@ -3841,6 +3844,7 @@ export const BrowserProvider = ({ children }) => {
                   handleReload();
                 }}
                 onOpenTabConfig={() => setIsTabConfigOpen(true)}
+                onOpenTranslationSettings={() => setIsTranslationSettingsOpen(true)}
                 isAutoTranslate={autoStates[activeTabId]}
                 onToggleTranslate={() => handleTool('translate', activeTabId)}
                 isAudioPlaying={!!activeAudioObj}

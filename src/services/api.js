@@ -6,7 +6,6 @@ import axios from 'axios';
 // Frontend sẽ tự động chọn server nhanh nhất còn sống
 // =====================================================
 const SERVERS = import.meta.env.PROD ? [
-  'https://api-tienhiep.lyvuha.com',
   'https://cong123779-tienhiep-api.hf.space'
 ] : [''];  // Dev: rỗng → vite proxy
 
@@ -58,7 +57,7 @@ async function getBestServer() {
   // 2. Kiểm tra cache trong localStorage
   try {
     const cached = localStorage.getItem(CACHE_KEY);
-    if (cached && cached.includes(':8001')) {
+    if (cached && (cached.includes(':8001') || cached.includes('lyvuha.com'))) {
       localStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(`${CACHE_KEY}_expiry`);
     } else {
@@ -71,8 +70,8 @@ async function getBestServer() {
 
   // 3. Nếu chưa có cache hoặc cache hết hạn: ping server ứng cử viên
   const candidates = isCapacitorNative
-    ? ['http://127.0.0.1:5051', 'http://10.0.2.2:5051', 'https://api-tienhiep.lyvuha.com', 'https://cong123779-tienhiep-api.hf.space']
-    : ['http://127.0.0.1:5051', 'https://api-tienhiep.lyvuha.com', 'https://cong123779-tienhiep-api.hf.space'];
+    ? ['http://127.0.0.1:5051', 'http://10.0.2.2:5051', 'https://cong123779-tienhiep-api.hf.space']
+    : ['http://127.0.0.1:5051', 'https://cong123779-tienhiep-api.hf.space'];
 
   for (const srv of candidates) {
     if (await pingServer(srv, 1500)) {
@@ -85,7 +84,7 @@ async function getBestServer() {
   }
 
   // 4. Fallback an toàn mặc định (về server online chính thức, không bao giờ dùng 10.0.2.2 trên thiết bị thật)
-  return isCapacitorNative ? 'https://api-tienhiep.lyvuha.com' : 'http://127.0.0.1:5051';
+  return isCapacitorNative ? 'https://cong123779-tienhiep-api.hf.space' : 'http://127.0.0.1:5051';
 }
 
 // Tạo axios instance động theo server đang dùng

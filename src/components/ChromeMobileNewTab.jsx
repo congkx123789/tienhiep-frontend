@@ -13,16 +13,16 @@ export default function ChromeMobileNewTab({ onNavigate, isPrivate = false, onTo
     } else if (q.includes('.') && !q.includes(' ')) {
       onNavigate(`https://${q}`);
     } else {
-      onNavigate(`https://www.google.com/search?q=${encodeURIComponent(q)}`);
+      onNavigate(`https://www.google.com/search?q=${encodeURIComponent(q)}&igu=1`);
     }
   };
 
   const SHORTCUTS = [
-    { name: 'Google', icon: '🔍', url: 'https://www.google.com', color: 'from-blue-500 to-indigo-600', isExternal: true },
+    { name: 'Google', icon: '🔍', url: 'https://www.google.com/?igu=1', color: 'from-blue-500 to-indigo-600', isExternal: false },
     { name: 'Truyện Full', icon: '📖', url: 'https://truyenfull.vn', color: 'from-emerald-500 to-teal-600', isExternal: false },
     { name: '69 Thư Ba', icon: '📚', url: 'https://www.69shuba.com/', color: 'from-amber-500 to-orange-600', isExternal: false },
-    { name: 'YouTube', icon: '🎬', url: 'https://m.youtube.com', color: 'from-red-500 to-rose-600', isExternal: true },
-    { name: 'TikTok', icon: '📱', url: 'https://www.tiktok.com', color: 'from-neutral-900 to-zinc-700', isExternal: true },
+    { name: 'YouTube', icon: '🎬', url: 'https://m.youtube.com', color: 'from-red-500 to-rose-600', isExternal: false },
+    { name: 'TikTok', icon: '📱', url: 'https://www.tiktok.com', color: 'from-neutral-900 to-zinc-700', isExternal: false },
     { name: 'Hoàng Kim Ốc', icon: '📖', url: 'https://m.hjwzw.com', color: 'from-emerald-500 to-teal-600', isExternal: false },
     { name: 'Bút Thú Các', icon: '⚡', url: 'https://www.b520.cc', color: 'from-purple-500 to-violet-600', isExternal: false },
     { name: 'UU Đọc Sách', icon: '📗', url: 'https://uukanshu.cc', color: 'from-cyan-500 to-blue-600', isExternal: false },

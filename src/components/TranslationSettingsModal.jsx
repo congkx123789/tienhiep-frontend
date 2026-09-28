@@ -73,42 +73,45 @@ export default function TranslationSettingsModal({ isOpen, onClose, onToolAction
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Invisible overlay just to close when clicking outside */}
-      <div className="fixed inset-0 z-[9999]" onClick={onClose}></div>
-      
-      {/* Floating Popup Panel */}
-      <div className="absolute right-2 top-12 z-[10000] bg-[#1e1e24]/95 backdrop-blur-md w-[90vw] sm:w-[380px] max-h-[85vh] rounded-2xl border border-indigo-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col origin-top-right animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Header Tabs */}
-        <div className="flex items-center justify-between p-2 border-b border-white/10 bg-white/5">
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-            <button 
-              onClick={() => setActiveTab('tools')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'tools' ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              <BrainCircuit className="w-3.5 h-3.5" /> Tiện Ích
-            </button>
-            <button 
-              onClick={() => setActiveTab('advanced')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'advanced' ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              <Settings className="w-3.5 h-3.5" /> Nâng Cao
-            </button>
-            <button 
-              onClick={() => setActiveTab('history')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'history' ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              <History className="w-3.5 h-3.5" /> Lịch Sử
+    /* Centered Modal Backdrop */
+    <div 
+      className="fixed inset-0 z-[200050] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+        {/* Floating Modal Panel */}
+        <div 
+          className="w-full max-w-sm sm:max-w-md bg-[#181824] border border-indigo-500/30 rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header Tabs */}
+          <div className="flex items-center justify-between p-2.5 border-b border-white/10 bg-white/5">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              <button 
+                onClick={() => setActiveTab('tools')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'tools' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <BrainCircuit className="w-3.5 h-3.5" /> Tiện Ích
+              </button>
+              <button 
+                onClick={() => setActiveTab('advanced')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'advanced' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <Settings className="w-3.5 h-3.5" /> Nâng Cao
+              </button>
+              <button 
+                onClick={() => setActiveTab('history')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'history' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <History className="w-3.5 h-3.5" /> Lịch Sử
+              </button>
+            </div>
+            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-full transition-colors mr-1 text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
             </button>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-full transition-colors mr-1">
-            <X className="w-5 h-5 text-slate-400" />
-          </button>
-        </div>
 
-        {/* Content */}
-        <div className="p-4 flex flex-col gap-5 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(85vh - 60px)' }}>
+          {/* Content */}
+          <div className="p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(85vh - 65px)' }}>
           
           {activeTab === 'tools' && (
             <>
@@ -382,6 +385,6 @@ export default function TranslationSettingsModal({ isOpen, onClose, onToolAction
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

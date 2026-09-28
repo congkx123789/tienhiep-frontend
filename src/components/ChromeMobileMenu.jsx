@@ -16,7 +16,8 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
-  Sliders
+  Sliders,
+  BrainCircuit
 } from 'lucide-react';
 
 export default function ChromeMobileMenu({
@@ -45,7 +46,8 @@ export default function ChromeMobileMenu({
   onGoBack,
   canGoForward,
   onGoForward,
-  onOpenTabConfig
+  onOpenTabConfig,
+  onOpenTranslationSettings
 }) {
   const menuRef = useRef(null);
 
@@ -260,6 +262,21 @@ export default function ChromeMobileMenu({
           <div className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             Tiện ích Đọc & Dịch AI
           </div>
+
+          {/* Bảng công cụ & Cài đặt dịch */}
+          <button
+            type="button"
+            onClick={() => { if (onOpenTranslationSettings) onOpenTranslationSettings(); onClose(); }}
+            className="flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/10 active:bg-white/15 transition-all text-left"
+          >
+            <div className="flex items-center gap-3">
+              <BrainCircuit className="w-4 h-4 text-indigo-400" />
+              <span>Bảng công cụ & Cài đặt dịch</span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-600/30 text-indigo-300">
+              MỞ
+            </span>
+          </button>
 
           {/* Auto Translate Toggle */}
           <button

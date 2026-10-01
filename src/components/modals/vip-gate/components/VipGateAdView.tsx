@@ -1,0 +1,152 @@
+import React from 'react';
+import { 
+  Sparkles, 
+  Tv, 
+  RefreshCw, 
+  Check, 
+  PlayCircle, 
+  Crown, 
+  ArrowRight 
+} from 'lucide-react';
+import GoogleAd from '../../../common/GoogleAd';
+
+interface VipGateAdViewProps {
+  toolName?: string;
+  description?: string;
+  durationMinutes: number;
+  adWatching: boolean;
+  adTimer: number;
+  adFinished: boolean;
+  onStartWatchAd: () => void;
+  onClaimAdReward: () => void;
+  onGoToPlans: () => void;
+}
+
+export const VipGateAdView: React.FC<VipGateAdViewProps> = ({
+  toolName,
+  description,
+  durationMinutes,
+  adWatching,
+  adTimer,
+  adFinished,
+  onStartWatchAd,
+  onClaimAdReward,
+  onGoToPlans,
+}) => {
+  return (
+    <div className="space-y-4">
+      {/* Box giới thiệu Tool */}
+      <div className="p-4 rounded-2xl bg-[#14142b] border border-amber-500/20 relative overflow-hidden">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white mb-0.5">{toolName}</h4>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {description || 'Tính năng này yêu cầu quyền mở khóa để phục vụ trải nghiệm tốt nhất.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Lựa chọn 1: Xem Quảng Cáo Mở Khóa Tạm Thời (Miễn phí) */}
+      <div className="p-4 rounded-2xl bg-gradient-to-br from-[#121226] to-[#181834] border border-brand-500/30 shadow-lg relative">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <Tv className="w-4 h-4" />
+            </span>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+              Lựa chọn Miễn Phí
+            </span>
+          </div>
+          <span className="text-[11px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+            Mở khóa {durationMinutes} phút
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-300 mb-3">
+          Xem 1 quảng cáo tài trợ ngắn (15 giây) để mở khóa ngay lập tức và tiếp tục tác vụ.
+        </p>
+
+        {adWatching ? (
+          <div className="space-y-3 bg-[#0a0a14] p-3 rounded-xl border border-white/10">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <RefreshCw className={`w-3.5 h-3.5 ${!adFinished ? 'animate-spin text-amber-400' : ''}`} />
+                {adFinished ? 'Đã hoàn tất tài trợ!' : `Đang xem tài trợ: ${adTimer}s`}
+              </span>
+              <span className="text-amber-400 font-mono text-[11px]">
+                {adFinished ? '100%' : `${Math.round(((15 - adTimer) / 15) * 100)}%`}
+              </span>
+            </div>
+
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-1000"
+                style={{ width: `${((15 - adTimer) / 15) * 100}%` }}
+              />
+            </div>
+
+            <div className="p-3 bg-[#111122] rounded-lg border border-dashed border-white/10 text-center">
+              <GoogleAd slot="reward-interstitial-slot" className="!my-0" />
+              <p className="text-[10px] text-slate-500 mt-1 italic">
+                Cảm ơn bạn đã xem quảng cáo tài trợ duy trì máy chủ Tiên Hiệp AI
+              </p>
+            </div>
+
+            {adFinished ? (
+              <button
+                type="button"
+                onClick={onClaimAdReward}
+                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 animate-bounce"
+              >
+                <Check className="w-4 h-4" /> Mở Khóa Thành Công - Dùng Ngay!
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full py-2.5 bg-white/5 text-slate-500 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                Vui lòng đợi {adTimer} giây nữa...
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onStartWatchAd}
+            className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all active:scale-[0.98]"
+          >
+            <PlayCircle className="w-4 h-4" /> Xem Quảng Cáo 15s Để Mở Khóa Ngay
+          </button>
+        )}
+      </div>
+
+      {/* Lựa chọn 2: Nâng cấp VIP */}
+      <div className="p-4 rounded-2xl bg-gradient-to-br from-[#1a140a] to-[#251b0d] border border-amber-500/40 relative">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Crown className="w-4 h-4" /> Trải Nghiệm Hoàn Hảo VIP
+          </span>
+          <span className="text-[10px] bg-amber-400/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-full border border-amber-400/30">
+            KHUYÊN DÙNG
+          </span>
+        </div>
+        <p className="text-xs text-slate-300 mb-3">
+          Tắt 100% quảng cáo, mở khóa tất cả các công cụ vĩnh viễn và ưu tiên tốc độ cao.
+        </p>
+        <button
+          type="button"
+          onClick={onGoToPlans}
+          className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:brightness-110 text-[#0b0b14] font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-[0.98]"
+        >
+          <span>Xem Bảng Gói Nâng Cấp VIP</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};

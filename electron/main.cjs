@@ -643,16 +643,17 @@ async function startBackend() {
   writeAppLog('[Backend Daemon] Đang kiểm tra giải phóng cổng 8001...');
   await killBackendOnPort(8001);
 
-  if (isDev) {
-    // Trong môi trường Dev, ưu tiên chạy trực tiếp server TTS mới từ TTS_Engine/server.py
-    const devScriptPath = path.join(__dirname, '../../TTS_Engine/server.py');
-    if (fs.existsSync(devScriptPath)) {
-      command = process.platform === 'win32' ? 'python' : 'python3';
-      args = [devScriptPath];
-      spawnOptions.cwd = path.dirname(devScriptPath);
-      writeAppLog(`[Backend Daemon] Khởi chạy engine ở chế độ DEV (Python Script): ${command} ${args.join(' ')}`);
-    }
+  // Ưu tiên Golang Server Engine (backend_go)
+  const goServerBin = process.platform === 'win32'
+    ? path.join(__dirname, '../../backend_go/bin/server.exe')
+    : path.join(__dirname, '../../backend_go/bin/server');
+  if (fs.existsSync(goServerBin)) {
+    command = goServerBin;
+    args = [];
+    spawnOptions.cwd = path.dirname(path.dirname(goServerBin));
+    writeAppLog(`[Backend Daemon] Khởi chạy Go Backend Server: ${command}`);
   }
+
 
   if (!command) {
     // Tìm file binary đã đóng gói (App_Doc_Truyen_Engine)
@@ -866,20 +867,28 @@ function waitForBackendReady(timeoutMs = 20000) {
   return new Promise((resolve) => {
     const start = Date.now();
     const interval = setInterval(() => {
-      const req = http.get('http://127.0.0.1:8001/health', (res) => {
-        if (res.statusCode === 200) {
-          clearInterval(interval);
-          resolve(true);
-        }
-        res.resume();
+      const probePort = (port, next) => {
+        const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+          if (res.statusCode === 200) {
+            clearInterval(interval);
+            resolve(true);
+          } else {
+            next();
+          }
+          res.resume();
+        });
+        req.on('error', next);
+        req.setTimeout(600, () => req.destroy());
+      };
+
+      probePort(5051, () => {
+        probePort(8001, () => {
+          if (Date.now() - start > timeoutMs) {
+            clearInterval(interval);
+            resolve(false);
+          }
+        });
       });
-      req.on('error', () => {
-        if (Date.now() - start > timeoutMs) {
-          clearInterval(interval);
-          resolve(false);
-        }
-      });
-      req.setTimeout(800, () => req.destroy());
     }, 600);
   });
 }
@@ -893,40 +902,45 @@ function startHealthMonitor() {
       stopHealthMonitor();
       return;
     }
-    const req = http.get('http://127.0.0.1:8001/health', (res) => {
-      res.resume();
-      // Engine vẫn sống, không cần làm gì
-    });
-    req.on('error', () => {
-      writeAppLog('[Health Monitor] Engine không phản hồi /health! Đang kiểm tra process...');
-      let processAlive = false;
-      if (backendProcess) {
-        try { processAlive = backendProcess.kill(0); } catch (e) { processAlive = false; }
-      }
-      if (!processAlive && !isQuitting) {
-        writeAppLog('[Health Monitor] Process đã chết. Tự động khởi động lại engine...');
-        stopHealthMonitor();
-        backendProcess = null;
-        backendRestartCount = 0;
-        startBackend().then(() => {
-          waitForBackendReady(20000).then((ready) => {
-            if (ready) {
-              writeAppLog('[Health Monitor] Engine khởi động lại thành công!');
-              backendState.running = true;
-              backendState.error = null;
-              startHealthMonitor();
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('backend-ready', { ready: true });
+    const checkPort = (port, fallback) => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+        res.resume();
+      });
+      req.on('error', fallback);
+      req.setTimeout(1000, () => req.destroy());
+    };
+
+    checkPort(5051, () => {
+      checkPort(8001, () => {
+        writeAppLog('[Health Monitor] Engine không phản hồi /health! Đang kiểm tra process...');
+        let processAlive = false;
+        if (backendProcess) {
+          try { processAlive = backendProcess.kill(0); } catch (e) { processAlive = false; }
+        }
+        if (!processAlive && !isQuitting) {
+          writeAppLog('[Health Monitor] Process đã chết. Tự động khởi động lại engine...');
+          stopHealthMonitor();
+          backendProcess = null;
+          backendRestartCount = 0;
+          startBackend().then(() => {
+            waitForBackendReady(20000).then((ready) => {
+              if (ready) {
+                writeAppLog('[Health Monitor] Engine khởi động lại thành công!');
+                backendState.running = true;
+                backendState.error = null;
+                startHealthMonitor();
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('backend-ready', { ready: true });
+                }
+              } else {
+                writeAppLog('[Health Monitor] Engine khởi động lại thất bại. Sẽ thử lại sau 30 giây...');
+                startHealthMonitor();
               }
-            } else {
-              writeAppLog('[Health Monitor] Engine khởi động lại thất bại. Sẽ thử lại sau 30 giây...');
-              startHealthMonitor();
-            }
+            });
           });
-        });
-      }
+        }
+      });
     });
-    req.setTimeout(5000, () => req.destroy());
   }, 30000);
 }
 
@@ -1523,7 +1537,7 @@ ipcMain.handle('get-models-path', async () => {
   }
 
   if (isDev) {
-    return path.join(__dirname, '../../TTS_Engine/models_onnx');
+    return path.join(__dirname, '../../backend_go/engines/tts/models_onnx');
   } else {
     const possiblePaths = [
       path.join(process.resourcesPath, binaryName),

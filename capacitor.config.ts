@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.lyvuha.tts',
-  appName: 'Tien Hiep AI',
+  appName: 'Tiên Hiệp AI',
   webDir: 'dist-web',
   server: {
     androidScheme: 'http'

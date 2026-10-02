@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ArrowLeft, BookOpen, Play, Pause, Target, Eye, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { LocalBook } from '../LocalReader.types';
 
@@ -44,8 +44,27 @@ export const LocalReadingView: React.FC<LocalReadingViewProps> = ({
   onParagraphDoubleClick
 }) => {
   const currentChapter = activeBook.chapters[activeChapterIdx] || { title: '', content: '' };
-  const paragraphs = currentChapter.content.split(/\n+/);
-  let sCounter = currentChapter.title ? 1 : 0;
+  
+  const parsedParagraphs = useMemo(() => {
+    const rawParas = currentChapter.content.split(/\n+/);
+    let sCounter = currentChapter.title ? 1 : 0;
+    return rawParas.map((para, pIdx) => {
+      const trimmed = para.trim();
+      if (!trimmed) return null;
+      const parts = trimmed.split(/([.!?。！？]+["”'’」]?\s*)/);
+      const sentences: { text: string; id: number }[] = [];
+      let cur = "";
+      for (let i = 0; i < parts.length; i++) {
+        cur += parts[i];
+        if (/[.!?。！？]/.test(parts[i]) || cur.length > 250) {
+          if (cur.trim()) sentences.push({ text: cur.trim(), id: sCounter++ });
+          cur = "";
+        }
+      }
+      if (cur.trim()) sentences.push({ text: cur.trim(), id: sCounter++ });
+      return { pIdx, trimmed, sentences };
+    }).filter(Boolean) as { pIdx: number; trimmed: string; sentences: { text: string; id: number }[] }[];
+  }, [currentChapter.title, currentChapter.content]);
 
   const getFontClass = () => {
     if (fontFamily === 'serif') return 'font-serif';
@@ -129,49 +148,31 @@ export const LocalReadingView: React.FC<LocalReadingViewProps> = ({
         style={{ fontSize: `${fontSize}px` }}
         className={`whitespace-pre-line break-words text-justify select-text ${getFontClass()} ${getLineHeightClass()}`}
       >
-        {paragraphs.map((para, pIdx) => {
-          const trimmed = para.trim();
-          if (!trimmed) return null;
-
-          const parts = trimmed.split(/([.!?。！？]+["”'’」]?\s*)/);
-          const sList: string[] = [];
-          let cur = "";
-          for (let i = 0; i < parts.length; i++) {
-            cur += parts[i];
-            if (/[.!?。！？]/.test(parts[i]) || cur.length > 250) {
-              if (cur.trim()) sList.push(cur.trim());
-              cur = "";
-            }
-          }
-          if (cur.trim()) sList.push(cur.trim());
-
-          return (
-            <p
-              key={pIdx}
-              className={`mb-6 select-text ${getFontClass()} ${getLineHeightClass()}`}
-              onDoubleClick={() => onParagraphDoubleClick(pIdx, trimmed)}
-            >
-              {sList.map((st) => {
-                const thisId = sCounter++;
-                const isActive = isCurrentChapterPlaying && currentSpokenSentenceId === thisId;
-                return (
-                  <span
-                    key={thisId}
-                    id={`s-${thisId}`}
-                    data-sid={thisId}
-                    className={`transition-all duration-150 inline ${
-                      isActive
-                        ? "bg-amber-400 text-black font-semibold px-1 py-0.5 rounded shadow-md"
-                        : ""
-                    }`}
-                  >
-                    {st}{" "}
-                  </span>
-                );
-              })}
-            </p>
-          );
-        })}
+        {parsedParagraphs.map(({ pIdx, trimmed, sentences }) => (
+          <p
+            key={pIdx}
+            className={`mb-6 select-text ${getFontClass()} ${getLineHeightClass()}`}
+            onDoubleClick={() => onParagraphDoubleClick(pIdx, trimmed)}
+          >
+            {sentences.map(({ text: st, id: thisId }) => {
+              const isActive = isCurrentChapterPlaying && currentSpokenSentenceId === thisId;
+              return (
+                <span
+                  key={thisId}
+                  id={`s-${thisId}`}
+                  data-sid={thisId}
+                  className={`transition-all duration-150 inline ${
+                    isActive
+                      ? "bg-amber-400 text-black font-semibold px-1 py-0.5 rounded shadow-md"
+                      : ""
+                  }`}
+                >
+                  {st}{" "}
+                </span>
+              );
+            })}
+          </p>
+        ))}
       </div>
 
       {/* Prev / Next chapter navigation */}

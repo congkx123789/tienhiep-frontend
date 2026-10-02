@@ -22,6 +22,8 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
   const [importMode, setImportMode] = useState<'auto' | 'paste'>('auto');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fileStats, setFileStats] = useState<{ chapterCount: number; size: string } | null>(null);
+  const [extractedChapters, setExtractedChapters] = useState<LocalChapter[]>([]);
 
   if (!isOpen) return null;
 
@@ -33,7 +35,8 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
 
     const chapterRegex = /^(chương|hồi|tiết|quyển|thứ|chapter|\d+[\.\:\s])/i;
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmed = line.trim();
       if (chapterRegex.test(trimmed) && trimmed.length < 80) {
         if (curContent.length > 0) {
@@ -56,27 +59,51 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
     if (!file) return;
     setLoading(true);
     setError('');
+    setFileStats(null);
 
     try {
       const baseName = file.name.replace(/\.[^/.]+$/, "");
       setTitle(baseName);
+      const sizeStr = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
 
-      if (file.name.endsWith('.epub')) {
+      if (file.name.toLowerCase().endsWith('.epub')) {
         const zip = await JSZip.loadAsync(file);
-        let combinedText = '';
-        const htmlFiles = Object.keys(zip.files).filter(k => k.endsWith('.html') || k.endsWith('.xhtml') || k.endsWith('.htm'));
+        const htmlFiles = Object.keys(zip.files).filter(k => 
+          (k.endsWith('.html') || k.endsWith('.xhtml') || k.endsWith('.htm')) && !k.includes('toc')
+        );
         htmlFiles.sort();
 
-        for (const fname of htmlFiles) {
+        const chapters: LocalChapter[] = [];
+        for (let i = 0; i < htmlFiles.length; i++) {
+          const fname = htmlFiles[i];
           const htmlContent = await zip.files[fname].async('text');
           const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
-          const cleanText = doc.body.textContent || '';
-          if (cleanText.trim()) combinedText += cleanText + '\n\n';
+          
+          let chapterTitle = doc.querySelector('h1, h2, h3, title')?.textContent?.trim() || `Chương ${i + 1}`;
+          if (chapterTitle.length > 80) chapterTitle = `Chương ${i + 1}`;
+          
+          const cleanText = (doc.body?.textContent || '').trim();
+          if (cleanText.length > 30) {
+            chapters.push({
+              title: chapterTitle,
+              content: cleanText
+            });
+          }
         }
-        setRawText(combinedText);
+
+        if (chapters.length === 0) {
+          throw new Error('Không tìm thấy nội dung hợp lệ trong tệp EPUB.');
+        }
+
+        setExtractedChapters(chapters);
+        setRawText('');
+        setFileStats({ chapterCount: chapters.length, size: sizeStr });
       } else {
         const text = await file.text();
-        setRawText(text);
+        const chapters = parseChaptersFromText(text);
+        setExtractedChapters(chapters);
+        setRawText(text.slice(0, 1000));
+        setFileStats({ chapterCount: chapters.length, size: sizeStr });
       }
     } catch (err: any) {
       setError('Lỗi đọc tệp: ' + err.message);
@@ -87,17 +114,26 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !rawText.trim()) return;
+    if (!title.trim()) return;
+    
+    let chaptersToSave = extractedChapters;
+    if (chaptersToSave.length === 0 && rawText.trim()) {
+      chaptersToSave = parseChaptersFromText(rawText);
+    }
+    if (chaptersToSave.length === 0) {
+      setError('Chưa có nội dung sách hợp lệ.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const chapters = parseChaptersFromText(rawText);
       const newBook: LocalBook = {
         id: 'local_' + Date.now(),
         title: title.trim(),
         author: author.trim() || 'Khuyết danh',
         coverUrl: coverUrl.trim() || undefined,
-        chapters,
-        totalChapters: chapters.length,
+        chapters: chaptersToSave,
+        totalChapters: chaptersToSave.length,
         addedAt: Date.now(),
         lastReadChapterIdx: 0
       };
@@ -162,16 +198,31 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-slate-300 font-bold mb-1">Nội dung tệp / Xem trước</label>
-            <textarea
-              rows={5}
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-[#0b0b14] border border-[#1f1f3a] text-white outline-none focus:border-purple-500 resize-none font-mono text-[11px]"
-              required
-            />
-          </div>
+          {fileStats ? (
+            <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-1">
+              <span className="text-emerald-400 font-bold block">✓ Đã xử lý tệp thành công</span>
+              <p className="text-slate-300 text-[11px]">
+                Tổng số chương: <strong>{fileStats.chapterCount}</strong> • Dung lượng: <strong>{fileStats.size}</strong>
+              </p>
+              {rawText && (
+                <div className="mt-2 text-[10px] text-slate-400 font-mono bg-black/40 p-2 rounded max-h-20 overflow-y-auto">
+                  {rawText.slice(0, 300)}...
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label className="block text-slate-300 font-bold mb-1">Nội dung tệp / Xem trước</label>
+              <textarea
+                rows={5}
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                className="w-full p-2.5 rounded-xl bg-[#0b0b14] border border-[#1f1f3a] text-white outline-none focus:border-purple-500 resize-none font-mono text-[11px]"
+                placeholder="Nhập hoặc dán nội dung truyện..."
+                required={extractedChapters.length === 0}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

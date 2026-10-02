@@ -1,4 +1,5 @@
 import { History, BookOpen, Globe } from 'lucide-react';
+import { isNativeApp } from '../../../../utils/electron';
 
 interface HistoryHeaderProps {
   lang: string;
@@ -21,36 +22,39 @@ export function HistoryHeader({
           {lang === 'vi' ? 'Trung Tâm Lịch Sử' : lang === 'en' ? 'History Center' : '历史中心'}
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          {lang === 'vi' ? 'Theo dõi tiến độ đọc truyện và lịch sử duyệt web di động' : 'Track reading progress and mobile browsing history'}
+          {lang === 'vi' ? 'Theo dõi tiến độ đọc truyện và lịch sử chương đã đọc' : 'Track reading progress and chapter history'}
         </p>
       </div>
 
-      {/* Segmented Switcher */}
-      <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-2xl self-start sm:self-auto">
-        <button
-          onClick={() => setActiveTab('reading')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'reading'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>{lang === 'vi' ? 'Lịch Sử Đọc' : 'Reading'}</span>
-        </button>
+      {/* Segmented Switcher (Chỉ hiển thị nút Duyệt Web trên App Native) */}
+      {isNativeApp && (
+        <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-2xl self-start sm:self-auto">
+          <button
+            onClick={() => setActiveTab('reading')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'reading'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>{lang === 'vi' ? 'Lịch Sử Đọc' : 'Reading'}</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('web')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'web'
-              ? 'bg-purple-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Globe className="w-3.5 h-3.5" />
-          <span>{lang === 'vi' ? `Duyệt Web (${browserHistoryLength})` : `Web (${browserHistoryLength})`}</span>
-        </button>
-      </div>
+          <button
+            onClick={() => setActiveTab('web')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'web'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>{lang === 'vi' ? `Duyệt Web (${browserHistoryLength})` : `Web (${browserHistoryLength})`}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+

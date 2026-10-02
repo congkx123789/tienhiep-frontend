@@ -4,7 +4,7 @@ import { useBrowserAudio } from './useBrowserAudio';
 import { useWebviewSync } from './useWebviewSync';
 import { BrowserHeader, BrowserViewports, BrowserModals } from './components';
 import ReaderQuickTools from '../../components/reader/ReaderQuickTools';
-import { isElectron } from '../../utils/electron';
+import { isElectron, isNativeApp } from '../../utils/electron';
 
 export const BrowserContext = createContext<any>(null);
 export const useBrowser = () => useContext(BrowserContext);
@@ -121,11 +121,25 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isVisible, setIsVisible] = useState(false);
 
   const handleOpenInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
+    if (!isNativeApp) {
+      // Trên Web thông thường: Không có chế độ trình duyệt nhúng, mở trực tiếp ra New Tab trình duyệt
+      if (targetUrl && targetUrl !== 'about:newtab') {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+    // Trên Native App (Electron, Android, iOS): Sử dụng trình duyệt nội bộ tích hợp
     setIsVisible(true);
     openInBrowser(targetUrl, inNewTab, isPrivate);
   }, [openInBrowser]);
 
   const handleOpenNewTab = useCallback((isPrivate: boolean = false, initialUrl: string = 'about:newtab') => {
+    if (!isNativeApp) {
+      if (initialUrl && initialUrl !== 'about:newtab') {
+        window.open(initialUrl, '_blank', 'noopener,noreferrer');
+      }
+      return '';
+    }
     setIsVisible(true);
     return openNewTab(isPrivate, initialUrl);
   }, [openNewTab]);
@@ -157,7 +171,7 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
   return (
     <BrowserContext.Provider value={contextValue}>
       <div className="w-full min-h-screen bg-[#0b0b14] flex flex-col">
-        {isVisible && (
+        {isNativeApp && isVisible && (
           <div
             className="fixed inset-0 z-[100] flex flex-col w-full h-screen h-[100dvh] overflow-hidden bg-slate-950 animate-fade-in"
             style={isElectron ? { WebkitAppRegion: 'no-drag' } as any : {}}

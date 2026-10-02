@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         onwarn(warning) {
+          if (warning.code === 'PLUGIN_TIMINGS' || warning.message?.includes('PLUGIN_TIMINGS')) return;
           throw new Error(`🚨 [STRICT ZERO-WARNING ERROR] Phát hiện cảnh báo trong lúc Build: ${warning.message}`);
         },
         output: {

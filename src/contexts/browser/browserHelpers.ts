@@ -177,7 +177,11 @@ export const normalizeUrlForIframe = (url?: string): string => {
   }
 
   let baseServer = '';
-  if (typeof localStorage !== 'undefined') {
+  const isElectronApp = typeof window !== 'undefined' && ((window as any).electron || (navigator && navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron')));
+
+  if (isElectronApp) {
+    baseServer = SERVER_CONFIG.LOCAL_HOST;
+  } else if (typeof localStorage !== 'undefined') {
     const cached = localStorage.getItem('best_tienhiep_server');
     if (cached) {
       if (cached.includes(':5051') || cached.includes('10.0.2.2') || cached.includes('127.0.0.1')) {
@@ -215,3 +219,4 @@ export const normalizeUrlForIframe = (url?: string): string => {
 
   return `${baseServer}/api/iframe_proxy?url=${encodeURIComponent(url)}`;
 };
+

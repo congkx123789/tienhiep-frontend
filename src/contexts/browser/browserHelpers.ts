@@ -169,8 +169,9 @@ export const ensureVietnameseText = async (rawTitle: string, rawText: string) =>
 };
 
 export const normalizeUrlForIframe = (url?: string): string => {
-  if (!url || url === 'http://localhost' || url === 'http://localhost/' || url.startsWith('http://localhost:5173') || url.startsWith('http://127.0.0.1:5173') || url.startsWith('http://localhost:3532') || url.startsWith('http://127.0.0.1:3532')) return 'about:newtab';
+  if (!url || url === 'http://localhost' || url === 'http://localhost/' || url.startsWith('http://localhost:5173') || url.startsWith('http://127.0.0.1:5173') || url.startsWith('http://localhost:3532') || url.startsWith('http://127.0.0.1:3532') || url.startsWith('chrome') || url.startsWith('chrome-error')) return 'about:newtab';
   if (url.startsWith('about:')) return url;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return 'about:newtab';
   if (url.includes('/api/iframe_proxy')) {
     // Sửa nếu url proxy bị dính https:// hoặc hash
     return url.replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');

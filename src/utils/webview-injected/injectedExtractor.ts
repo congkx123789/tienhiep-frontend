@@ -3,15 +3,20 @@ export function getInjectedExtractorScript(): string {
   return `
     getEffectiveUrl: () => {
       let raw = window.__originalUrl || '';
-      if (!raw || raw.startsWith('about:') || raw === 'null') {
+      if (!raw || raw.startsWith('about:') || raw.startsWith('chrome') || raw === 'null') {
         const baseEl = document.querySelector('base');
-        raw = (baseEl && baseEl.href) || document.baseURI || window.location.href || '';
+        const candidate = (baseEl && baseEl.href) || '';
+        if (candidate && candidate.startsWith('http')) {
+          raw = candidate;
+        } else {
+          raw = (document.baseURI && !document.baseURI.startsWith('chrome')) ? document.baseURI : (window.location.href && !window.location.href.startsWith('chrome') ? window.location.href : '');
+        }
       }
       if (raw && (raw.includes('iframe_proxy') || raw.includes('localhost') || raw.includes('127.0.0.1'))) {
         try {
           const u = new URL(raw, window.location.href);
           const real = u.searchParams.get('url');
-          if (real) raw = real;
+          if (real && real.startsWith('http')) raw = real;
         } catch(e) {}
       }
       try {

@@ -49,6 +49,7 @@ export function useWebviewSync(
       if (!senderTabId) senderTabId = activeTabId;
 
       if (type === 'NAVIGATE_REQ' && url) {
+        if (typeof url !== 'string' || !url.startsWith('http')) return;
         setTabs(prev => prev.map(t => {
           if (t.id !== senderTabId) return t;
           const stack = t.historyStack ? [...t.historyStack.slice(0, (t.historyIndex ?? 0) + 1), url] : [t.url, url];
@@ -66,7 +67,7 @@ export function useWebviewSync(
         }));
         addToHistory(url);
       } else if (type === 'PAGE_LOADED') {
-        if (url) {
+        if (url && typeof url === 'string' && url.startsWith('http')) {
           setTabs(prev => prev.map(t => t.id === senderTabId ? { ...t, url, title: cleanNovelTabTitle(title || t.title), isLoading: false } : t));
           addToHistory(url, title);
           if (autoStates[senderTabId]) {

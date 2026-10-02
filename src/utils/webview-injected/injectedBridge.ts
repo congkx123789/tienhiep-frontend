@@ -182,12 +182,18 @@ export function getInjectedBridgeScript(): string {
       }
 
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          type: 'PAGE_LOADED',
-          tabId: window.__TIENHIEP_TAB_ID__,
-          url: (window.__TienHiepHelpers ? window.__TienHiepHelpers.getEffectiveUrl().href : '') || window.__originalUrl || window.location.href,
-          title: document.title
-        }, '*');
+        let eff = (window.__TienHiepHelpers ? window.__TienHiepHelpers.getEffectiveUrl().href : '') || window.__originalUrl || '';
+        if (!eff || eff.indexOf('chrome') === 0 || eff.indexOf('about:') === 0) {
+          eff = window.__originalUrl || '';
+        }
+        if (eff && (eff.indexOf('http://') === 0 || eff.indexOf('https://') === 0)) {
+          window.parent.postMessage({
+            type: 'PAGE_LOADED',
+            tabId: window.__TIENHIEP_TAB_ID__,
+            url: eff,
+            title: document.title
+          }, '*');
+        }
       }
     }
   `;

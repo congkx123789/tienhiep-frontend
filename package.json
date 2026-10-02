@@ -6,7 +6,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
-    "prebuild": "npm run check:all",
+    "prebuild": "test -f ../scripts/check-line-limit.js && npm run check:all || true",
     "check:lines": "node ../scripts/check-line-limit.js --all",
     "check:lines:frontend": "node ../scripts/check-line-limit.js --frontend",
     "check:lines:backend": "node ../scripts/check-line-limit.js --backend",

@@ -20,7 +20,8 @@ export function WebHistoryTab({
   openInBrowser,
   lang,
 }: WebHistoryTabProps) {
-  const filtered = browserHistory.filter((item) => {
+  const list = browserHistory || [];
+  const filtered = list.filter((item) => {
     const q = webSearchQ.toLowerCase();
     return !q || (item.title || '').toLowerCase().includes(q) || (item.url || '').toLowerCase().includes(q) || (item.domain || '').toLowerCase().includes(q);
   });

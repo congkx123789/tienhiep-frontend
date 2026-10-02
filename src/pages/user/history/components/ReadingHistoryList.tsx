@@ -37,7 +37,8 @@ export function ReadingHistoryList({
     );
   }
 
-  if (historyGroups.length === 0) {
+  const groups = historyGroups || [];
+  if (groups.length === 0) {
     return (
       <div className="py-20 text-center text-slate-500">
         <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 mx-auto mb-4">

@@ -5,7 +5,7 @@
     <script>
       // Auto-detect new app deployments and flush stale browser cache immediately
       (function() {
-        var CURRENT_BUILD = '1.0.18-b' + '20261002_1519';
+        var CURRENT_BUILD = '1.0.18-b' + '20261002_1600';
         var stored = localStorage.getItem('app_build_version');
         if (stored && stored !== CURRENT_BUILD) {
           console.warn('[Cache Buster] New deployment detected: ' + CURRENT_BUILD + ' (was: ' + stored + '). Purging caches...');

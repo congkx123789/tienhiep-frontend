@@ -164,7 +164,7 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
   const activeTab = isVisible ? 'browser' : getActiveTab();
 
   const desktopNavItems: NavItem[] = useMemo(() => [
-    { key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
+    ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
     { key: 'all', icon: Compass, label: t.tabDiscover },
     { key: 'bookshelf', icon: BookMarked, label: t.tabBookshelf },
     { key: 'history', icon: History, label: t.tabHistory },
@@ -174,16 +174,16 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     ...(user ? [{ key: 'sects', icon: Crown, label: lang === 'vi' ? 'Tông Môn' : 'Sects' }] : []),
     { key: 'vip', icon: Crown, label: lang === 'vi' ? 'Ủng Hộ VIP' : 'VIP' },
     { key: 'settings', icon: SettingsIcon, label: t.tabSettings },
-  ], [lang, t, user]);
+  ], [lang, t, user, isNativeApp]);
 
   const bottomNavItems: NavItem[] = useMemo(() => [
-    { key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
+    ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
     { key: 'all', icon: Compass, label: t.tabDiscover },
     { key: 'bookshelf', icon: BookMarked, label: t.tabBookshelf },
     { key: 'history', icon: History, label: t.tabHistory },
     { key: 'vip', icon: Crown, label: 'VIP' },
     { key: 'settings', icon: SettingsIcon, label: t.tabSettings },
-  ], [lang, t]);
+  ], [lang, t, isNativeApp]);
 
   return (
     <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#0b0b14] text-slate-100">

@@ -3,6 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <script>
+      // Auto-detect new app deployments and flush stale browser cache immediately
+      (function() {
+        var CURRENT_BUILD = '1.0.18-b' + '20261002_1519';
+        var stored = localStorage.getItem('app_build_version');
+        if (stored && stored !== CURRENT_BUILD) {
+          console.warn('[Cache Buster] New deployment detected: ' + CURRENT_BUILD + ' (was: ' + stored + '). Purging caches...');
+          localStorage.setItem('app_build_version', CURRENT_BUILD);
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              return Promise.all(names.map(function(n) { return caches.delete(n); }));
+            }).then(function() {
+              window.location.reload(true);
+            }).catch(function() {
+              window.location.reload(true);
+            });
+            return;
+          }
+          window.location.reload(true);
+          return;
+        }
+        localStorage.setItem('app_build_version', CURRENT_BUILD);
+      })();
+
       // Automatically handle Vite dynamic chunk load errors by doing a hard reload
       window.addEventListener('error', function(e) {
         if (e.message && (e.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.message.indexOf('chunk') !== -1)) {

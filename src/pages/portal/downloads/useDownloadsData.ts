@@ -6,20 +6,20 @@ const INITIAL_RELEASES: ReleasesState = {
   extension: {
     version: '1.0.0',
     download_url: '/downloads/tts_extension.zip',
-    file_size: '11 MB',
-    release_notes: 'Cập nhật dịch nhanh và tối ưu hóa Chrome Extension Helper'
+    file_size: '10.7 MB',
+    release_notes: 'Tiện ích Chrome Extension Trợ lý Dịch & Đọc Truyện AI'
   },
   desktop_linux: {
-    version: '0.0.0',
-    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-data/resolve/main/downloads/TienHiepAI-0.0.0.AppImage',
-    file_size: '116 MB',
-    release_notes: 'Phiên bản AppImage beta dành cho Linux'
+    version: '1.0.18',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-1.0.18.AppImage',
+    file_size: '641 MB',
+    release_notes: 'Phiên bản AppImage v1.0.18 dành cho Linux'
   },
   desktop_windows: {
-    version: '0.0.0',
-    download_url: '#',
-    file_size: '0 MB',
-    release_notes: 'Bản Windows chính thức sắp ra mắt'
+    version: '1.0.18',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-Setup-1.0.18.exe',
+    file_size: '232 MB',
+    release_notes: 'Bản cài đặt Windows Setup EXE v1.0.18 chính thức'
   },
   android_apk: {
     version: '1.0.18',

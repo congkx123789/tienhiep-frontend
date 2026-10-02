@@ -50,7 +50,7 @@ export async function getBestServer(): Promise<string> {
   // 2. Kiểm tra cache trong localStorage
   try {
     const cached = localStorage.getItem(CACHE_KEY);
-    if (cached && (cached.includes(':8001') || cached.includes('lyvuha.com'))) {
+    if (cached && cached.includes(':8001')) {
       localStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(`${CACHE_KEY}_expiry`);
     } else {

@@ -45,7 +45,9 @@ export function createWindow(): BrowserWindow {
     titleBarOverlay: false,
     backgroundColor: '#060613',
     webPreferences: {
-      preload: path.join(__dirname, './preload.cjs'),
+      preload: fs.existsSync(path.join(__dirname, 'preload.cjs'))
+        ? path.join(__dirname, 'preload.cjs')
+        : path.join(__dirname, '../electron/preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       webviewTag: true,

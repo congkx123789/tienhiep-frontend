@@ -11,10 +11,11 @@ export function BookSidebarStats({ book, urlsList }: BookSidebarStatsProps) {
   const { openInBrowser } = useBrowser();
 
   const handleOpenSource = (url: string, e: React.MouseEvent) => {
-    const isNativeApp = (window as any).electron || ((window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform());
-    if (isNativeApp) {
-      e.preventDefault();
+    e.preventDefault();
+    if (openInBrowser) {
       openInBrowser(url);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 

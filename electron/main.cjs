@@ -1,42 +1,106 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, session } = require('electron');
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
-// Thêm switch bypass sandbox cho Linux và cho phép tự động phát âm thanh không cần cử chỉ chuột
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox');
-  app.commandLine.appendSwitch('disable-gpu-sandbox');
-}
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// electron/src/main.ts
+var import_electron9 = require("electron");
+var import_path8 = __toESM(require("path"), 1);
+var import_os3 = __toESM(require("os"), 1);
+var import_fs8 = __toESM(require("fs"), 1);
+var import_child_process4 = require("child_process");
 
-const path = require('path');
-const os = require('os');
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const { exec } = require('child_process');
-const JSZip = require('jszip');
-
-// ═════════════════════════════════════════════════════════════════════════
-// 🛡️ TIÊN HIỆP BROWSER NETWORK AD-BLOCKER (CHẶN QUẢNG CÁO TẬN GỐC TẦNG MẠNG)
-// ═════════════════════════════════════════════════════════════════════════
-const AD_DOMAINS = [
-  'magsrv.com', 'genieesspv.jp', 'popads.net', 'popcash.net', 'propellerads.com',
-  'adsterra.com', 'exoclick.com', 'trafficjunky.com', 'adtrue.com', 'monetag.com',
-  'adnxs.com', 'cpmstar.com', 'onclickalgo.com', 'bidvertiser.com', 'infolinks.com',
-  'taboola.com', 'outbrain.com', 'doubleclick.net', 'googlesyndication.com',
-  'googleadservices.com', 'google-analytics.com', 'googletagmanager.com',
-  'tongji.baidu.com', 'hm.baidu.com', 'cnzz.com', '51.la', 'umeng.com',
-  'hilltopads.net', 'richpush.co', 'clickadu.com', 'admob.com', 'adroll.com',
-  'rubiconproject.com', 'openx.net', 'pubmatic.com', 'criteo.com', 'zergnet.com',
-  'mgid.com', 'revcontent.com', 'yandex.ru', 'yandex.net', 'an.yandex.ru',
-  'adhigh.net', 'juicyads.com', 'trafficfactory.biz', 'adx1.com', 'exosrv.com',
-  'syndication.exoclick.com', 'tsyndicate.com', 'realsrv.com', 'wigetmedia.com',
-  'ad-provider.js', 'syndication.com', 'vidoomy.com', 'seedr.cc', 'yieldlove.com',
-  'vantagefx.com', 'vantagemarkets.com', 'adcash.com', 'popmyads.com', 'admaven.com',
-  'ad-maven.com', 'alwingulla.com', 'highperformancecpmgate.com', 'richads.com',
-  'trafficstars.com', 'daolan.net', 'yuhuads.com'
+// electron/src/adblock/adRules.ts
+var AD_DOMAINS = [
+  "magsrv.com",
+  "genieesspv.jp",
+  "popads.net",
+  "popcash.net",
+  "propellerads.com",
+  "adsterra.com",
+  "exoclick.com",
+  "trafficjunky.com",
+  "adtrue.com",
+  "monetag.com",
+  "adnxs.com",
+  "cpmstar.com",
+  "onclickalgo.com",
+  "bidvertiser.com",
+  "infolinks.com",
+  "taboola.com",
+  "outbrain.com",
+  "doubleclick.net",
+  "googlesyndication.com",
+  "googleadservices.com",
+  "google-analytics.com",
+  "googletagmanager.com",
+  "tongji.baidu.com",
+  "hm.baidu.com",
+  "cnzz.com",
+  "51.la",
+  "umeng.com",
+  "hilltopads.net",
+  "richpush.co",
+  "clickadu.com",
+  "admob.com",
+  "adroll.com",
+  "rubiconproject.com",
+  "openx.net",
+  "pubmatic.com",
+  "criteo.com",
+  "zergnet.com",
+  "mgid.com",
+  "revcontent.com",
+  "yandex.ru",
+  "yandex.net",
+  "an.yandex.ru",
+  "adhigh.net",
+  "juicyads.com",
+  "trafficfactory.biz",
+  "adx1.com",
+  "exosrv.com",
+  "syndication.exoclick.com",
+  "tsyndicate.com",
+  "realsrv.com",
+  "wigetmedia.com",
+  "ad-provider.js",
+  "syndication.com",
+  "vidoomy.com",
+  "seedr.cc",
+  "yieldlove.com",
+  "vantagefx.com",
+  "vantagemarkets.com",
+  "adcash.com",
+  "popmyads.com",
+  "admaven.com",
+  "ad-maven.com",
+  "alwingulla.com",
+  "highperformancecpmgate.com",
+  "richads.com",
+  "trafficstars.com",
+  "daolan.net",
+  "yuhuads.com"
 ];
-
-const AD_PATH_PATTERNS = [
+var AD_PATH_PATTERNS = [
   /\/ad-provider\.js/i,
   /\/pagead\//i,
   /zoneid=\d+/i,
@@ -58,22 +122,17 @@ const AD_PATH_PATTERNS = [
   /\/vantage/i
 ];
 
+// electron/src/adblock/adFilter.ts
 function isAdUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== 'string') return false;
-  if (
-    rawUrl.startsWith('http://localhost') ||
-    rawUrl.startsWith('http://127.0.0.1') ||
-    rawUrl.startsWith('tienhiepai:') ||
-    rawUrl.startsWith('file:') ||
-    rawUrl.startsWith('devtools:')
-  ) {
+  if (!rawUrl || typeof rawUrl !== "string") return false;
+  if (rawUrl.startsWith("http://localhost") || rawUrl.startsWith("http://127.0.0.1") || rawUrl.startsWith("tienhiepai:") || rawUrl.startsWith("file:") || rawUrl.startsWith("devtools:")) {
     return false;
   }
   try {
     const parsed = new URL(rawUrl);
     const host = parsed.hostname.toLowerCase();
     for (const domain of AD_DOMAINS) {
-      if (host === domain || host.endsWith('.' + domain)) {
+      if (host === domain || host.endsWith("." + domain)) {
         return true;
       }
     }
@@ -83,7 +142,7 @@ function isAdUrl(rawUrl) {
         return true;
       }
     }
-  } catch (e) {
+  } catch {
     const lower = rawUrl.toLowerCase();
     for (const domain of AD_DOMAINS) {
       if (lower.includes(domain)) return true;
@@ -91,784 +150,254 @@ function isAdUrl(rawUrl) {
   }
   return false;
 }
-
 function setupAdBlockerForSession(sess) {
   if (!sess || sess.__adBlockerInstalled) return;
   sess.__adBlockerInstalled = true;
-
   try {
-    sess.setPermissionRequestHandler((webContents, permission, callback) => {
-      // Chặn đứng hoàn toàn mọi nỗ lực xin quyền thông báo (Web Push) lừa đảo từ web truyện
-      if (permission === 'notifications' || permission === 'geolocation' || permission === 'media') {
+    sess.setPermissionRequestHandler((_webContents, permission, callback) => {
+      if (permission === "notifications" || permission === "geolocation" || permission === "media") {
         return callback(false);
       }
       callback(true);
     });
-  } catch (err) {}
-
+  } catch {
+  }
   try {
-    sess.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    sess.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
       if (isAdUrl(details.url)) {
-        console.log(`[Network AdBlock] 🚫 Đã chặn request quảng cáo: ${details.url.substring(0, 100)}...`);
+        console.log(`[Network AdBlock] \u{1F6AB} \u0110\xE3 ch\u1EB7n request qu\u1EA3ng c\xE1o: ${details.url.substring(0, 100)}...`);
         return callback({ cancel: true });
       }
       return callback({ cancel: false });
     });
+    sess.webRequest.onHeadersReceived({ urls: ["*://*/*"] }, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders || {} };
+      delete responseHeaders["x-frame-options"];
+      delete responseHeaders["X-Frame-Options"];
+      delete responseHeaders["content-security-policy"];
+      delete responseHeaders["Content-Security-Policy"];
+      delete responseHeaders["content-security-policy-report-only"];
+      delete responseHeaders["Content-Security-Policy-Report-Only"];
+      responseHeaders["Access-Control-Allow-Origin"] = ["*"];
+      callback({ responseHeaders });
+    });
   } catch (err) {
-    console.error('[Network AdBlock] Lỗi gắn bộ lọc request:', err);
+    console.error("[Network AdBlock] L\u1ED7i g\u1EAFn b\u1ED9 l\u1ECDc request:", err);
   }
 }
 
-// Định nghĩa helper ghi log hệ thống
-function writeAppLog(msg) {
-  try {
-    const logPath = path.join(app.getPath('userData'), 'tts_playback_debug.log');
-    const timestamp = new Date().toISOString();
-    fs.appendFileSync(logPath, `[${timestamp}] [App] ${msg}\n`, 'utf8');
-    console.log(`[AppLog] ${msg}`);
-  } catch (err) {
-    console.error('Failed to write app log:', err);
+// electron/src/window/windowManager.ts
+var import_electron2 = require("electron");
+var import_path2 = __toESM(require("path"), 1);
+var import_fs2 = __toESM(require("fs"), 1);
+
+// electron/src/oauth/oauthServer.ts
+var import_http = __toESM(require("http"), 1);
+
+// electron/src/utils/logger.ts
+var import_electron = require("electron");
+var import_fs = __toESM(require("fs"), 1);
+var import_path = __toESM(require("path"), 1);
+var logFilePath = null;
+function getAppLogPath() {
+  if (!logFilePath) {
+    try {
+      const userData = import_electron.app.getPath("userData");
+      logFilePath = import_path.default.join(userData, "app.log");
+    } catch {
+      logFilePath = import_path.default.join(process.cwd(), "app.log");
+    }
   }
+  return logFilePath;
 }
-
-// Log khởi động hệ thống ban đầu
-writeAppLog('========================================');
-writeAppLog('--- KHỞI ĐỘNG ỨNG DỤNG TIÊN HIỆP AI ---');
-writeAppLog(`Phiên bản App: ${app.getVersion()}`);
-writeAppLog(`Hệ điều hành: ${process.platform} (${os.release()})`);
-writeAppLog(`Kiến trúc CPU: ${process.arch}, RAM trống: ${(os.freemem() / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB`);
-writeAppLog('========================================');
-
-let mainWindow;
-let oauthServer = null;
-const OAUTH_PORT = 53241;
-let isQuitting = false;
-let backendRestartCount = 0;
-const MAX_BACKEND_RESTARTS = 3;
-let healthMonitorInterval = null;
-let backendEverConnected = false;
-
-function registerLinuxDevProtocol() {
-  if (process.platform !== 'linux' || app.isPackaged) return;
-
-  const homeDir = os.homedir();
-  const destDir = path.join(homeDir, '.local/share/applications');
-  const iconPath = path.join(path.resolve(app.getAppPath()), 'public/icon.png');
-
-  // Set desktop name to match filename (excluding .desktop)
-  app.desktopName = 'tienhiepai.desktop';
-
-  const desktopContent = `[Desktop Entry]
-Name=Tiên Hiệp AI Dev
-Exec="${process.execPath}" "${path.resolve(app.getAppPath())}" %u
-Icon=${iconPath}
-Type=Application
-Terminal=false
-MimeType=x-scheme-handler/tienhiepai;
+function writeAppLog(message) {
+  const time = (/* @__PURE__ */ new Date()).toISOString();
+  const line = `[${time}] ${message}
 `;
-
   try {
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-    
-    const files = ['tienhiepai.desktop', 'TienHiepAI.desktop', 'tienhiepai-dev.desktop'];
-    for (const file of files) {
-      const filePath = path.join(destDir, file);
-      fs.writeFileSync(filePath, desktopContent, 'utf-8');
-      exec(`chmod +x "${filePath}"`);
-    }
-    
-    // Register the mime type handler with the OS
-    exec(`update-desktop-database ${destDir}`, (err) => {
-      if (err) console.error('[Linux Dev Protocol] Failed to update desktop database:', err);
-    });
-    exec(`xdg-mime default tienhiepai.desktop x-scheme-handler/tienhiepai`, (err) => {
-      if (err) console.error('[Linux Dev Protocol] Failed to set default handler:', err);
-    });
-    
-    console.log('[Linux Dev Protocol] Dev protocol handler registered.');
+    const p = getAppLogPath();
+    import_fs.default.appendFileSync(p, line, "utf8");
   } catch (e) {
-    console.error('[Linux Dev Protocol] Error registering protocol:', e);
+    console.error("Failed to write app log:", e);
   }
+  console.log(`[AppLog] ${message}`);
 }
 
+// electron/src/backend/portKiller.ts
+var import_child_process = require("child_process");
 function killBackendOnPort(port) {
   return new Promise((resolve) => {
     try {
-      if (process.platform === 'win32') {
-        // Force kill any orphaned App_Doc_Truyen_Engine processes first
-        exec(`taskkill /F /IM App_Doc_Truyen_Engine.exe`, { stdio: 'ignore' }, () => {
-          // Then kill the process listening on port 8001
-          exec(`cmd.exe /c "for /f \\"tokens=5\\" %a in ('netstat -aon ^| findstr :${port}') do taskkill /F /PID %a"`, { stdio: 'ignore' }, () => {
-            writeAppLog(`[Port Killer] Đã giải phóng port ${port}`);
+      if (process.platform === "win32") {
+        (0, import_child_process.exec)("taskkill /F /IM App_Doc_Truyen_Engine.exe", { stdio: "ignore" }, () => {
+          (0, import_child_process.exec)(`cmd.exe /c "for /f \\"tokens=5\\" %a in ('netstat -aon ^| findstr :${port}') do taskkill /F /PID %a"`, { stdio: "ignore" }, () => {
+            writeAppLog(`[Port Killer] \u0110\xE3 gi\u1EA3i ph\xF3ng port ${port}`);
             resolve();
           });
         });
       } else {
-        // Linux/macOS fallback
-        exec(`pkill -9 -f App_Doc_Truyen_Engine`, { stdio: 'ignore' }, () => {
-          exec(`fuser -k ${port}/tcp`, { stdio: 'ignore' }, () => {
-            writeAppLog(`[Port Killer] Đã giải phóng port ${port}`);
+        (0, import_child_process.exec)("pkill -9 -f App_Doc_Truyen_Engine", { stdio: "ignore" }, () => {
+          (0, import_child_process.exec)(`fuser -k ${port}/tcp`, { stdio: "ignore" }, () => {
+            writeAppLog(`[Port Killer] \u0110\xE3 gi\u1EA3i ph\xF3ng port ${port}`);
             resolve();
           });
         });
       }
-    } catch (e) {
+    } catch {
       resolve();
     }
   });
 }
 
-async function startOAuthServer() {
-  if (oauthServer) return; // Already running
-
+// electron/src/oauth/oauthServer.ts
+var OAUTH_PORT = 53241;
+var oauthServer = null;
+async function startOAuthServer(getMainWindow2) {
+  if (oauthServer) return;
   try {
-    writeAppLog('[OAuth Server] Đang kiểm tra giải phóng cổng 53241...');
+    writeAppLog(`[OAuth Server] \u0110ang ki\u1EC3m tra gi\u1EA3i ph\xF3ng c\u1ED5ng ${OAUTH_PORT}...`);
     await killBackendOnPort(OAUTH_PORT);
   } catch (err) {
-    writeAppLog(`[OAuth Server] Lỗi khi giải phóng cổng: ${err.message}`);
+    writeAppLog(`[OAuth Server] L\u1ED7i khi gi\u1EA3i ph\xF3ng c\u1ED5ng: ${err?.message}`);
   }
-
-  oauthServer = http.createServer((req, res) => {
-    // Add CORS headers so the browser page can fetch it
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    
-    if (req.method === 'OPTIONS') {
+  oauthServer = import_http.default.createServer((req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    if (req.method === "OPTIONS") {
       res.writeHead(200);
       res.end();
       return;
     }
-    
-    const parsedUrl = new URL(req.url, `http://127.0.0.1:${OAUTH_PORT}`);
-    if (parsedUrl.pathname === '/callback') {
-      const token = parsedUrl.searchParams.get('token');
-      const refreshToken = parsedUrl.searchParams.get('refresh_token');
-      const user = parsedUrl.searchParams.get('user');
-      
-      if (token && mainWindow) {
-        mainWindow.webContents.send('oauth-callback-token', { token, refreshToken, user });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
-        return;
+    try {
+      const parsedUrl = new URL(req.url || "", `http://127.0.0.1:${OAUTH_PORT}`);
+      if (parsedUrl.pathname === "/callback") {
+        const token = parsedUrl.searchParams.get("token");
+        const refreshToken = parsedUrl.searchParams.get("refresh_token");
+        const user = parsedUrl.searchParams.get("user");
+        const win = getMainWindow2();
+        if (token && win && !win.isDestroyed()) {
+          win.webContents.send("oauth-callback-token", { token, refreshToken, user });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+          return;
+        }
       }
+    } catch {
     }
-    
     res.writeHead(400);
-    res.end('Yêu cầu không hợp lệ');
+    res.end("Y\xEAu c\u1EA7u kh\xF4ng h\u1EE3p l\u1EC7");
   });
-
-  oauthServer.on('error', (err) => {
-    writeAppLog(`[OAuth Server] Gặp lỗi server: ${err.message}`);
+  oauthServer.on("error", (err) => {
+    writeAppLog(`[OAuth Server] G\u1EB7p l\u1ED7i server: ${err?.message}`);
   });
-
-  oauthServer.listen(OAUTH_PORT, '127.0.0.1', () => {
+  oauthServer.listen(OAUTH_PORT, "127.0.0.1", () => {
     writeAppLog(`[OAuth Server] Listening on http://127.0.0.1:${OAUTH_PORT}`);
   });
 }
 
-// Register custom protocol client
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('tienhiepai', process.execPath, [path.resolve(process.argv[1])]);
-  }
-} else {
-  app.setAsDefaultProtocolClient('tienhiepai');
+// electron/src/window/windowManager.ts
+var mainWindow = null;
+function getMainWindow() {
+  return mainWindow;
 }
-
-const gotTheLock = app.requestSingleInstanceLock();
-
 function createWindow() {
-  startOAuthServer();
-
-  const isDev = !app.isPackaged;
-  const isWin = process.platform === 'win32';
-  const iconExt = isWin ? 'ico' : 'png';
+  startOAuthServer(() => mainWindow);
+  const isDev = !import_electron2.app.isPackaged;
+  const isWin = process.platform === "win32";
+  const iconExt = isWin ? "ico" : "png";
   let iconPath;
   if (isDev) {
-    iconPath = path.join(__dirname, `../public/icon.${iconExt}`);
+    iconPath = import_path2.default.join(__dirname, `../public/icon.${iconExt}`);
   } else {
-    // In production, icon is inside .asar — Windows can't read it for taskbar/shortcut.
-    // Extract to a real file on disk that the OS can access.
-    const asarIconPath = path.join(__dirname, `../dist/icon.${iconExt}`);
-    const extractedIconPath = path.join(app.getPath('userData'), `icon.${iconExt}`);
+    const asarIconPath = import_path2.default.join(__dirname, `../dist/icon.${iconExt}`);
+    const extractedIconPath = import_path2.default.join(import_electron2.app.getPath("userData"), `icon.${iconExt}`);
     try {
-      if (!fs.existsSync(extractedIconPath)) {
-        const iconData = fs.readFileSync(asarIconPath);
-        fs.writeFileSync(extractedIconPath, iconData);
+      if (!import_fs2.default.existsSync(extractedIconPath) && import_fs2.default.existsSync(asarIconPath)) {
+        import_fs2.default.writeFileSync(extractedIconPath, import_fs2.default.readFileSync(asarIconPath));
       }
       iconPath = extractedIconPath;
-    } catch (e) {
-      writeAppLog(`[App] Icon extraction failed: ${e.message}`);
-      iconPath = asarIconPath; // fallback
+    } catch {
+      iconPath = asarIconPath;
     }
   }
-
-  mainWindow = new BrowserWindow({
+  const isLinux = process.platform === "linux";
+  mainWindow = new import_electron2.BrowserWindow({
     width: 1280,
     height: 800,
-    title: "Tiên Hiệp AI",
+    title: "Ti\xEAn Hi\u1EC7p AI",
     icon: iconPath,
-    frame: false, // Make window frameless
-    titleBarStyle: 'hidden',
+    frame: isLinux ? true : false,
+    titleBarStyle: isLinux ? "default" : "hidden",
     titleBarOverlay: false,
-    backgroundColor: '#060613', // Deep dark theme background color matching web styling to prevent white flash
+    backgroundColor: "#060613",
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: import_path2.default.join(__dirname, "./preload.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
       webviewTag: true,
-    },
+      webSecurity: false
+    }
   });
-
-  // Remove default menu bar to make it match the web interface
-  Menu.setApplicationMenu(null);
+  import_electron2.Menu.setApplicationMenu(null);
   mainWindow.setAutoHideMenuBar(true);
-
-  // Prevent web page SEO HTML title from overriding the clean application window title
-  mainWindow.on('page-title-updated', (event) => {
+  mainWindow.on("page-title-updated", (event) => {
     event.preventDefault();
   });
-
-  mainWindow.on('maximize', () => {
-    mainWindow.webContents.send('window-state-change', true);
+  mainWindow.on("maximize", () => {
+    mainWindow?.webContents.send("window-state-change", true);
   });
-  mainWindow.on('unmaximize', () => {
-    mainWindow.webContents.send('window-state-change', false);
+  mainWindow.on("unmaximize", () => {
+    mainWindow?.webContents.send("window-state-change", false);
   });
-
-  // Bypass Google OAuth 2.0 security policy block inside Electron by using a clean Chrome User-Agent
-  mainWindow.webContents.setUserAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
-
-  // Toggle DevTools on F12/Ctrl+Shift+I keypress, and allow Ctrl+R to reload in production
-  mainWindow.webContents.on('before-input-event', (event, input) => {
+  mainWindow.webContents.setUserAgent(
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+  );
+  mainWindow.webContents.on("before-input-event", (event, input) => {
     const key = input.key.toLowerCase();
-    const isDevToolsShortcut = (input.key === 'F12' || (input.control && input.shift && key === 'i'));
-    if (isDevToolsShortcut && input.type === 'keyDown') {
-      mainWindow.webContents.toggleDevTools();
+    const isDevTools = input.key === "F12" || input.control && input.shift && key === "i";
+    if (isDevTools && input.type === "keyDown") {
+      mainWindow?.webContents.toggleDevTools();
       event.preventDefault();
     }
-    const isReloadShortcut = (input.control && key === 'r') || input.key === 'F5';
-    if (isReloadShortcut && input.type === 'keyDown') {
-      // Báo xuống React reload riêng webview hiện tại thay vì reload sập cả cửa sổ Electron
-      mainWindow.webContents.send('active-tab-reload');
+    const isReload = input.control && key === "r" || input.key === "F5";
+    if (isReload && input.type === "keyDown") {
+      mainWindow?.webContents.send("active-tab-reload");
       event.preventDefault();
     }
   });
-
-  // Detect mode
   if (isDev) {
-    mainWindow.loadURL('http://localhost:3532');
+    mainWindow.loadURL("http://localhost:3532");
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(import_path2.default.join(__dirname, "../dist/index.html"));
   }
-
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     mainWindow = null;
   });
+  return mainWindow;
 }
 
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    // Focus existing window or recreate it
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-      
-      // On Windows/Linux: Extract the deep link URL from arguments
-      const url = commandLine.find(arg => arg.startsWith('tienhiepai://'));
-      if (url) {
-        mainWindow.webContents.send('oauth-callback', url);
-      }
-    } else {
-      createWindow();
-    }
-  });
-} // end else gotTheLock
+// electron/src/backend/backendManager.ts
+var import_electron3 = require("electron");
+var import_fs3 = __toESM(require("fs"), 1);
+var import_path3 = __toESM(require("path"), 1);
+var import_http3 = __toESM(require("http"), 1);
+var import_child_process2 = require("child_process");
 
-const { spawn, execSync } = require('child_process');
-let backendProcess = null;
-let backendState = { running: false, error: null, checkedPaths: [] };
-
-// killBackendOnPort moved to top to prevent hoisting issues
-
-function findExecutable(dir, filename) {
-  if (!fs.existsSync(dir)) return null;
-  try {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      const fullPath = path.join(dir, file);
-      try {
-        const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) {
-          const found = findExecutable(fullPath, filename);
-          if (found) return found;
-        } else if (file === filename) {
-          return fullPath;
-        }
-      } catch (e) {
-        // Bỏ qua lỗi truy cập file
-      }
-    }
-  } catch (dirErr) {
-    // Bỏ qua lỗi truy cập thư mục
-  }
-  return null;
-}
-
-function extractZip(zipPath, destDir) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      writeAppLog(`[Engine Extractor] Bắt đầu giải nén bằng JSZip từ: ${zipPath}`);
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-      }
-      
-      const zipData = fs.readFileSync(zipPath);
-      const zip = await JSZip.loadAsync(zipData);
-      
-      const files = Object.keys(zip.files);
-      for (const filename of files) {
-        const file = zip.files[filename];
-        const destPath = path.join(destDir, filename);
-        
-        if (file.dir) {
-          fs.mkdirSync(destPath, { recursive: true });
-        } else {
-          const parentDir = path.dirname(destPath);
-          if (!fs.existsSync(parentDir)) {
-            fs.mkdirSync(parentDir, { recursive: true });
-          }
-          
-          const content = await file.async('nodebuffer');
-          fs.writeFileSync(destPath, content);
-        }
-      }
-      writeAppLog(`[Engine Extractor] Giải nén bằng JSZip thành công.`);
-      resolve(true);
-    } catch (err) {
-      writeAppLog(`[Engine Extractor] Giải nén bằng JSZip thất bại: ${err.message}. Đang thử fallback sang lệnh hệ thống...`);
-      
-      // Wipe out the corrupted destDir first to prevent namespace collisions during fallback extraction
-      try {
-        if (fs.existsSync(destDir)) {
-          writeAppLog(`[Engine Extractor Fallback] Đang dọn dẹp thư mục lỗi trước khi giải nén lại...`);
-          fs.rmSync(destDir, { recursive: true, force: true });
-        }
-        fs.mkdirSync(destDir, { recursive: true });
-      } catch (cleanErr) {
-        writeAppLog(`[Engine Extractor Fallback] Cảnh báo dọn dẹp thất bại: ${cleanErr.message}`);
-      }
-
-      let cmd;
-      if (process.platform === 'win32') {
-        cmd = `powershell -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`;
-      } else {
-        cmd = `unzip -o "${zipPath}" -d "${destDir}"`;
-      }
-      writeAppLog(`[Engine Extractor Fallback] Đang giải nén bằng lệnh: ${cmd}`);
-      exec(cmd, (fallErr, stdout, stderr) => {
-        if (fallErr) {
-          writeAppLog(`[Engine Extractor Fallback] Giải nén thất bại: ${fallErr.message}. Stderr: ${stderr}`);
-          reject(fallErr);
-        } else {
-          writeAppLog(`[Engine Extractor Fallback] Giải nén thành công.`);
-          resolve(true);
-        }
-      });
-    }
-  });
-}
-
-
-async function ensureEngineExtracted() {
-  const isWin = process.platform === 'win32';
-  const binaryName = isWin ? 'App_Doc_Truyen_Engine.exe' : 'App_Doc_Truyen_Engine';
-  const destDir = path.join(app.getPath('userData'), 'bin');
-  const finalBinary = findExecutable(destDir, binaryName);
-
-  const versionFilePath = path.join(destDir, 'version.txt');
-  const currentAppVersion = app.getVersion();
-  
-  let needsExtraction = true;
-  if (finalBinary && fs.existsSync(finalBinary) && fs.existsSync(versionFilePath)) {
-    try {
-      const savedVersion = fs.readFileSync(versionFilePath, 'utf8').trim();
-      if (savedVersion === currentAppVersion) {
-        needsExtraction = false;
-      }
-    } catch (e) {
-      writeAppLog(`[Engine Auto-Prep] Lỗi đọc version.txt: ${e.message}`);
-    }
-  }
-
-  if (!needsExtraction) {
-    writeAppLog(`[Engine Auto-Prep] Engine binary đã tồn tại đúng phiên bản (${currentAppVersion}) tại: ${finalBinary}. Không cần giải nén.`);
-    return true;
-  }
-
-  // Nếu cần giải nén, dọn dẹp thư mục cũ trước để đảm bảo sạch sẽ
-  if (fs.existsSync(destDir)) {
-    try {
-      writeAppLog(`[Engine Auto-Prep] Đang dọn dẹp thư mục cũ để cập nhật phiên bản mới...`);
-      fs.rmSync(destDir, { recursive: true, force: true });
-    } catch (cleanErr) {
-      writeAppLog(`[Engine Auto-Prep] Cảnh báo dọn dẹp thư mục cũ thất bại: ${cleanErr.message}`);
-    }
-  }
-
-  // Engine does not exist, look for the zip in resources
-  const zipFilename = isWin ? 'windows_cpu.zip' : 'linux_cpu.zip';
-  const resourcesBinDir = app.isPackaged
-    ? path.join(process.resourcesPath, 'bin')
-    : path.join(__dirname, '../../TTS_ONNX_Deploy');
-  
-  const zipPath = path.join(resourcesBinDir, zipFilename);
-  if (!fs.existsSync(zipPath)) {
-    writeAppLog(`[Engine Auto-Prep] Không tìm thấy file zip đóng gói sẵn tại: ${zipPath}`);
-    return false;
-  }
-
-  writeAppLog(`[Engine Auto-Prep] Đang giải nén engine đi kèm từ: ${zipPath} sang ${destDir}...`);
-  try {
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-    await extractZip(zipPath, destDir);
-    writeAppLog(`[Engine Auto-Prep] Giải nén thành công.`);
-
-    // Post-extraction flattener logic
-    const foundBinary = findExecutable(destDir, binaryName);
-    if (foundBinary) {
-      const foundDir = path.dirname(foundBinary);
-      if (foundDir !== destDir) {
-        writeAppLog(`[Engine Auto-Prep] Phát hiện thư mục lồng. Di chuyển các file từ ${foundDir} lên ${destDir}`);
-        const items = fs.readdirSync(foundDir);
-        for (const item of items) {
-          const src = path.join(foundDir, item);
-          const dst = path.join(destDir, item);
-          if (fs.existsSync(dst)) {
-            const srcStat = fs.statSync(src);
-            if (srcStat.isDirectory()) {
-              fs.rmSync(dst, { recursive: true, force: true });
-            } else {
-              fs.unlinkSync(dst);
-            }
-          }
-          fs.renameSync(src, dst);
-        }
-        try {
-          fs.rmSync(foundDir, { recursive: true, force: true });
-        } catch (e) {}
-      }
-    }
-
-    // Set permission on Linux
-    if (!isWin) {
-      const linuxBinary = findExecutable(destDir, binaryName);
-      if (linuxBinary) {
-        fs.chmodSync(linuxBinary, 0o755);
-        writeAppLog(`[Engine Auto-Prep] Đã cấp quyền thực thi cho ${linuxBinary}`);
-      }
-    }
-
-    // Synchronize models
-    if (fs.existsSync(resourcesBinDir)) {
-      const models = fs.readdirSync(resourcesBinDir).filter(f => f.endsWith('.onnx'));
-      for (const model of models) {
-        const srcModel = path.join(resourcesBinDir, model);
-        const dstModel = path.join(destDir, model);
-        if (!fs.existsSync(dstModel)) {
-          fs.copyFileSync(srcModel, dstModel);
-          writeAppLog(`[Engine Auto-Prep] Đã đồng bộ model ${model} thành công.`);
-        }
-      }
-    }
-
-    // Ghi version.txt để đánh dấu phiên bản cài đặt thành công
-    try {
-      fs.writeFileSync(versionFilePath, currentAppVersion, 'utf8');
-      writeAppLog(`[Engine Auto-Prep] Đã ghi nhận phiên bản cài đặt mới: ${currentAppVersion}`);
-    } catch (versionErr) {
-      writeAppLog(`[Engine Auto-Prep] Lỗi ghi version.txt: ${versionErr.message}`);
-    }
-
-    writeAppLog(`[Engine Auto-Prep] ✅ Hoàn tất cài đặt tự động engine.`);
-    return true;
-  } catch (err) {
-    writeAppLog(`[Engine Auto-Prep] ❌ Lỗi giải nén engine tự động: ${err.stack || err.message || String(err)}`);
-    return false;
+// electron/src/backend/healthMonitor.ts
+var import_http2 = __toESM(require("http"), 1);
+var healthMonitorInterval = null;
+function stopHealthMonitor() {
+  if (healthMonitorInterval) {
+    clearInterval(healthMonitorInterval);
+    healthMonitorInterval = null;
   }
 }
-
-
-async function startBackend() {
-  const isDev = !app.isPackaged;
-  
-  if (app.isPackaged) {
-    writeAppLog('[Backend Daemon] Đang kiểm tra động cơ đi kèm ứng dụng...');
-    await ensureEngineExtracted();
-  }
-  let command;
-  let args = [];
-  
-  const env = { ...process.env };
-  
-  if (process.platform === 'linux') {
-    // Tiêm các thư viện CUDA/cuDNN vào LD_LIBRARY_PATH để chạy GPU trên Linux
-    const possibleCudaPaths = [
-      '/usr/local/cuda/lib64',
-      '/usr/local/cuda-12/lib64',
-      '/usr/local/cuda-12.8/lib64',
-      '/usr/lib/x86_64-linux-gnu'
-    ];
-    const libraryPaths = possibleCudaPaths.filter(p => fs.existsSync(p));
-    if (libraryPaths.length > 0) {
-      const existingLdPath = process.env.LD_LIBRARY_PATH ? `${process.env.LD_LIBRARY_PATH}:` : '';
-      env.LD_LIBRARY_PATH = `${existingLdPath}${libraryPaths.join(':')}`;
-      writeAppLog(`[Backend Daemon] Đã tự động tiêm LD_LIBRARY_PATH CUDA/cuDNN: ${env.LD_LIBRARY_PATH}`);
-    }
-  }
-
-  let spawnOptions = {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-    env: env
-  };
-
-  // Giải phóng port 8001 trước khi khởi chạy
-  writeAppLog('[Backend Daemon] Đang kiểm tra giải phóng cổng 8001...');
-  await killBackendOnPort(8001);
-
-  // Ưu tiên Golang Server Engine (backend_go)
-  const goServerBin = process.platform === 'win32'
-    ? path.join(__dirname, '../../backend_go/bin/server.exe')
-    : path.join(__dirname, '../../backend_go/bin/server');
-  if (fs.existsSync(goServerBin)) {
-    command = goServerBin;
-    args = [];
-    spawnOptions.cwd = path.dirname(path.dirname(goServerBin));
-    writeAppLog(`[Backend Daemon] Khởi chạy Go Backend Server: ${command}`);
-  }
-
-
-  if (!command) {
-    // Tìm file binary đã đóng gói (App_Doc_Truyen_Engine)
-    const binaryName = process.platform === 'win32' ? 'App_Doc_Truyen_Engine.exe' : 'App_Doc_Truyen_Engine';
-    
-    // Tìm kiếm đệ quy trong thư mục userData/bin trước để tránh bị lồng thư mục zip
-    const userDataBin = path.join(app.getPath('userData'), 'bin');
-    let checkedPaths = [];
-    checkedPaths.push({ path: userDataBin + ' (Tìm kiếm đệ quy)', exists: fs.existsSync(userDataBin) });
-    let foundPath = findExecutable(userDataBin, binaryName);
-    
-    if (!foundPath) {
-      // Các đường dẫn tĩnh dự phòng khác
-      const possiblePaths = [
-        path.join(app.getPath('userData'), binaryName),
-        path.join(__dirname, '../../TTS_ONNX_Deploy', binaryName),
-        path.join(process.resourcesPath, binaryName),
-        path.join(process.resourcesPath, 'bin', binaryName),
-        path.join(app.getAppPath(), '..', binaryName)
-      ];
-      possiblePaths.forEach(p => {
-        checkedPaths.push({ path: p, exists: fs.existsSync(p) });
-      });
-      foundPath = possiblePaths.find(p => fs.existsSync(p));
-    }
-    
-    backendState.checkedPaths = checkedPaths;
-    
-    if (foundPath) {
-      command = foundPath;
-      spawnOptions.cwd = path.dirname(command);
-      writeAppLog(`[Backend Daemon] Khởi chạy engine dạng Binary từ: ${command}`);
-      backendState.error = null;
-      
-      // Tự động sao chép package regex từ _internal ra ngoài thư mục gốc để bypass PyInstaller import block
-      try {
-        const internalRegex = path.join(spawnOptions.cwd, '_internal', 'regex');
-        const targetRegex = path.join(spawnOptions.cwd, 'regex');
-        if (fs.existsSync(internalRegex) && !fs.existsSync(targetRegex)) {
-          writeAppLog('[Backend Daemon] Đang copy thư mục regex ra ngoài thư mục gốc để tránh lỗi import...');
-          const copyRecursive = (src, dest) => {
-            const exists = fs.existsSync(src);
-            const stats = exists && fs.statSync(src);
-            const isDirectory = stats && stats.isDirectory();
-            if (isDirectory) {
-              if (!fs.existsSync(dest)) {
-                fs.mkdirSync(dest, { recursive: true });
-              }
-              fs.readdirSync(src).forEach((childItemName) => {
-                copyRecursive(path.join(src, childItemName), path.join(dest, childItemName));
-              });
-            } else {
-              fs.copyFileSync(src, dest);
-            }
-          };
-          copyRecursive(internalRegex, targetRegex);
-          writeAppLog('[Backend Daemon] Đã copy thành công thư mục regex.');
-        }
-      } catch (copyErr) {
-        writeAppLog(`[Backend Daemon] Lỗi copy thư mục regex: ${copyErr.stack || copyErr.message || String(copyErr)}`);
-      }
-      
-      // Tự động đồng bộ/sao chép model ONNX sang đúng thư mục chạy thực tế của engine
-      try {
-        const resourcesBinDir = isDev 
-          ? path.join(__dirname, '../../TTS_ONNX_Deploy')
-          : path.join(process.resourcesPath, 'bin');
-          
-        if (fs.existsSync(resourcesBinDir) && fs.existsSync(spawnOptions.cwd)) {
-          const files = fs.readdirSync(resourcesBinDir);
-          for (const file of files) {
-            if (file.endsWith('.onnx')) {
-              const srcFile = path.join(resourcesBinDir, file);
-              const destFile = path.join(spawnOptions.cwd, file);
-              if (!fs.existsSync(destFile)) {
-                writeAppLog(`[Backup Sync] Đang sao chép file ${file} từ resources sang ${spawnOptions.cwd}...`);
-                fs.copyFileSync(srcFile, destFile);
-              }
-            }
-          }
-        }
-      } catch (syncErr) {
-        writeAppLog(`[Backup Sync] Lỗi đồng bộ model: ${syncErr.stack || syncErr.message || String(syncErr)}`);
-      }
-    } else {
-      writeAppLog('[Backend Daemon] LỖI CỰC KỲ NGHIÊM TRỌNG: Không tìm thấy file chạy Engine ở tất cả các đường dẫn dự phòng!');
-      writeAppLog('[Backend Daemon] Chi tiết danh sách các đường dẫn đã kiểm tra:');
-      checkedPaths.forEach(item => {
-        writeAppLog(`  - [${item.exists ? 'TỒN TẠI' : 'THIẾU'}] ${item.path}`);
-      });
-      writeAppLog('[Backend Daemon] HƯỚNG DẪN KHẮC PHỤC: Vui lòng vào mục Cài đặt -> Cấu hình Đọc/Quản lý Giọng AI -> click "Tải Động Cơ CPU" hoặc "Tải Động Cơ GPU" để tải bộ động cơ chạy offline.');
-      backendState.error = 'missing_engine';
-      backendState.running = false;
-      return;
-    }
-  }
-  try {
-    const logPath = path.join(app.getPath('userData'), 'tts_playback_debug.log');
-    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-    
-    // Khởi chạy tiến trình, lắng nghe pipe stdout và stderr
-    writeAppLog(`[Backend Daemon] Đang spawn process: ${command} ${args.join(' ')}`);
-    backendProcess = spawn(command, args, spawnOptions);
-    backendState.error = null;
-    
-    backendProcess.stdout.on('data', (data) => {
-      const msg = data.toString().trim();
-      if (msg) {
-        logStream.write(`[${new Date().toISOString()}] [Python Server STDOUT] ${msg}\n`);
-      }
-    });
-    
-    backendProcess.stderr.on('data', (data) => {
-      const msg = data.toString().trim();
-      if (msg) {
-        logStream.write(`[${new Date().toISOString()}] [Python Server STDERR] ${msg}\n`);
-      }
-    });
- 
-    backendProcess.on('error', (err) => {
-      writeAppLog(`[Backend Daemon] Lỗi khởi chạy tiến trình: ${err.stack || err.message || String(err)}`);
-      backendState.error = 'spawn_failed';
-      backendState.running = false;
-    });
- 
-    backendProcess.on('exit', (code, signal) => {
-      writeAppLog(`[Backend Daemon] Engine chạy ngầm đã thoát. Exit Code: ${code}, Signal: ${signal}`);
-      backendState.running = false;
-      stopHealthMonitor();
-      if (code !== 0 && code !== null) {
-        backendState.error = `process_exited_with_code_${code}`;
-      }
-      
-      // Tự động khởi động lại Engine nếu bị đột tử (Crash recovery)
-      if (!isQuitting && code !== 0 && code !== null) {
-        if (backendRestartCount < MAX_BACKEND_RESTARTS) {
-          backendRestartCount++;
-          const delay = 3000;
-          writeAppLog(`[Backend Daemon] Phát hiện sự cố bất thường! Đang tự động khởi động lại Engine (Lần ${backendRestartCount}/${MAX_BACKEND_RESTARTS}) sau ${delay/1000} giây...`);
-          setTimeout(() => {
-            if (!isQuitting) {
-              startBackend().then(() => {
-                waitForBackendReady(15000).then((ready) => {
-                  if (ready) {
-                    writeAppLog('[Backend Daemon] Khởi động lại và kết nối lại thành công.');
-                    backendRestartCount = 0;
-                    backendEverConnected = true;
-                    startHealthMonitor();
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                      mainWindow.webContents.send('backend-ready', { ready: true });
-                    }
-                  } else {
-                    writeAppLog('[Backend Daemon] Thử kết nối lại thất bại (Timeout).');
-                  }
-                });
-              });
-            }
-          }, delay);
-        } else {
-          // Đã hết lượt thử nhanh → chờ 60s rồi reset counter và thử lại
-          writeAppLog(`[Backend Daemon] Đã vượt quá ${MAX_BACKEND_RESTARTS} lần thử nhanh. Chờ 60 giây rồi thử lại...`);
-          setTimeout(() => {
-            if (!isQuitting) {
-              writeAppLog('[Backend Daemon] Hết thời gian chờ cooldown. Reset counter và thử khởi động lại...');
-              backendRestartCount = 0;
-              startBackend().then(() => {
-                waitForBackendReady(20000).then((ready) => {
-                  if (ready) {
-                    writeAppLog('[Backend Daemon] Khởi động lại sau cooldown thành công!');
-                    backendEverConnected = true;
-                    startHealthMonitor();
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                      mainWindow.webContents.send('backend-ready', { ready: true });
-                    }
-                  } else {
-                    writeAppLog('[Backend Daemon] Khởi động lại sau cooldown vẫn thất bại.');
-                  }
-                });
-              });
-            }
-          }, 60000);
-        }
-      }
-    });
-  } catch (e) {
-    writeAppLog(`[Backend Daemon] Gặp lỗi crash khi gọi tiến trình: ${e.stack || e.message || String(e)}`);
-    backendState.error = 'exception_during_spawn';
-  }
-}
-
-function stopBackend() {
-  isQuitting = true;
-  if (backendProcess) {
-    writeAppLog('[Backend Daemon] Đang tắt engine chạy ngầm...');
-    try {
-      if (process.platform === 'win32') {
-        backendProcess.kill();
-      } else {
-        process.kill(-backendProcess.pid, 'SIGKILL');
-      }
-    } catch (e) {
-      try { backendProcess.kill(); } catch (err) {}
-    }
-    backendProcess = null;
-    writeAppLog('[Backend Daemon] Đã tắt engine thành công.');
-  }
-}
-
-// Poll /health until server responds or timeout
-function waitForBackendReady(timeoutMs = 20000) {
+function waitForBackendReady(timeoutMs = 2e4) {
   return new Promise((resolve) => {
     const start = Date.now();
     const interval = setInterval(() => {
       const probePort = (port, next) => {
-        const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+        const req = import_http2.default.get(`http://127.0.0.1:${port}/health`, (res) => {
           if (res.statusCode === 200) {
             clearInterval(interval);
             resolve(true);
@@ -877,10 +406,9 @@ function waitForBackendReady(timeoutMs = 20000) {
           }
           res.resume();
         });
-        req.on('error', next);
+        req.on("error", next);
         req.setTimeout(600, () => req.destroy());
       };
-
       probePort(5051, () => {
         probePort(8001, () => {
           if (Date.now() - start > timeoutMs) {
@@ -892,1036 +420,761 @@ function waitForBackendReady(timeoutMs = 20000) {
     }, 600);
   });
 }
-
-// ── Health Monitor: Tự động phát hiện engine chết và khởi động lại ────────────
-function startHealthMonitor() {
+function startHealthMonitor(isQuitting2, getBackendProcess, restartCallback) {
   stopHealthMonitor();
-  writeAppLog('[Health Monitor] Bắt đầu giám sát sức khỏe engine (mỗi 30 giây).');
+  writeAppLog("[Health Monitor] B\u1EAFt \u0111\u1EA7u gi\xE1m s\xE1t s\u1EE9c kh\u1ECFe engine (m\u1ED7i 30 gi\xE2y).");
   healthMonitorInterval = setInterval(() => {
-    if (isQuitting) {
+    if (isQuitting2()) {
       stopHealthMonitor();
       return;
     }
     const checkPort = (port, fallback) => {
-      const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+      const req = import_http2.default.get(`http://127.0.0.1:${port}/health`, (res) => {
         res.resume();
       });
-      req.on('error', fallback);
-      req.setTimeout(1000, () => req.destroy());
+      req.on("error", fallback);
+      req.setTimeout(1e3, () => req.destroy());
     };
-
     checkPort(5051, () => {
       checkPort(8001, () => {
-        writeAppLog('[Health Monitor] Engine không phản hồi /health! Đang kiểm tra process...');
+        writeAppLog("[Health Monitor] Engine kh\xF4ng ph\u1EA3n h\u1ED3i /health! \u0110ang ki\u1EC3m tra process...");
         let processAlive = false;
-        if (backendProcess) {
-          try { processAlive = backendProcess.kill(0); } catch (e) { processAlive = false; }
+        const proc = getBackendProcess();
+        if (proc) {
+          try {
+            processAlive = proc.kill(0);
+          } catch {
+            processAlive = false;
+          }
         }
-        if (!processAlive && !isQuitting) {
-          writeAppLog('[Health Monitor] Process đã chết. Tự động khởi động lại engine...');
-          stopHealthMonitor();
-          backendProcess = null;
-          backendRestartCount = 0;
-          startBackend().then(() => {
-            waitForBackendReady(20000).then((ready) => {
-              if (ready) {
-                writeAppLog('[Health Monitor] Engine khởi động lại thành công!');
-                backendState.running = true;
-                backendState.error = null;
-                startHealthMonitor();
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                  mainWindow.webContents.send('backend-ready', { ready: true });
-                }
-              } else {
-                writeAppLog('[Health Monitor] Engine khởi động lại thất bại. Sẽ thử lại sau 30 giây...');
-                startHealthMonitor();
-              }
-            });
-          });
+        if (!processAlive && !isQuitting2()) {
+          writeAppLog("[Health Monitor] Process \u0111\xE3 ch\u1EBFt. T\u1EF1 \u0111\u1ED9ng k\xEDch ho\u1EA1t kh\u1EDFi \u0111\u1ED9ng l\u1EA1i...");
+          restartCallback();
         }
       });
     });
-  }, 30000);
+  }, 3e4);
 }
 
-function stopHealthMonitor() {
-  if (healthMonitorInterval) {
-    clearInterval(healthMonitorInterval);
-    healthMonitorInterval = null;
+// electron/src/backend/backendManager.ts
+var backendState = {
+  running: false,
+  error: null,
+  checkedPaths: []
+};
+var backendProcess = null;
+var isQuitting = false;
+var backendRestartCount = 0;
+var MAX_RESTARTS = 3;
+function setQuitting(val) {
+  isQuitting = val;
+}
+function findExecutable(dir, filename) {
+  if (!import_fs3.default.existsSync(dir)) return null;
+  try {
+    const files = import_fs3.default.readdirSync(dir);
+    for (const file of files) {
+      const fullPath = import_path3.default.join(dir, file);
+      try {
+        const stat = import_fs3.default.statSync(fullPath);
+        if (stat.isDirectory()) {
+          const found = findExecutable(fullPath, filename);
+          if (found) return found;
+        } else if (file === filename) {
+          return fullPath;
+        }
+      } catch {
+      }
+    }
+  } catch {
+  }
+  return null;
+}
+async function startBackend() {
+  try {
+    const isAlreadyRunning = await new Promise((res) => {
+      const r = import_http3.default.get("http://127.0.0.1:5051/health", (resp) => {
+        resp.resume();
+        res(resp.statusCode === 200);
+      });
+      r.on("error", () => res(false));
+      r.setTimeout(800, () => {
+        r.destroy();
+        res(false);
+      });
+    });
+    if (isAlreadyRunning) {
+      writeAppLog("[Backend Daemon] Backend Go \u0111\xE3 \u0111ang ch\u1EA1y t\u1EA1i http://127.0.0.1:5051. T\u1EF1 \u0111\u1ED9ng k\u1EBFt n\u1ED1i.");
+      backendState.running = true;
+      backendState.error = null;
+      startHealthMonitor(() => isQuitting, () => backendProcess, () => triggerBackendRestart());
+      return true;
+    }
+  } catch {
+  }
+  let command = null;
+  let args = [];
+  const env = { ...process.env };
+  if (process.platform === "linux") {
+    const possibleCudaPaths = [
+      "/usr/local/cuda/lib64",
+      "/usr/local/cuda-12/lib64",
+      "/usr/local/cuda-12.8/lib64",
+      "/usr/lib/x86_64-linux-gnu"
+    ];
+    const libraryPaths = possibleCudaPaths.filter((p) => import_fs3.default.existsSync(p));
+    if (libraryPaths.length > 0) {
+      const existingLdPath = process.env.LD_LIBRARY_PATH ? `${process.env.LD_LIBRARY_PATH}:` : "";
+      env.LD_LIBRARY_PATH = `${existingLdPath}${libraryPaths.join(":")}`;
+    }
+  }
+  const spawnOptions = {
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+    env
+  };
+  await killBackendOnPort(8001);
+  const goServerBin = process.platform === "win32" ? import_path3.default.join(__dirname, "../../backend_go/bin/server.exe") : import_path3.default.join(__dirname, "../../backend_go/bin/server");
+  if (import_fs3.default.existsSync(goServerBin)) {
+    command = goServerBin;
+    args = [];
+    spawnOptions.cwd = import_path3.default.dirname(import_path3.default.dirname(goServerBin));
+    writeAppLog(`[Backend Daemon] Kh\u1EDFi ch\u1EA1y Go Backend Server: ${command}`);
+  }
+  if (!command) {
+    const binaryName = process.platform === "win32" ? "App_Doc_Truyen_Engine.exe" : "App_Doc_Truyen_Engine";
+    const userDataBin = import_path3.default.join(import_electron3.app.getPath("userData"), "bin");
+    command = findExecutable(userDataBin, binaryName);
+    if (command) spawnOptions.cwd = import_path3.default.dirname(command);
+  }
+  if (!command) {
+    writeAppLog("[Backend Daemon] C\u1EA2NH B\xC1O: Ch\u01B0a t\xECm th\u1EA5y engine binary c\u1EE5c b\u1ED9.");
+    backendState.error = "missing_engine";
+    backendState.running = false;
+    return false;
+  }
+  try {
+    writeAppLog(`[Backend Daemon] \u0110ang spawn process: ${command} ${args.join(" ")}`);
+    backendProcess = (0, import_child_process2.spawn)(command, args, spawnOptions);
+    backendState.error = null;
+    backendProcess.stdout?.on("data", (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.log(`[Backend STDOUT] ${msg}`);
+    });
+    backendProcess.stderr?.on("data", (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.error(`[Backend STDERR] ${msg}`);
+    });
+    backendProcess.on("exit", (code, signal) => {
+      writeAppLog(`[Backend Daemon] Engine ch\u1EA1y ng\u1EA7m \u0111\xE3 tho\xE1t. Exit Code: ${code}, Signal: ${signal}`);
+      backendState.running = false;
+      stopHealthMonitor();
+      if (code !== 0 && code !== null) {
+        backendState.error = `process_exited_with_code_${code}`;
+      }
+      triggerBackendRestart();
+    });
+    startHealthMonitor(() => isQuitting, () => backendProcess, () => triggerBackendRestart());
+    return true;
+  } catch (err) {
+    writeAppLog(`[Backend Daemon] L\u1ED7i spawn process: ${err?.message}`);
+    backendState.error = "spawn_failed";
+    return false;
   }
 }
-
-app.whenReady().then(() => {
-  registerLinuxDevProtocol();
-  setupAdBlockerForSession(session.defaultSession);
-  createWindow();
-
-  // Khởi động backend bất đồng bộ để tránh block cửa sổ chính
-  setTimeout(async () => {
-    await startBackend();
-    if (!backendProcess) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('backend-ready', { ready: false, error: backendState.error || 'missing_engine', checkedPaths: backendState.checkedPaths });
-      }
-      return;
-    }
-    waitForBackendReady(25000).then((ready) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
+function triggerBackendRestart() {
+  if (isQuitting || backendRestartCount >= MAX_RESTARTS) return;
+  backendRestartCount++;
+  writeAppLog(`[Backend Daemon] T\u1EF1 \u0111\u1ED9ng kh\u1EDFi \u0111\u1ED9ng l\u1EA1i l\u1EA7n ${backendRestartCount}/${MAX_RESTARTS}...`);
+  setTimeout(() => {
+    startBackend().then(() => {
+      waitForBackendReady(2e4).then((ready) => {
         if (ready) {
+          backendRestartCount = 0;
           backendState.running = true;
           backendState.error = null;
-          backendEverConnected = true;
-          startHealthMonitor();
-          mainWindow.webContents.send('backend-ready', { ready: true });
-        } else {
-          backendState.running = false;
-          backendState.error = 'timeout_start_failed';
-          mainWindow.webContents.send('backend-ready', { ready: false, error: 'timeout_start_failed' });
         }
-      }
+      });
     });
-  }, 100);
-
-  app.on('web-contents-created', (event, contents) => {
-    // Đặt màu nền Chromium mặc định của mọi webContents (bao gồm cả webview) là màu đen mun #121214
-    // Triệt tiêu tận gốc hiện tượng nháy trắng khi Chromium render khung hình đầu tiên
+  }, 2e3);
+}
+function stopBackend() {
+  isQuitting = true;
+  stopHealthMonitor();
+  if (backendProcess) {
+    writeAppLog("[Backend Daemon] \u0110ang t\u1EAFt engine ch\u1EA1y ng\u1EA7m...");
     try {
-      contents.setBackgroundColor('#121214');
-    } catch (err) {}
-
-    // Kích hoạt AdBlocker trên session của webview/webContents nếu có session riêng
-    try {
-      if (contents.session) {
-        setupAdBlockerForSession(contents.session);
-      }
-    } catch (err) {}
-
-    contents.on('console-message', (e, level, message, line, sourceId) => {
-      console.log(`[${contents.getType()} Console ${level}] ${message} (at ${sourceId}:${line})`);
-    });
-
-    contents.setWindowOpenHandler(({ url }) => {
-      // 1. Nếu URL là liên kết quảng cáo đã biết -> Chặn đứng hoàn toàn
-      if (isAdUrl(url)) {
-        console.log(`[WindowOpen AdBlock] 🚫 Đã chặn mở cửa sổ quảng cáo: ${url}`);
-        return { action: 'deny' };
-      }
-
-      // 2. Với webview đọc truyện: Tuyệt đối không cho phép tự động loadURL popup quảng cáo đè lên chương đang đọc
-      if (contents.getType() === 'webview') {
-        let currentHost = '';
-        let targetHost = '';
-        try { currentHost = new URL(contents.getURL()).hostname.toLowerCase(); } catch (e) {}
-        try { targetHost = new URL(url).hostname.toLowerCase(); } catch (e) {}
-
-        const isSameDomain = currentHost && targetHost && (currentHost === targetHost || targetHost.endsWith('.' + currentHost) || currentHost.endsWith('.' + targetHost));
-        const isChapterLink = /\.(html|htm|php)$/i.test(url) || /chapter|chap|read|book/i.test(url);
-
-        // Chỉ điều hướng nếu đúng là link chương tiếp/truyện cùng trang web, ngược lại CHẶN HẾT các popup tự nhảy
-        if (isSameDomain && isChapterLink) {
-          contents.loadURL(url);
-        } else {
-          console.log(`[WindowOpen AdBlock] 🚫 Chặn webview popup chuyển trang ngoài ý muốn: ${url}`);
-        }
-        return { action: 'deny' };
-      }
-      return { action: 'allow' };
-    });
-  });
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
-
-// On macOS: Handle URL open
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  if (mainWindow) {
-    mainWindow.webContents.send('oauth-callback', url);
-  }
-});
-
-app.on('window-all-closed', () => {
-  stopBackend();
-  app.exit(0);
-});
-
-app.on('will-quit', () => {
-  stopBackend();
-});
-
-// IPC Handler examples (Electron-only features)
-ipcMain.handle('get-system-info', async () => {
-  return {
-    platform: process.platform,
-    arch: process.arch,
-    version: app.getVersion(),
-    cpuCount: os.cpus().length,
-    freeMemoryGB: (os.freemem() / (1024 * 1024 * 1024)).toFixed(2),
-    totalMemoryGB: (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2),
-  };
-});
-
-ipcMain.handle('log-debug', async (event, msg) => {
-  try {
-    const logPath = path.join(app.getPath('userData'), 'tts_playback_debug.log');
-    const timestamp = new Date().toISOString();
-    fs.appendFileSync(logPath, `[${timestamp}] [Frontend] ${msg}\n`, 'utf8');
-    return true;
-  } catch (e) {
-    console.error('Failed to write frontend log:', e);
-    return false;
-  }
-});
-
-ipcMain.handle('open-log-folder', async () => {
-  try {
-    const logDir = app.getPath('userData');
-    shell.openPath(logDir);
-    return { success: true };
-  } catch (e) {
-    console.error('Failed to open log folder:', e);
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('get-log-content', async () => {
-  try {
-    const logPath = path.join(app.getPath('userData'), 'tts_playback_debug.log');
-    if (!fs.existsSync(logPath)) {
-      return 'Chưa có dữ liệu log.';
-    }
-    const stats = fs.statSync(logPath);
-    if (stats.size > 1 * 1024 * 1024) { // file > 1MB, chỉ lấy 100KB cuối
-      const fd = fs.openSync(logPath, 'r');
-      const bufferSize = 100 * 1024;
-      const buffer = Buffer.alloc(bufferSize);
-      const startPos = stats.size - bufferSize;
-      fs.readSync(fd, buffer, 0, bufferSize, startPos);
-      fs.closeSync(fd);
-      return '... [Log quá dài, chỉ hiển thị 100KB cuối] ...\n' + buffer.toString('utf8');
-    }
-    return fs.readFileSync(logPath, 'utf8');
-  } catch (e) {
-    return `Lỗi đọc log: ${e.message}`;
-  }
-});
-
-ipcMain.handle('clear-log', async () => {
-  try {
-    const logPath = path.join(app.getPath('userData'), 'tts_playback_debug.log');
-    fs.writeFileSync(logPath, `[${new Date().toISOString()}] [App] Đã xóa nhật ký cũ.\n`, 'utf8');
-    return true;
-  } catch (e) {
-    console.error('Failed to clear log:', e);
-    return false;
-  }
-});
-
-ipcMain.handle('select-directory', async (event, title) => {
-  if (!mainWindow) return null;
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: title || 'Chọn thư mục',
-    properties: ['openDirectory']
-  });
-  if (result.canceled) {
-    return null;
-  }
-  return result.filePaths[0];
-});
-
-ipcMain.handle('open-external', async (event, url) => {
-  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-    await shell.openExternal(url);
-    return true;
-  }
-  return false;
-});
-
-// Window control IPC handlers
-ipcMain.on('window-minimize', () => {
-  if (mainWindow) mainWindow.minimize();
-});
-
-ipcMain.on('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
-  }
-});
-
-ipcMain.on('window-close', () => {
-  if (mainWindow) mainWindow.close();
-});
-
-ipcMain.handle('window-is-maximized', () => {
-  return mainWindow ? mainWindow.isMaximized() : false;
-});
-
-// Permanent File-Based Store IPC Handlers
-ipcMain.handle('store-get', async (event, key) => {
-  try {
-    const configPath = path.join(app.getPath('userData'), 'app_config.json');
-    if (!fs.existsSync(configPath)) return null;
-    const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    return data[key] || null;
-  } catch (e) {
-    console.error('[Electron Store] Error reading config:', e);
-    return null;
-  }
-});
-
-ipcMain.handle('store-set', async (event, key, val) => {
-  try {
-    const configPath = path.join(app.getPath('userData'), 'app_config.json');
-    let data = {};
-    if (fs.existsSync(configPath)) {
-      data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    }
-    data[key] = val;
-    fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf8');
-    return true;
-  } catch (e) {
-    console.error('[Electron Store] Error writing config:', e);
-    return false;
-  }
-});
-
-ipcMain.handle('store-delete', async (event, key) => {
-  try {
-    const configPath = path.join(app.getPath('userData'), 'app_config.json');
-    if (!fs.existsSync(configPath)) return true;
-    const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    delete data[key];
-    fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf8');
-    return true;
-  } catch (e) {
-    console.error('[Electron Store] Error deleting config:', e);
-    return false;
-  }
-});
-
-// Download Model IPC Handler
-ipcMain.handle('download-model', async (event, { url, folderPath, filename }) => {
-  try {
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-    }
-    const dest = path.join(folderPath, filename);
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const totalBytes = parseInt(response.headers.get('content-length') || '0', 10);
-    const fileStream = fs.createWriteStream(dest);
-    
-    const reader = response.body.getReader();
-    let downloadedBytes = 0;
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      fileStream.write(Buffer.from(value));
-      downloadedBytes += value.length;
-      
-      if (totalBytes > 0) {
-        const percent = Math.round((downloadedBytes / totalBytes) * 100);
-        event.sender.send('download-progress', { filename, percent, downloadedBytes, totalBytes });
-      }
-    }
-    
-    await new Promise((resolve) => fileStream.end(resolve));
-    return { success: true, path: dest };
-  } catch (e) {
-    writeAppLog(`[Download Model] Thất bại: ${e.stack || e.message || String(e)}`);
-    return { success: false, error: e.stack || e.message || String(e) };
-  }
-});
-
-// Download Engine Binary IPC Handler
-ipcMain.handle('download-engine', async (event, { type }) => {
-  try {
-    const isWin = process.platform === 'win32';
-    const platform = isWin ? 'windows' : 'linux';
-    
-    // Tên file zip tải về từ HF: windows_cpu.zip, windows_gpu.zip, linux_cpu.zip...
-    const zipFilename = `${platform}_${type}.zip`;
-    const subfolder = type === 'gpu' ? 'gpu' : 'cpu';
-    const baseUrl = 'https://huggingface.co/datasets/Cong123779/Local-TTS-Engine/resolve/main';
-    const url = `${baseUrl}/${subfolder}/${zipFilename}`;
-    
-    const tempDir = app.getPath('temp');
-    const tempZipPath = path.join(tempDir, zipFilename);
-    const destDir = path.join(app.getPath('userData'), 'bin');
-    
-    writeAppLog(`[Download Engine] Bắt đầu tiến trình tải engine: ${zipFilename}`);
-    writeAppLog(`[Download Engine] URL nguồn: ${url}`);
-    writeAppLog(`[Download Engine] Nơi lưu file tạm: ${tempZipPath}`);
-    writeAppLog(`[Download Engine] Thư mục giải nén đích: ${destDir}`);
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const totalBytes = parseInt(response.headers.get('content-length') || '0', 10);
-    writeAppLog(`[Download Engine] Dung lượng header trả về: ${(totalBytes/1024/1024).toFixed(2)} MB (${totalBytes} bytes)`);
-    
-    // Kiểm tra file tải về có quá nhỏ không (dưới 1MB = không phải engine thật)
-    if (totalBytes > 0 && totalBytes < 1024 * 1024) {
-      throw new Error(`File tải về quá nhỏ (${totalBytes} bytes). Engine chưa được đóng gói cho platform ${platform}. Vui lòng liên hệ nhà phát triển.`);
-    }
-    
-    const fileStream = fs.createWriteStream(tempZipPath);
-    const reader = response.body.getReader();
-    let downloadedBytes = 0;
-    let lastLoggedPercent = -1;
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      fileStream.write(Buffer.from(value));
-      downloadedBytes += value.length;
-      
-      if (totalBytes > 0) {
-        const percent = Math.round((downloadedBytes / totalBytes) * 100);
-        
-        // Ghi log tiến độ mỗi 10% để người dùng theo dõi chi tiết
-        if (percent % 10 === 0 && percent !== lastLoggedPercent) {
-          writeAppLog(`[Download Engine] Tiến độ tải: ${percent}% (${(downloadedBytes/1024/1024).toFixed(2)} MB / ${(totalBytes/1024/1024).toFixed(2)} MB)`);
-          lastLoggedPercent = percent;
-        }
-        
-        // Gửi progress với tên file binary giả định để khớp UI
-        const uiFilename = isWin ? 'App_Doc_Truyen_Engine.exe' : 'App_Doc_Truyen_Engine';
-        event.sender.send('download-progress', { filename: uiFilename, percent, downloadedBytes, totalBytes });
-      }
-    }
-    
-    await new Promise((resolve) => fileStream.end(resolve));
-    writeAppLog(`[Download Engine] Tải file zip hoàn tất. Bắt đầu giải nén vào thư mục: ${destDir}`);
-    
-    // Tạo thư mục nếu chưa tồn tại
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-    
-    // Giải nén zip
-    await extractZip(tempZipPath, destDir);
-    writeAppLog(`[Download Engine] Giải nén zip thành công.`);
-    
-    // Xóa file zip tạm
-    try {
-      fs.unlinkSync(tempZipPath);
-      writeAppLog(`[Download Engine] Đã dọn dẹp file zip tạm.`);
-    } catch (unlinkErr) {
-      writeAppLog(`[Download Engine] Không thể dọn dẹp file zip tạm: ${unlinkErr.message}`);
-    }
-    
-    // ── POST-EXTRACTION: Flatten thư mục lồng ──────────────────────────────
-    const binaryName = isWin ? 'App_Doc_Truyen_Engine.exe' : 'App_Doc_Truyen_Engine';
-    writeAppLog(`[Download Engine] Đang tìm kiếm file thực thi: ${binaryName}`);
-    const foundBinary = findExecutable(destDir, binaryName);
-    
-    if (foundBinary) {
-      writeAppLog(`[Download Engine] Đã tìm thấy file thực thi tại: ${foundBinary}`);
-      const foundDir = path.dirname(foundBinary);
-      
-      // Nếu binary nằm trong thư mục con (không phải trực tiếp trong destDir)
-      if (foundDir !== destDir) {
-        writeAppLog(`[Download Engine] Phát hiện thư mục lồng. Tiến hành di chuyển các file từ ${foundDir} lên ${destDir}`);
-        try {
-          const items = fs.readdirSync(foundDir);
-          writeAppLog(`[Download Engine] Số lượng items cần di chuyển: ${items.length}`);
-          for (const item of items) {
-            const src = path.join(foundDir, item);
-            const dst = path.join(destDir, item);
-            try {
-              if (fs.existsSync(dst)) {
-                const srcStat = fs.statSync(src);
-                if (srcStat.isDirectory()) {
-                  fs.rmSync(dst, { recursive: true, force: true });
-                } else {
-                  fs.unlinkSync(dst);
-                }
-              }
-              fs.renameSync(src, dst);
-            } catch (moveErr) {
-              writeAppLog(`[Download Engine] Lỗi di chuyển item ${item}: ${moveErr.message}`);
-            }
-          }
-          // Xóa thư mục con rỗng
-          try { 
-            fs.rmSync(foundDir, { recursive: true, force: true }); 
-            writeAppLog(`[Download Engine] Đã xóa thư mục con rỗng: ${foundDir}`);
-          } catch (e) {}
-        } catch (flattenErr) {
-          writeAppLog(`[Download Engine] Lỗi trong quá trình flatten thư mục lồng: ${flattenErr.message}`);
-        }
-      }
-    } else {
-      writeAppLog(`[Download Engine] ⚠️ Cảnh báo: Không tìm thấy file thực thi ${binaryName} trong các file đã giải nén!`);
-    }
-    
-    // Cấp quyền thực thi nếu chạy trên linux
-    if (!isWin) {
-      const finalBinary = findExecutable(destDir, binaryName);
-      if (finalBinary) {
-        try {
-          writeAppLog(`[Download Engine] Đang cấp quyền thực thi (chmod 755) cho: ${finalBinary}`);
-          fs.chmodSync(finalBinary, 0o755);
-          writeAppLog(`[Download Engine] Cấp quyền thực thi thành công.`);
-        } catch (chmodErr) {
-          writeAppLog(`[Download Engine] Lỗi cấp quyền thực thi: ${chmodErr.message}`);
-        }
-      }
-    }
-    
-    // ── Đồng bộ ONNX models vào thư mục engine ─────────────────────────────
-    try {
-      const isDev = !app.isPackaged;
-      const resourcesBinDir = isDev 
-        ? path.join(__dirname, '../../TTS_ONNX_Deploy')
-        : path.join(process.resourcesPath, 'bin');
-        
-      writeAppLog(`[Download Engine] Bắt đầu đồng bộ models ONNX. Thư mục nguồn: ${resourcesBinDir}`);
-      if (fs.existsSync(resourcesBinDir)) {
-        const models = fs.readdirSync(resourcesBinDir).filter(f => f.endsWith('.onnx'));
-        writeAppLog(`[Download Engine] Các models phát hiện trong resources: ${models.join(', ')}`);
-        for (const model of models) {
-          const srcModel = path.join(resourcesBinDir, model);
-          const dstModel = path.join(destDir, model);
-          if (!fs.existsSync(dstModel)) {
-            writeAppLog(`[Download Engine] Đang đồng bộ model ${model} sang thư mục engine...`);
-            fs.copyFileSync(srcModel, dstModel);
-            writeAppLog(`[Download Engine] Đồng bộ ${model} thành công.`);
-          } else {
-            writeAppLog(`[Download Engine] Model ${model} đã tồn tại trong thư mục engine, bỏ qua sao chép.`);
-          }
-        }
+      if (process.platform === "win32") {
+        backendProcess.kill();
       } else {
-        writeAppLog(`[Download Engine] Thư mục resources/bin không tồn tại: ${resourcesBinDir}`);
+        process.kill(-backendProcess.pid, "SIGKILL");
       }
-    } catch (modelErr) {
-      writeAppLog(`[Download Engine] Cảnh báo đồng bộ model: ${modelErr.message}`);
-    }
-    
-    writeAppLog(`[Download Engine] ✅ Hoàn tất cài đặt engine tại: ${destDir}`);
-    
-    // Tự động khởi động lại Backend Engine chạy ngầm mới tải
-    setTimeout(async () => {
-      writeAppLog(`[Download Engine] Đang tự động khởi chạy backend daemon mới cài đặt...`);
+    } catch {
       try {
-        stopBackend();
-        await startBackend();
-        if (backendProcess) {
-          waitForBackendReady(25000).then((ready) => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              if (ready) {
-                backendState.running = true;
-                backendState.error = null;
-                mainWindow.webContents.send('backend-ready', { ready: true });
-                writeAppLog(`[Download Engine] Backend daemon đã khởi động và hoạt động ổn định.`);
-              } else {
-                backendState.running = false;
-                backendState.error = 'timeout_start_failed';
-                mainWindow.webContents.send('backend-ready', { ready: false, error: 'timeout_start_failed' });
-                writeAppLog(`[Download Engine] Lỗi: Timeout chờ backend daemon khởi động.`);
-              }
-            }
-          });
-        } else {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('backend-ready', { ready: false, error: backendState.error || 'missing_engine' });
-          }
-        }
-      } catch (startErr) {
-        writeAppLog(`[Download Engine] Lỗi khi tự động khởi chạy backend: ${startErr.message}`);
+        backendProcess.kill();
+      } catch {
       }
-    }, 500);
-
-    return { success: true, path: destDir };
-  } catch (e) {
-    writeAppLog(`[Download Engine] ❌ Thất bại: ${e.stack || e.message || String(e)}`);
-    return { success: false, error: e.stack || e.message || String(e) };
+    }
+    backendProcess = null;
+    writeAppLog("[Backend Daemon] \u0110\xE3 t\u1EAFt engine th\xE0nh c\xF4ng.");
   }
-});
+}
 
-// List Models IPC Handler
-ipcMain.handle('list-models', async (event, folderPath) => {
-  try {
-    if (!fs.existsSync(folderPath)) {
+// electron/src/ipc/windowHandlers.ts
+var import_electron4 = require("electron");
+function registerWindowHandlers(getMainWindow2) {
+  import_electron4.ipcMain.on("window-minimize", () => {
+    const win = getMainWindow2();
+    if (win) win.minimize();
+  });
+  import_electron4.ipcMain.on("window-maximize", () => {
+    const win = getMainWindow2();
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    }
+  });
+  import_electron4.ipcMain.on("window-close", () => {
+    const win = getMainWindow2();
+    if (win) win.close();
+  });
+  import_electron4.ipcMain.handle("window-is-maximized", () => {
+    const win = getMainWindow2();
+    return win ? win.isMaximized() : false;
+  });
+}
+
+// electron/src/ipc/systemHandlers.ts
+var import_electron5 = require("electron");
+var import_os = __toESM(require("os"), 1);
+var import_fs4 = __toESM(require("fs"), 1);
+var import_path4 = __toESM(require("path"), 1);
+function registerSystemHandlers(getMainWindow2) {
+  import_electron5.ipcMain.handle("get-system-info", async () => {
+    return {
+      platform: process.platform,
+      arch: process.arch,
+      version: import_electron5.app.getVersion(),
+      cpuCount: import_os.default.cpus().length,
+      freeMemoryGB: (import_os.default.freemem() / (1024 * 1024 * 1024)).toFixed(2),
+      totalMemoryGB: (import_os.default.totalmem() / (1024 * 1024 * 1024)).toFixed(2)
+    };
+  });
+  import_electron5.ipcMain.handle("log-debug", async (_event, msg) => {
+    try {
+      const logPath = import_path4.default.join(import_electron5.app.getPath("userData"), "tts_playback_debug.log");
+      const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+      import_fs4.default.appendFileSync(logPath, `[${timestamp}] [Frontend] ${msg}
+`, "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  import_electron5.ipcMain.handle("open-log-folder", async () => {
+    try {
+      const logDir = import_electron5.app.getPath("userData");
+      import_electron5.shell.openPath(logDir);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e?.message };
+    }
+  });
+  import_electron5.ipcMain.handle("get-log-content", async () => {
+    try {
+      const logPath = import_path4.default.join(import_electron5.app.getPath("userData"), "tts_playback_debug.log");
+      if (!import_fs4.default.existsSync(logPath)) {
+        return "Ch\u01B0a c\xF3 d\u1EEF li\u1EC7u log.";
+      }
+      const stats = import_fs4.default.statSync(logPath);
+      if (stats.size > 1024 * 1024) {
+        const fd = import_fs4.default.openSync(logPath, "r");
+        const bufferSize = 100 * 1024;
+        const buffer = Buffer.alloc(bufferSize);
+        const startPos = stats.size - bufferSize;
+        import_fs4.default.readSync(fd, buffer, 0, bufferSize, startPos);
+        import_fs4.default.closeSync(fd);
+        return "... [Log qu\xE1 d\xE0i, ch\u1EC9 hi\u1EC3n th\u1ECB 100KB cu\u1ED1i] ...\n" + buffer.toString("utf8");
+      }
+      return import_fs4.default.readFileSync(logPath, "utf8");
+    } catch (e) {
+      return `L\u1ED7i \u0111\u1ECDc log: ${e?.message}`;
+    }
+  });
+  import_electron5.ipcMain.handle("clear-log", async () => {
+    try {
+      const logPath = import_path4.default.join(import_electron5.app.getPath("userData"), "tts_playback_debug.log");
+      import_fs4.default.writeFileSync(logPath, `[${(/* @__PURE__ */ new Date()).toISOString()}] [App] \u0110\xE3 x\xF3a nh\u1EADt k\xFD c\u0169.
+`, "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  import_electron5.ipcMain.handle("select-directory", async (_event, title) => {
+    const win = getMainWindow2();
+    if (!win) return null;
+    const result = await import_electron5.dialog.showOpenDialog(win, {
+      title: title || "Ch\u1ECDn th\u01B0 m\u1EE5c",
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+  import_electron5.ipcMain.handle("open-external", async (_event, url) => {
+    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+      await import_electron5.shell.openExternal(url);
+      return true;
+    }
+    return false;
+  });
+}
+
+// electron/src/ipc/storeHandlers.ts
+var import_electron6 = require("electron");
+var import_fs5 = __toESM(require("fs"), 1);
+var import_path5 = __toESM(require("path"), 1);
+function registerStoreHandlers() {
+  import_electron6.ipcMain.handle("store-get", async (_event, key) => {
+    try {
+      const configPath = import_path5.default.join(import_electron6.app.getPath("userData"), "app_config.json");
+      if (!import_fs5.default.existsSync(configPath)) return null;
+      const data = JSON.parse(import_fs5.default.readFileSync(configPath, "utf8"));
+      return data[key] ?? null;
+    } catch {
+      return null;
+    }
+  });
+  import_electron6.ipcMain.handle("store-set", async (_event, key, val) => {
+    try {
+      const configPath = import_path5.default.join(import_electron6.app.getPath("userData"), "app_config.json");
+      let data = {};
+      if (import_fs5.default.existsSync(configPath)) {
+        try {
+          data = JSON.parse(import_fs5.default.readFileSync(configPath, "utf8"));
+        } catch {
+        }
+      }
+      data[key] = val;
+      import_fs5.default.writeFileSync(configPath, JSON.stringify(data, null, 2), "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  import_electron6.ipcMain.handle("store-delete", async (_event, key) => {
+    try {
+      const configPath = import_path5.default.join(import_electron6.app.getPath("userData"), "app_config.json");
+      if (!import_fs5.default.existsSync(configPath)) return true;
+      const data = JSON.parse(import_fs5.default.readFileSync(configPath, "utf8"));
+      delete data[key];
+      import_fs5.default.writeFileSync(configPath, JSON.stringify(data, null, 2), "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  import_electron6.ipcMain.handle("clear-userdata", async () => {
+    try {
+      const userDataPath = import_electron6.app.getPath("userData");
+      const filesToClear = ["app_config.json", "tts_playback_debug.log"];
+      const cleared = [];
+      for (const file of filesToClear) {
+        const filePath = import_path5.default.join(userDataPath, file);
+        if (import_fs5.default.existsSync(filePath)) {
+          import_fs5.default.unlinkSync(filePath);
+          cleared.push(file);
+        }
+      }
+      return { success: true, cleared, userDataPath };
+    } catch (e) {
+      return { success: false, error: e?.message };
+    }
+  });
+}
+
+// electron/src/ipc/modelHandlers.ts
+var import_electron7 = require("electron");
+var import_fs6 = __toESM(require("fs"), 1);
+var import_path6 = __toESM(require("path"), 1);
+function registerModelHandlers() {
+  import_electron7.ipcMain.handle("download-model", async (event, { url, folderPath, filename }) => {
+    try {
+      if (!import_fs6.default.existsSync(folderPath)) {
+        import_fs6.default.mkdirSync(folderPath, { recursive: true });
+      }
+      const dest = import_path6.default.join(folderPath, filename);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const totalBytes = parseInt(response.headers.get("content-length") || "0", 10);
+      const fileStream = import_fs6.default.createWriteStream(dest);
+      const reader = response.body?.getReader();
+      let downloadedBytes = 0;
+      if (!reader) throw new Error("Cannot acquire response stream reader");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fileStream.write(Buffer.from(value));
+        downloadedBytes += value.length;
+        if (totalBytes > 0) {
+          const percent = Math.round(downloadedBytes / totalBytes * 100);
+          event.sender.send("download-progress", { filename, percent, downloadedBytes, totalBytes });
+        }
+      }
+      await new Promise((resolve) => fileStream.end(resolve));
+      return { success: true, path: dest };
+    } catch (e) {
+      writeAppLog(`[Download Model] Th\u1EA5t b\u1EA1i: ${e?.message}`);
+      return { success: false, error: e?.message };
+    }
+  });
+  import_electron7.ipcMain.handle("list-models", async (_event, folderPath) => {
+    try {
+      if (!import_fs6.default.existsSync(folderPath)) return [];
+      const files = import_fs6.default.readdirSync(folderPath);
+      const models = [];
+      for (const file of files) {
+        if (file.endsWith(".onnx") || file.endsWith(".zip") || file.endsWith(".pt")) {
+          const stats = import_fs6.default.statSync(import_path6.default.join(folderPath, file));
+          models.push({
+            name: file,
+            sizeMB: (stats.size / (1024 * 1024)).toFixed(1)
+          });
+        }
+      }
+      return models;
+    } catch {
       return [];
     }
-    const files = fs.readdirSync(folderPath);
-    const models = [];
-    for (const file of files) {
-      if (file.endsWith('.onnx') || file.endsWith('.zip') || file.endsWith('.pt')) {
-        const stats = fs.statSync(path.join(folderPath, file));
-        models.push({
-          name: file,
-          sizeMB: (stats.size / (1024 * 1024)).toFixed(1)
-        });
+  });
+  import_electron7.ipcMain.handle("delete-model", async (_event, filePath) => {
+    try {
+      if (import_fs6.default.existsSync(filePath)) {
+        import_fs6.default.unlinkSync(filePath);
+        return { success: true };
       }
+      return { success: false, error: "File not found" };
+    } catch (e) {
+      return { success: false, error: e?.message };
     }
-    return models;
-  } catch (e) {
-    console.error('Error listing models:', e);
-    return [];
-  }
-});
-
-// Delete Model IPC Handler
-ipcMain.handle('delete-model', async (event, filePath) => {
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return { success: true };
+  });
+  import_electron7.ipcMain.handle("read-dictionary", async (_event, filename) => {
+    const isDev = !import_electron7.app.isPackaged;
+    let dictPath = isDev ? import_path6.default.join(__dirname, "../../../public/dictionaries", filename) : import_path6.default.join(__dirname, "../../dist/dictionaries", filename);
+    if (import_fs6.default.existsSync(dictPath)) {
+      return import_fs6.default.readFileSync(dictPath, "utf-8");
     }
-    return { success: false, error: 'File not found' };
-  } catch (e) {
-    console.error('Error deleting model:', e);
-    return { success: false, error: e.message };
-  }
-});
-
-// Read Dictionary IPC Handler
-ipcMain.handle('read-dictionary', async (event, filename) => {
-  const isDev = !app.isPackaged;
-  let dictPath;
-  if (isDev) {
-    dictPath = path.join(__dirname, '../public/dictionaries', filename);
-  } else {
-    dictPath = path.join(__dirname, '../dist/dictionaries', filename);
-  }
-  
-  try {
-    if (fs.existsSync(dictPath)) {
-      return fs.readFileSync(dictPath, 'utf-8');
-    } else {
-      const altPath = path.join(app.getAppPath(), 'dist/dictionaries', filename);
-      if (fs.existsSync(altPath)) {
-        return fs.readFileSync(altPath, 'utf-8');
-      }
+    const altPath = import_path6.default.join(import_electron7.app.getAppPath(), "dist/dictionaries", filename);
+    if (import_fs6.default.existsSync(altPath)) {
+      return import_fs6.default.readFileSync(altPath, "utf-8");
     }
-  } catch (err) {
-    console.error(`Failed to read dictionary ${filename}:`, err);
-  }
-  throw new Error(`Dictionary file not found: ${filename}`);
-});
-
-// Get Models Path IPC Handler
-ipcMain.handle('get-models-path', async () => {
-  const isDev = !app.isPackaged;
-  const binaryName = process.platform === 'win32' ? 'App_Doc_Truyen_Engine.exe' : 'App_Doc_Truyen_Engine';
-  
-  // Tìm kiếm đệ quy trong userData/bin (xử lý cả thư mục lồng từ zip)
-  const userDataBin = path.join(app.getPath('userData'), 'bin');
-  const foundInUserData = findExecutable(userDataBin, binaryName);
-  if (foundInUserData) {
-    return path.dirname(foundInUserData);
-  }
-
-  // Kiểm tra custom binary trong userData gốc (bản cũ nếu có)
-  const customPath = path.join(app.getPath('userData'), binaryName);
-  if (fs.existsSync(customPath)) {
-    return app.getPath('userData');
-  }
-
-  if (isDev) {
-    return path.join(__dirname, '../../backend_go/engines/tts/models_onnx');
-  } else {
+    throw new Error(`Dictionary file not found: ${filename}`);
+  });
+  import_electron7.ipcMain.handle("get-models-path", async () => {
+    const isDev = !import_electron7.app.isPackaged;
+    const binaryName = process.platform === "win32" ? "App_Doc_Truyen_Engine.exe" : "App_Doc_Truyen_Engine";
+    const userDataBin = import_path6.default.join(import_electron7.app.getPath("userData"), "bin");
+    const foundInUserData = findExecutable(userDataBin, binaryName);
+    if (foundInUserData) {
+      return import_path6.default.dirname(foundInUserData);
+    }
+    if (isDev) {
+      return import_path6.default.join(__dirname, "../../../backend_go/engines/tts/models_onnx");
+    }
     const possiblePaths = [
-      path.join(process.resourcesPath, binaryName),
-      path.join(process.resourcesPath, 'bin', binaryName),
-      path.join(app.getAppPath(), '..', binaryName)
+      import_path6.default.join(process.resourcesPath, binaryName),
+      import_path6.default.join(process.resourcesPath, "bin", binaryName),
+      import_path6.default.join(import_electron7.app.getAppPath(), "..", binaryName)
     ];
-    const foundPath = possiblePaths.find(p => fs.existsSync(p));
-    if (foundPath) {
-      return path.dirname(foundPath);
-    }
-    return path.join(process.resourcesPath, 'bin');
-  }
-});
+    const foundPath = possiblePaths.find((p) => import_fs6.default.existsSync(p));
+    return foundPath ? import_path6.default.dirname(foundPath) : import_path6.default.join(process.resourcesPath, "bin");
+  });
+}
 
-// ── Quick Patch Update (Tải ~1.5MB thay vì 95MB) ────────────────────────────
-// Chỉ tải zip chứa code JS/CSS mới, ghi đè trực tiếp vào app đã cài đặt
-ipcMain.handle('quick-patch-update', async (event, { url, version }) => {
+// electron/src/ipc/engineHandlers.ts
+var import_electron8 = require("electron");
+var import_fs7 = __toESM(require("fs"), 1);
+var import_path7 = __toESM(require("path"), 1);
+var import_os2 = __toESM(require("os"), 1);
+var import_child_process3 = require("child_process");
+var import_jszip = __toESM(require("jszip"), 1);
+async function extractZipFile(zipPath, destDir) {
   try {
-    const tempDir = app.getPath('temp');
-    const patchZip = path.join(tempDir, `patch-${version}.zip`);
-    
-    writeAppLog(`[Quick Patch] Bắt đầu tải bản patch từ: ${url}`);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
-    const totalBytes = parseInt(response.headers.get('content-length') || '0', 10);
-    const fileStream = fs.createWriteStream(patchZip);
-    const reader = response.body.getReader();
-    let downloadedBytes = 0;
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      fileStream.write(Buffer.from(value));
-      downloadedBytes += value.length;
-      if (totalBytes > 0) {
-        const percent = Math.round((downloadedBytes / totalBytes) * 100);
-        event.sender.send('update-download-progress', { 
-          filename: `patch-${version}.zip`, percent, downloadedBytes, totalBytes 
-        });
+    if (!import_fs7.default.existsSync(destDir)) import_fs7.default.mkdirSync(destDir, { recursive: true });
+    const zipData = import_fs7.default.readFileSync(zipPath);
+    const zip = await import_jszip.default.loadAsync(zipData);
+    for (const filename of Object.keys(zip.files)) {
+      const file = zip.files[filename];
+      const destPath = import_path7.default.join(destDir, filename);
+      if (file.dir) {
+        import_fs7.default.mkdirSync(destPath, { recursive: true });
+      } else {
+        const parentDir = import_path7.default.dirname(destPath);
+        if (!import_fs7.default.existsSync(parentDir)) import_fs7.default.mkdirSync(parentDir, { recursive: true });
+        const content = await file.async("nodebuffer");
+        import_fs7.default.writeFileSync(destPath, content);
       }
     }
-    await new Promise((resolve) => fileStream.end(resolve));
-    writeAppLog(`[Quick Patch] Tải bản patch hoàn tất. Dung lượng: ${(totalBytes/1024).toFixed(1)} KB`);
-    
-    // Tìm thư mục app đang chạy (nơi chứa app.asar)
-    const appPath = app.getAppPath(); // ví dụ: .../resources/app.asar hoặc .../resources/app
-    let resourcesDir;
-    if (appPath.endsWith('.asar')) {
-      resourcesDir = path.dirname(appPath); // .../resources/
-    } else {
-      resourcesDir = path.join(appPath, '..'); // .../resources/
-    }
-    
-    // Giải nén patch vào thư mục tạm
-    const patchExtractDir = path.join(tempDir, `patch-extract-${version}`);
-    if (fs.existsSync(patchExtractDir)) {
-      fs.rmSync(patchExtractDir, { recursive: true, force: true });
-    }
-    await extractZip(patchZip, patchExtractDir);
-    
-    // Ghi đè file bằng cách thay thế app.asar bằng app.asar mới (nếu có trong patch)
-    const patchedAsar = path.join(patchExtractDir, 'app.asar');
-    if (fs.existsSync(patchedAsar)) {
-      const targetAsar = path.join(resourcesDir, 'app.asar');
-      writeAppLog(`[Quick Patch] Phát hiện app.asar mới. Đang ghi đè: ${targetAsar}`);
-      fs.copyFileSync(patchedAsar, targetAsar);
-    } else {
-      // Nếu patch chỉ chứa file riêng lẻ, ghi đè từng file
-      // (dành cho trường hợp patch chứa dist/assets/, electron/, dist/index.html)
-      const asarPath = path.join(resourcesDir, 'app.asar');
-      if (fs.existsSync(asarPath)) {
-        writeAppLog(`[Quick Patch] Đang unpack và vá file trong app.asar: ${asarPath}`);
-        // Giải nén app.asar hiện tại, ghi đè, đóng gói lại
-        const asarExtractDir = path.join(tempDir, 'asar-extract-temp');
-        if (fs.existsSync(asarExtractDir)) {
-          fs.rmSync(asarExtractDir, { recursive: true, force: true });
-        }
-        
-        // Giải nén asar
-        const asar = require('@electron/asar');
-        asar.extractAll(asarPath, asarExtractDir);
-        
-        // Copy patch files đè lên
-        function copyDirRecursive(src, dest) {
-          if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-          const items = fs.readdirSync(src);
-          for (const item of items) {
-            const srcPath = path.join(src, item);
-            const destPath = path.join(dest, item);
-            const stat = fs.statSync(srcPath);
-            if (stat.isDirectory()) {
-              copyDirRecursive(srcPath, destPath);
-            } else {
-              fs.copyFileSync(srcPath, destPath);
-            }
-          }
-        }
-        copyDirRecursive(patchExtractDir, asarExtractDir);
-        
-        // Đóng gói lại asar
-        writeAppLog('[Quick Patch] Đang đóng gói lại app.asar...');
-        await asar.createPackage(asarExtractDir, asarPath);
-        
-        // Dọn dẹp
-        fs.rmSync(asarExtractDir, { recursive: true, force: true });
-      }
-    }
-    
-    // Dọn dẹp
-    try { fs.unlinkSync(patchZip); } catch (e) {}
-    try { fs.rmSync(patchExtractDir, { recursive: true, force: true }); } catch (e) {}
-    
-    writeAppLog(`[Quick Patch] ✅ Nâng cấp bản vá v${version} thành công! Đang tự động khởi động lại...`);
-    
-    // Restart app
-    app.relaunch();
-    app.quit();
-    
-    return { success: true };
-  } catch (e) {
-    writeAppLog(`[Quick Patch] Lỗi khi nâng cấp bản vá: ${e.stack || e.message || String(e)}`);
-    return { success: false, error: e.stack || e.message || String(e) };
+    return true;
+  } catch (err) {
+    writeAppLog(`[Zip Extract Fallback] JSZip error: ${err?.message}. Th\u1EED l\u1EC7nh h\u1EC7 th\u1ED1ng.`);
+    const cmd = process.platform === "win32" ? `powershell -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"` : `unzip -o "${zipPath}" -d "${destDir}"`;
+    return new Promise((resolve) => {
+      (0, import_child_process3.exec)(cmd, (e) => resolve(!e));
+    });
   }
-});
-
-// Download and Run Update IPC Handler
-ipcMain.handle('download-and-run-update', async (event, { url, filename }) => {
-  try {
-    const tempDir = app.getPath('temp');
-    const dest = path.join(tempDir, filename);
-    
-    console.log(`[Update Downloader] Starting download from ${url} to ${dest}`);
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+}
+function registerEngineHandlers() {
+  import_electron8.ipcMain.handle("start-backend", async () => {
+    try {
+      const ok = await startBackend();
+      return { success: ok };
+    } catch (e) {
+      return { success: false, error: e?.message };
     }
-    
-    const totalBytes = parseInt(response.headers.get('content-length') || '0', 10);
-    const fileStream = fs.createWriteStream(dest);
-    const reader = response.body.getReader();
-    let downloadedBytes = 0;
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      fileStream.write(Buffer.from(value));
-      downloadedBytes += value.length;
-      
-      if (totalBytes > 0) {
-        const percent = Math.round((downloadedBytes / totalBytes) * 100);
-        event.sender.send('update-download-progress', { filename, percent, downloadedBytes, totalBytes });
-      }
+  });
+  import_electron8.ipcMain.handle("stop-backend", async () => {
+    try {
+      stopHealthMonitor();
+      stopBackend();
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e?.message };
     }
-    
-    await new Promise((resolve) => fileStream.end(resolve));
-    console.log(`[Update Downloader] Download complete. Launching silent upgrade: ${dest}`);
-
-    // Launch based on platform — SỬ DỤNG SILENT MODE để cập nhật đè, không hiện setup wizard
-    if (process.platform === 'win32') {
-      // Chạy Setup.exe ở chế độ silent (/S) để tự động cài đè bản cũ
-      // Không xóa userData/config/models — chỉ cập nhật file app
-      const installDir = path.dirname(app.getPath('exe'));
-      const child = spawn(dest, ['/S', `/D=${installDir}`], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-      console.log(`[Update Downloader] Launched silent installer: ${dest} /S /D=${installDir}`);
-    } else if (process.platform === 'linux') {
-      if (filename.endsWith('.AppImage')) {
-        // Ghi đè AppImage cũ bằng file mới
-        const currentExe = app.getPath('exe');
-        try {
-          // Sao chép AppImage mới đè lên file hiện tại
-          fs.copyFileSync(dest, currentExe);
-          fs.chmodSync(currentExe, 0o755);
-          console.log(`[Update Downloader] Replaced AppImage: ${currentExe}`);
-        } catch (replaceErr) {
-          // Nếu không ghi đè được (permission), chạy file mới độc lập
-          console.warn(`[Update Downloader] Cannot replace in-place, launching new:`, replaceErr.message);
-          fs.chmodSync(dest, 0o755);
-          const child = spawn(dest, [], {
-            detached: true,
-            stdio: 'ignore'
-          });
-          child.unref();
-        }
-      }
-    }
-    
-    // Đóng app hiện tại sau 2s để installer kịp khởi chạy
-    setTimeout(() => {
-      app.quit();
-    }, 2000);
-    
-    return { success: true };
-  } catch (e) {
-    writeAppLog(`[Update Downloader] Lỗi: ${e.stack || e.message || String(e)}`);
-    return { success: false, error: e.stack || e.message || String(e) };
-  }
-});
-
-// Manual Backend Control IPC Handlers
-ipcMain.handle('start-backend', async () => {
-  try {
-    isQuitting = false;
-    backendRestartCount = 0;
+  });
+  import_electron8.ipcMain.handle("check-backend-status", async () => {
+    let isAlive = false;
     if (backendProcess) {
       try {
-        const isAlive = backendProcess.kill(0);
-        if (isAlive) {
-          console.log('[Backend Daemon] Engine is already running.');
-          return { success: true, alreadyRunning: true };
-        }
-      } catch (e) {
-        backendProcess = null;
+        isAlive = backendProcess.kill(0);
+      } catch {
+        isAlive = false;
       }
     }
-    startBackend();
-    return { success: true, started: true };
-  } catch (e) {
-    console.error('[Backend Control] Failed to start backend:', e);
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('stop-backend', async () => {
-  try {
-    stopHealthMonitor();
-    stopBackend();
-    return { success: true };
-  } catch (e) {
-    console.error('[Backend Control] Failed to stop backend:', e);
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('check-backend-status', async () => {
-  let isAlive = false;
-  if (backendProcess) {
+    backendState.running = isAlive;
+    if (isAlive) backendState.error = null;
+    return backendState;
+  });
+  import_electron8.ipcMain.handle("download-engine", async (event, { type }) => {
     try {
-      isAlive = backendProcess.kill(0);
+      const isWin = process.platform === "win32";
+      const platform = isWin ? "windows" : "linux";
+      const zipFilename = `${platform}_${type}.zip`;
+      const url = `https://huggingface.co/datasets/Cong123779/Local-TTS-Engine/resolve/main/${type}/${zipFilename}`;
+      const tempZipPath = import_path7.default.join(import_electron8.app.getPath("temp"), zipFilename);
+      const destDir = import_path7.default.join(import_electron8.app.getPath("userData"), "bin");
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      const totalBytes = parseInt(response.headers.get("content-length") || "0", 10);
+      const fileStream = import_fs7.default.createWriteStream(tempZipPath);
+      const reader = response.body?.getReader();
+      let downloadedBytes = 0;
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fileStream.write(Buffer.from(value));
+        downloadedBytes += value.length;
+        if (totalBytes > 0) {
+          const percent = Math.round(downloadedBytes / totalBytes * 100);
+          event.sender.send("download-progress", { filename: zipFilename, percent, downloadedBytes, totalBytes });
+        }
+      }
+      await new Promise((res) => fileStream.end(res));
+      await extractZipFile(tempZipPath, destDir);
+      try {
+        import_fs7.default.unlinkSync(tempZipPath);
+      } catch {
+      }
+      return { success: true };
     } catch (e) {
-      isAlive = false;
+      return { success: false, error: e?.message };
     }
-  }
-  backendState.running = isAlive;
-  if (isAlive) {
-    backendState.error = null;
-  }
-  return backendState;
-});
+  });
+  import_electron8.ipcMain.handle("quick-patch-update", async (event, { url, version }) => {
+    try {
+      const tempZip = import_path7.default.join(import_electron8.app.getPath("temp"), `patch_${version}.zip`);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const totalBytes = parseInt(res.headers.get("content-length") || "0", 10);
+      const stream = import_fs7.default.createWriteStream(tempZip);
+      const reader = res.body?.getReader();
+      let downloadedBytes = 0;
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        stream.write(Buffer.from(value));
+        downloadedBytes += value.length;
+        if (totalBytes > 0) {
+          const percent = Math.round(downloadedBytes / totalBytes * 100);
+          event.sender.send("quick-patch-progress", { percent, downloadedBytes, totalBytes });
+        }
+      }
+      await new Promise((r) => stream.end(r));
+      const targetDir = import_path7.default.join(import_electron8.app.getAppPath(), "dist");
+      await extractZipFile(tempZip, targetDir);
+      try {
+        import_fs7.default.unlinkSync(tempZip);
+      } catch {
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e?.message };
+    }
+  });
+  import_electron8.ipcMain.handle("download-and-run-update", async (event, { url, filename }) => {
+    try {
+      const tempPath = import_path7.default.join(import_electron8.app.getPath("temp"), filename);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const totalBytes = parseInt(res.headers.get("content-length") || "0", 10);
+      const stream = import_fs7.default.createWriteStream(tempPath);
+      const reader = res.body?.getReader();
+      let downloadedBytes = 0;
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        stream.write(Buffer.from(value));
+        downloadedBytes += value.length;
+        if (totalBytes > 0) {
+          const percent = Math.round(downloadedBytes / totalBytes * 100);
+          event.sender.send("update-download-progress", { percent, downloadedBytes, totalBytes });
+        }
+      }
+      await new Promise((r) => stream.end(r));
+      if (process.platform === "win32") {
+        import_electron8.shell.openPath(tempPath);
+      } else {
+        (0, import_child_process3.exec)(`chmod +x "${tempPath}" && "${tempPath}" &`);
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e?.message };
+    }
+  });
+  import_electron8.ipcMain.handle("uninstall-app", async () => {
+    try {
+      if (process.platform === "linux") {
+        const destDir = import_path7.default.join(import_os2.default.homedir(), ".local/share/applications");
+        ["tienhiepai.desktop", "TienHiepAI.desktop", "tienhiepai-dev.desktop"].forEach((f) => {
+          const p = import_path7.default.join(destDir, f);
+          if (import_fs7.default.existsSync(p)) import_fs7.default.unlinkSync(p);
+        });
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e?.message };
+    }
+  });
+  import_electron8.ipcMain.handle("check-for-update", async () => {
+    try {
+      const res = await fetch("https://raw.githubusercontent.com/congkx123789/ttS/main/releases.json");
+      if (!res.ok) return { updateAvailable: false };
+      const data = await res.json();
+      return { updateAvailable: true, release: data };
+    } catch {
+      return { updateAvailable: false };
+    }
+  });
+}
 
-// ── Uninstall App IPC Handler ─────────────────────────────────────────────────
-ipcMain.handle('uninstall-app', async () => {
+// electron/src/main.ts
+if (process.platform === "linux") {
+  import_electron9.app.commandLine.appendSwitch("no-sandbox");
+  import_electron9.app.commandLine.appendSwitch("disable-gpu-sandbox");
+}
+import_electron9.app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+import_electron9.app.commandLine.appendSwitch("disable-web-security");
+import_electron9.app.commandLine.appendSwitch("disable-site-isolation-trials");
+var gotTheLock = import_electron9.app.requestSingleInstanceLock();
+function registerLinuxDevProtocol() {
+  if (process.platform !== "linux" || import_electron9.app.isPackaged) return;
   try {
-    if (process.platform === 'linux') {
-      // 1. Xóa các file .desktop đã đăng ký
-      const homeDir = os.homedir();
-      const desktopDir = path.join(homeDir, '.local/share/applications');
-      const desktopFiles = ['tienhiepai.desktop', 'TienHiepAI.desktop', 'tienhiepai-dev.desktop'];
-      for (const file of desktopFiles) {
-        const filePath = path.join(desktopDir, file);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log(`[Uninstall] Đã xóa: ${filePath}`);
-        }
-      }
-      // Cập nhật lại MIME database
-      exec(`update-desktop-database ${desktopDir}`, () => {});
-      exec(`xdg-mime default "" x-scheme-handler/tienhiepai`, () => {});
-
-      // 2. Xóa AppImage nếu đang chạy từ /usr/local/bin hoặc PATH
-      const execPath = app.getPath('exe');
-      const sudoPaths = ['/usr/local/bin/tienhiep-ai', '/usr/bin/tienhiep-ai'];
-      for (const p of sudoPaths) {
-        if (fs.existsSync(p)) {
-          try {
-            exec(`pkexec rm -f "${p}"`, (err) => {
-              if (err) console.warn(`[Uninstall] Không thể xóa ${p}:`, err.message);
-            });
-          } catch (e) {}
-        }
-      }
-
-      // 3. Xóa userData (config, logs, models cache nếu user đồng ý)
-      return { 
-        success: true, 
-        platform: 'linux',
-        userDataPath: app.getPath('userData'),
-        execPath
-      };
-
-    } else if (process.platform === 'win32') {
-      // Chạy uninstaller.exe (do NSIS tạo ra) nếu tồn tại
-      const uninstallerPaths = [
-        path.join(app.getAppPath(), '..', '..', 'Uninstall TienHiepAI.exe'),
-        path.join(process.resourcesPath, '..', 'Uninstall TienHiepAI.exe'),
-      ];
-      const uninstaller = uninstallerPaths.find(p => fs.existsSync(p));
-      if (uninstaller) {
-        const { spawn } = require('child_process');
-        spawn(uninstaller, ['/S'], { detached: true, stdio: 'ignore' }).unref();
-        setTimeout(() => app.quit(), 1500);
-        return { success: true, platform: 'win32', launched: true };
-      }
-      return { success: false, platform: 'win32', error: 'Không tìm thấy uninstaller. Hãy gỡ cài đặt qua Control Panel > Add/Remove Programs.' };
-
+    const destDir = import_path8.default.join(import_os3.default.homedir(), ".local/share/applications");
+    const iconPath = import_path8.default.join(import_path8.default.resolve(import_electron9.app.getAppPath()), "public/icon.png");
+    import_electron9.app.desktopName = "tienhiepai.desktop";
+    const desktopContent = `[Desktop Entry]
+Name=Ti\xEAn Hi\u1EC7p AI Dev
+Exec="${process.execPath}" "${import_path8.default.resolve(import_electron9.app.getAppPath())}" %u
+Icon=${iconPath}
+Type=Application
+Terminal=false
+MimeType=x-scheme-handler/tienhiepai;
+`;
+    if (!import_fs8.default.existsSync(destDir)) import_fs8.default.mkdirSync(destDir, { recursive: true });
+    ["tienhiepai.desktop", "TienHiepAI.desktop", "tienhiepai-dev.desktop"].forEach((file) => {
+      const filePath = import_path8.default.join(destDir, file);
+      import_fs8.default.writeFileSync(filePath, desktopContent, "utf-8");
+      (0, import_child_process4.exec)(`chmod +x "${filePath}"`);
+    });
+    (0, import_child_process4.exec)(`update-desktop-database ${destDir}`);
+    (0, import_child_process4.exec)(`xdg-mime default tienhiepai.desktop x-scheme-handler/tienhiepai`);
+  } catch (e) {
+    console.error("[Linux Dev Protocol] Error registering:", e?.message);
+  }
+}
+if (!gotTheLock) {
+  import_electron9.app.quit();
+} else {
+  import_electron9.app.on("second-instance", (_event, commandLine) => {
+    const win = getMainWindow();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+      const url = commandLine.find((arg) => arg.startsWith("tienhiepai://"));
+      if (url) win.webContents.send("oauth-callback", url);
     } else {
-      return { success: false, error: 'Platform không được hỗ trợ.' };
+      createWindow();
     }
-  } catch (e) {
-    console.error('[Uninstall] Lỗi:', e);
-    return { success: false, error: e.message };
-  }
-});
-
-// ── Clear UserData IPC Handler ────────────────────────────────────────────────
-ipcMain.handle('clear-userdata', async () => {
-  try {
-    const userDataPath = app.getPath('userData');
-    // Chỉ xóa các file config/log, không xóa toàn bộ thư mục userData
-    const filesToClear = [
-      'app_config.json',
-      'tts_playback_debug.log',
-    ];
-    let cleared = [];
-    for (const file of filesToClear) {
-      const filePath = path.join(userDataPath, file);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        cleared.push(file);
+  });
+  import_electron9.app.whenReady().then(() => {
+    writeAppLog("--- KH\u1EDEI \u0110\u1ED8NG TI\xCAN HI\u1EC6P AI ELECTRON (TYPESCRIPT) ---");
+    registerLinuxDevProtocol();
+    setupAdBlockerForSession(import_electron9.session.defaultSession);
+    registerWindowHandlers(getMainWindow);
+    registerSystemHandlers(getMainWindow);
+    registerStoreHandlers();
+    registerModelHandlers();
+    registerEngineHandlers();
+    createWindow();
+    setTimeout(async () => {
+      await startBackend();
+      const win = getMainWindow();
+      if (!backendProcess && !backendState.running) {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("backend-ready", { ready: false, error: backendState.error || "missing_engine" });
+        }
+        return;
       }
+      waitForBackendReady(25e3).then((ready) => {
+        if (win && !win.isDestroyed()) {
+          if (ready) {
+            backendState.running = true;
+            backendState.error = null;
+            win.webContents.send("backend-ready", { ready: true });
+          }
+        }
+      });
+    }, 500);
+  });
+  import_electron9.app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      setQuitting(true);
+      stopBackend();
+      import_electron9.app.quit();
     }
-    return { success: true, cleared, userDataPath };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-// ── Check For Update IPC Handler ─────────────────────────────────────────────
-ipcMain.handle('check-for-update', async () => {
-  try {
-    const currentVersion = app.getVersion();
-    const platform = process.platform === 'win32' ? 'desktop_windows' : 'desktop_linux';
-    const apiUrl = 'https://cong123779-tienhiep-api.hf.space/api/releases';
-
-    const response = await fetch(apiUrl, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const data = await response.json();
-    if (!data.success || !data.releases) throw new Error('Invalid API response');
-
-    const releaseInfo = data.releases[platform];
-    if (!releaseInfo) throw new Error(`No release found for platform: ${platform}`);
-
-    const latestVersion = releaseInfo.version;
-
-    // Compare semver
-    const parseV = (v) => v.replace(/^v/, '').split('.').map(Number);
-    const [cMaj, cMin, cPat] = parseV(currentVersion);
-    const [lMaj, lMin, lPat] = parseV(latestVersion);
-
-    const hasUpdate =
-      lMaj > cMaj ||
-      (lMaj === cMaj && lMin > cMin) ||
-      (lMaj === cMaj && lMin === cMin && lPat > cPat);
-
-    return {
-      success: true,
-      hasUpdate,
-      currentVersion,
-      latestVersion,
-      downloadUrl: releaseInfo.download_url,
-      patchUrl: releaseInfo.patch_url || null,
-      fileSize: releaseInfo.file_size,
-      releaseNotes: releaseInfo.release_notes,
-      platform
-    };
-  } catch (e) {
-    console.error('[AutoUpdate] Check failed:', e.message);
-    return { success: false, error: e.message, hasUpdate: false };
-  }
-});
-
+  });
+  import_electron9.app.on("activate", () => {
+    if (!getMainWindow()) createWindow();
+  });
+  import_electron9.app.on("before-quit", () => {
+    setQuitting(true);
+    stopBackend();
+  });
+}

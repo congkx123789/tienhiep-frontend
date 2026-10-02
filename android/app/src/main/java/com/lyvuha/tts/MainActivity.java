@@ -159,6 +159,7 @@ public class MainActivity extends BridgeActivity {
         "            try {\n" +
         "                window.top.postMessage({\n" +
         "                    type: 'NAVIGATE_REQ',\n" +
+        "                    tabId: window.__TIENHIEP_TAB_ID__,\n" +
         "                    url: finalUrl\n" +
         "                }, '*');\n" +
         "            } catch (err) {}\n" +
@@ -177,7 +178,7 @@ public class MainActivity extends BridgeActivity {
         "                    var trans = translations[i];\n" +
         "                    if (node) {\n" +
         "                        pendingNodes.delete(node);\n" +
-        "                        if (trans && trans !== node.nodeValue) {\n" +
+        "                        if (document.contains(node) && trans && trans !== node.nodeValue) {\n" +
         "                            streamText(node, trans);\n" +
         "                            translatedNodes.add(node);\n" +
         "                        }\n" +

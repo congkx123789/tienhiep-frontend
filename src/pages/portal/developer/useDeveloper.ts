@@ -60,9 +60,19 @@ export function useDeveloper() {
     setLoadingUsage(true);
     try {
       const res = await api.get('/api/developer/usage');
-      setUsages(res.data.usage || []);
+      const data = res.data;
+      if (Array.isArray(data?.usage)) {
+        setUsages(data.usage);
+      } else if (Array.isArray(data?.history)) {
+        setUsages(data.history);
+      } else if (Array.isArray(data?.usages)) {
+        setUsages(data.usages);
+      } else {
+        setUsages([]);
+      }
     } catch (e) {
       console.error(e);
+      setUsages([]);
     } finally {
       setLoadingUsage(false);
     }

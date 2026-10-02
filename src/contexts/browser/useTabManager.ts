@@ -12,8 +12,14 @@ export function useTabManager() {
     try {
       const saved = localStorage.getItem(INITIAL_TABS_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        let parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed = parsed.map(t => ({
+            ...t,
+            url: (t.url || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/')
+          }));
+          return parsed;
+        }
       }
     } catch (e) {}
     return [{ id: 'tab-init-1', url: 'about:newtab', title: 'Tab mới', isLoading: false, canGoBack: false, canGoForward: false }];
@@ -72,7 +78,9 @@ export function useTabManager() {
       isLoading: false,
       canGoBack: false,
       canGoForward: false,
-      isPrivate
+      isPrivate,
+      historyStack: [initialUrl],
+      historyIndex: 0
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newId);
@@ -80,10 +88,25 @@ export function useTabManager() {
   }, []);
 
   const openInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
+    const cleanUrl = targetUrl.replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');
     if (inNewTab || !activeTabId) {
-      openNewTab(isPrivate, targetUrl);
+      openNewTab(isPrivate, cleanUrl);
     } else {
-      setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, url: targetUrl, initialUrl: targetUrl, title: 'Đang tải...' } : t));
+      setTabs(prev => prev.map(t => {
+        if (t.id !== activeTabId) return t;
+        const stack = t.historyStack ? [...t.historyStack.slice(0, (t.historyIndex ?? 0) + 1), cleanUrl] : [t.url, cleanUrl];
+        const newIdx = stack.length - 1;
+        return {
+          ...t,
+          url: cleanUrl,
+          initialUrl: cleanUrl,
+          title: 'Đang tải...',
+          historyStack: stack,
+          historyIndex: newIdx,
+          canGoBack: newIdx > 0,
+          canGoForward: false
+        };
+      }));
     }
   }, [activeTabId, openNewTab]);
 

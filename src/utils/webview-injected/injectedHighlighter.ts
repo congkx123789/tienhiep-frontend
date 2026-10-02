@@ -10,9 +10,7 @@ export function getInjectedHighlighterScript(): string {
     },
 
     clearAllTtsHighlights: () => {
-      if (typeof CSS !== 'undefined' && CSS.highlights) {
-        try { CSS.highlights.delete('tienhiep-tts-highlight'); } catch(e) {}
-      }
+      if (typeof CSS !== 'undefined' && CSS.highlights) { try { CSS.highlights.delete('tienhiep-tts-highlight'); } catch(e) {} }
       document.querySelectorAll('#tienhiep-active-highlight').forEach(el => {
         if (el.parentNode) { el.parentNode.replaceChild(document.createTextNode(el.textContent), el); el.parentNode.normalize(); }
       });
@@ -21,19 +19,13 @@ export function getInjectedHighlighterScript(): string {
       });
       document.querySelectorAll('.tts-active-sentence').forEach(el => {
         el.classList.remove('tts-active-sentence');
-        el.style.backgroundColor = ''; el.style.color = ''; el.style.boxShadow = ''; el.style.borderBottom = ''; el.style.borderRadius = '';
+        el.style.backgroundColor = ''; el.style.color = ''; el.style.boxShadow = ''; el.style.borderBottom = '';
       });
-      document.querySelectorAll('[data-tts-active="true"]').forEach(a => {
-        a.removeAttribute('data-tts-active');
-        a.style.backgroundColor = ''; a.style.color = ''; a.style.borderLeft = ''; a.style.padding = ''; a.style.borderRadius = ''; a.style.boxShadow = '';
+      document.querySelectorAll('[data-tts-active="true"], [data-tts-active-para="true"]').forEach(el => {
+        el.removeAttribute('data-tts-active'); el.removeAttribute('data-tts-active-para');
+        el.style.backgroundColor = ''; el.style.color = ''; el.style.borderLeft = ''; el.style.paddingLeft = '';
       });
-      document.querySelectorAll('[data-tts-active-para="true"]').forEach(p => {
-        p.removeAttribute('data-tts-active-para');
-        p.style.borderLeft = ''; p.style.paddingLeft = '';
-      });
-      window.__lastTtsSentenceEl = null;
-      window.__lastTTSHighlightedNode = null;
-      window.__lastTtsActivePara = null;
+      window.__lastTtsSentenceEl = null; window.__lastTTSHighlightedNode = null; window.__lastTtsActivePara = null;
     },
 
     highlightActiveParagraph: (paraIdx) => {
@@ -256,34 +248,47 @@ export function getInjectedHighlighterScript(): string {
         (document.head || document.documentElement).appendChild(ttsStyle);
       }
 
-      const sId = typeof sentenceId === 'number' ? sentenceId : (parseInt(sentenceId, 10));
-      if (!isNaN(sId)) {
-        let targetEl = document.getElementById('s-' + sId);
-        if (!targetEl && document.querySelectorAll('.tts-sentence').length === 0) {
-          if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.indexParagraphsForTTS === 'function') {
-            window.__TienHiepHelpers.indexParagraphsForTTS();
-            targetEl = document.getElementById('s-' + sId);
-          }
-        }
+      const sId = typeof sentenceId === 'number' ? sentenceId : parseInt(sentenceId, 10);
+      let targetEl = null;
 
-        if (targetEl) {
-          targetEl.classList.add('tts-active-sentence');
-          targetEl.style.backgroundColor = '#f59e0b';
-          targetEl.style.color = '#000000';
-          targetEl.style.borderRadius = '4px';
-          targetEl.style.boxShadow = '0 0 14px rgba(245, 158, 11, 0.85)';
-          targetEl.style.borderBottom = '2px solid #b45309';
-          window.__lastTtsSentenceEl = targetEl;
-
-          const parentPara = targetEl.closest('p, [data-tts-idx], .tienhiep-tts-paragraph');
-          if (parentPara && !window.__TienHiepHelpers.isLargeContainerEl(parentPara)) {
-            parentPara.setAttribute('data-tts-active-para', 'true');
-            parentPara.style.borderLeft = '4px solid #8b5cf6';
-            parentPara.style.paddingLeft = '8px';
-            window.__lastTtsActivePara = parentPara;
-          }
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 1. Ưu tiên khớp theo nội dung câu chữ thực tế đang đọc (sentenceText)
+      if (sentenceText) {
+        const cleanText = sentenceText.trim().replace(/^[“"'\s«『「]+|[”"'\s»』」]+$/gu, '').slice(0, 24);
+        if (cleanText.length >= 4) {
+          const allSpans = Array.from(document.querySelectorAll('.tts-sentence, p'));
+          targetEl = allSpans.find(el => el.textContent && el.textContent.includes(cleanText)) || null;
         }
+      }
+
+      // 2. Dự phòng theo ID nếu không tìm thấy chuỗi văn bản
+      if (!targetEl && !isNaN(sId) && sId > 0) {
+        targetEl = document.getElementById('s-' + sId) || document.getElementById('s-' + (sId - 1));
+      }
+
+      if (!targetEl && document.querySelectorAll('.tts-sentence').length === 0) {
+        if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.indexParagraphsForTTS === 'function') {
+          window.__TienHiepHelpers.indexParagraphsForTTS();
+          if (!isNaN(sId) && sId > 0) targetEl = document.getElementById('s-' + sId);
+        }
+      }
+
+      if (targetEl) {
+        targetEl.classList.add('tts-active-sentence');
+        targetEl.style.backgroundColor = '#f59e0b';
+        targetEl.style.color = '#000000';
+        targetEl.style.borderRadius = '4px';
+        targetEl.style.boxShadow = '0 0 14px rgba(245, 158, 11, 0.85)';
+        targetEl.style.borderBottom = '2px solid #b45309';
+        window.__lastTtsSentenceEl = targetEl;
+
+        const parentPara = targetEl.closest('p, [data-tts-idx], .tienhiep-tts-paragraph');
+        if (parentPara && !window.__TienHiepHelpers.isLargeContainerEl(parentPara)) {
+          parentPara.setAttribute('data-tts-active-para', 'true');
+          parentPara.style.borderLeft = '4px solid #8b5cf6';
+          parentPara.style.paddingLeft = '8px';
+          window.__lastTtsActivePara = parentPara;
+        }
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     },
   `;

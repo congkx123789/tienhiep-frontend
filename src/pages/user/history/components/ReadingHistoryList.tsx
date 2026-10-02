@@ -50,7 +50,7 @@ export function ReadingHistoryList({
 
   return (
     <div className="space-y-8">
-      {historyGroups.map((group) => (
+      {(historyGroups || []).map((group) => (
         <div key={group.group_name} className="space-y-3">
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-brand-400" />
@@ -66,11 +66,11 @@ export function ReadingHistoryList({
                 : group.group_name}
             </h3>
             <div className="flex-1 h-px bg-[#1f1f3a]" />
-            <span className="text-[10px] text-slate-600 font-semibold">{group.books.length}</span>
+            <span className="text-[10px] text-slate-600 font-semibold">{(group.books || []).length}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {group.books.map((b, idx) => {
+            {(group.books || []).map((b, idx) => {
               const ident = b.book_id || b.url;
               const isSelected = ident ? selectedIds.has(ident) : false;
               return (

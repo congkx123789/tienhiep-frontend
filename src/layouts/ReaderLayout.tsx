@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReaderSettings } from '../contexts/ReaderSettingsContext';
-import { ArrowLeft, Settings, Menu, ZoomIn, ZoomOut, Check, Minus, Square, X } from 'lucide-react';
+import { ArrowLeft, Settings, Menu, ZoomIn, ZoomOut, Check, Minus, Square, X, ArrowUpToLine, ArrowDownToLine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ReaderLayout({ children, bookTitle, currentChapter, chaptersList, onSelectChapter }) {
@@ -17,10 +17,25 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+      if (e.key === 'Home') {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (!isElectron) return;
     window.electron.isMaximized().then(setIsWindowMaximized);
-    const unsubscribe = window.electron.onWindowStateChange(setIsWindowMaximized);
-    return unsubscribe;
+    return window.electron.onWindowStateChange(setIsWindowMaximized);
   }, [isElectron]);
 
   // Toggle overlay on clicking center 40% area of screen
@@ -33,6 +48,12 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
 
       if (showSettingsPanel) {
         setShowSettingsPanel(false);
+        return;
+      }
+
+      // Ignore if user is selecting text (e.g. for copying or dictionary lookup)
+      const selection = window.getSelection()?.toString();
+      if (selection && selection.trim().length > 0) {
         return;
       }
 
@@ -59,7 +80,7 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
           overlayVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
         }`}
         style={{
-          ...(isElectron && !isLinux ? { WebkitAppRegion: 'drag', paddingRight: '144px' } : (isElectron ? { paddingRight: '144px' } : {}))
+          ...(isElectron ? { WebkitAppRegion: 'drag', paddingRight: '144px' } : {})
         }}
       >
         <div className="flex items-center gap-3" style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}>
@@ -183,18 +204,8 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
         <div className="flex items-center justify-between gap-4">
           <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Font chữ</span>
           <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 text-xs">
-            {[
-              { id: 'sans', name: 'Không chân' },
-              { id: 'serif', name: 'Có chân' },
-              { id: 'mono', name: 'Đơn cách' }
-            ].map(f => (
-              <button 
-                key={f.id}
-                onClick={() => setFontFamily(f.id)}
-                className={`px-3 py-1.5 rounded-md font-bold transition-all ${
-                  fontFamily === f.id ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400'
-                }`}
-              >
+            {[{ id: 'sans', name: 'Không chân' }, { id: 'serif', name: 'Có chân' }, { id: 'mono', name: 'Đơn cách' }].map(f => (
+              <button key={f.id} onClick={() => setFontFamily(f.id)} className={`px-3 py-1.5 rounded-md font-bold transition-all ${fontFamily === f.id ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400'}`}>
                 {f.name}
               </button>
             ))}
@@ -205,18 +216,8 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
         <div className="flex items-center justify-between gap-4">
           <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Giãn dòng</span>
           <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 text-xs">
-            {[
-              { id: 'normal', name: 'Thường' },
-              { id: 'relaxed', name: 'Rộng' },
-              { id: 'loose', name: 'Rất rộng' }
-            ].map(lh => (
-              <button 
-                key={lh.id}
-                onClick={() => setLineHeight(lh.id)}
-                className={`px-3 py-1.5 rounded-md font-bold transition-all ${
-                  lineHeight === lh.id ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400'
-                }`}
-              >
+            {[{ id: 'normal', name: 'Thường' }, { id: 'relaxed', name: 'Rộng' }, { id: 'loose', name: 'Rất rộng' }].map(lh => (
+              <button key={lh.id} onClick={() => setLineHeight(lh.id)} className={`px-3 py-1.5 rounded-md font-bold transition-all ${lineHeight === lh.id ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400'}`}>
                 {lh.name}
               </button>
             ))}
@@ -269,6 +270,26 @@ export default function ReaderLayout({ children, bookTitle, currentChapter, chap
       {/* Text Container */}
       <div className="max-w-3xl mx-auto px-6 py-24 min-h-screen">
         {children}
+      </div>
+
+      {/* Floating Home & End Quick Navigation Buttons */}
+      <div className="fixed right-3 bottom-20 z-30 flex flex-col gap-1.5 select-none pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="w-8 h-8 rounded-full bg-slate-900/80 hover:bg-purple-600/80 text-slate-300 hover:text-white border border-white/10 hover:border-purple-400/50 shadow-lg backdrop-blur-md flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+          title="Cuộn lên đầu chương (Phím Home ⤒)"
+        >
+          <ArrowUpToLine className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+          className="w-8 h-8 rounded-full bg-slate-900/80 hover:bg-purple-600/80 text-slate-300 hover:text-white border border-white/10 hover:border-purple-400/50 shadow-lg backdrop-blur-md flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+          title="Cuộn xuống cuối chương (Phím End ⤓)"
+        >
+          <ArrowDownToLine className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );

@@ -72,8 +72,13 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
     setError('');
     setLoading(true);
     try {
-      const server = await getBestServer();
-      const loginUrl = `${server}/api/auth/google/login?state=desktop|${encodeURIComponent(server)}`;
+      const clientId = '107953505478-0gielhlbbif11eu77rb29sq7ie7dqbmn.apps.googleusercontent.com';
+      const redirectUri = 'https://cong123779-tienhiep-api.hf.space/api/auth/google/callback';
+      const state = encodeURIComponent('desktop|http://127.0.0.1:5051');
+      const nonce = Math.random().toString(36).substring(2);
+
+      const loginUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token&scope=email%20profile&nonce=${nonce}&prompt=select_account&state=${state}`;
+
       const isNative = (window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform();
 
       if ((window as any).electron && (window as any).electron.openExternal) {
@@ -100,7 +105,7 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
     setMessage('');
     setLoading(true);
     try {
-      const res = await api.post('/api/auth/resend-verification', { email });
+      const res = await api.post('/api/auth/resend-verification', { email: email.trim() });
       setMessage(res.data.message || 'Mã xác minh mới đã được gửi.');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Lỗi gửi lại mã xác minh.');
@@ -113,27 +118,31 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
     e.preventDefault();
     setError('');
     setMessage('');
-    setLoading(true);
+
+    const u = username.trim();
+    const p = password;
+    const em = email.trim();
+    const o = otp.trim();
 
     try {
       if (mode === 'login') {
-        if (!username || !password) {
-          setError(t.authRequired || 'Vui lòng điền đủ thông tin');
-          setLoading(false);
+        if (!u || !p) {
+          setError(t.authRequired || 'Vui lòng điền đầy đủ tên đăng nhập và mật khẩu.');
           return;
         }
-        const user = await login(username, password);
+        setLoading(true);
+        const user = await login(u, p);
         onClose();
         if (user && user.require_password_change === 1) {
           window.location.href = '/settings';
         }
       } else if (mode === 'register') {
-        if (!username || !password || !email) {
-          setError(t.authRequired || 'Vui lòng điền đủ thông tin');
-          setLoading(false);
+        if (!u || !p || !em) {
+          setError(t.authRequired || 'Vui lòng điền đầy đủ thông tin đăng ký.');
           return;
         }
-        const res = await register(username, password, email);
+        setLoading(true);
+        const res = await register(u, p, em);
         if (res.require_verification) {
           setMessage(res.message || 'Một mã xác minh đã được gửi đến email của bạn.');
           setMode('verify_reg');
@@ -143,32 +152,32 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
           setPassword('');
         }
       } else if (mode === 'verify_reg') {
-        if (!email || !otp) {
+        if (!em || !o) {
           setError('Vui lòng nhập đầy đủ email và mã OTP xác minh.');
-          setLoading(false);
           return;
         }
-        const res = await api.post('/api/auth/verify-registration', { email, otp });
+        setLoading(true);
+        const res = await api.post('/api/auth/verify-registration', { email: em, otp: o });
         setMessage(res.data.message || 'Xác minh thành công! Vui lòng đăng nhập.');
         setMode('login');
         setPassword('');
         setOtp('');
       } else if (mode === 'forgot') {
-        if (!email) {
+        if (!em) {
           setError('Vui lòng nhập email.');
-          setLoading(false);
           return;
         }
-        const res = await api.post('/api/auth/forgot-password', { email });
+        setLoading(true);
+        const res = await api.post('/api/auth/forgot-password', { email: em });
         setMessage(res.data.message || 'Mã OTP đã được gửi đến email của bạn.');
         setMode('reset');
       } else if (mode === 'reset') {
-        if (!email || !otp || !password) {
+        if (!em || !o || !p) {
           setError('Vui lòng điền đầy đủ thông tin.');
-          setLoading(false);
           return;
         }
-        const res = await api.post('/api/auth/reset-password', { email, otp, password });
+        setLoading(true);
+        const res = await api.post('/api/auth/reset-password', { email: em, otp: o, password: p });
         setMessage(res.data.message || 'Khôi phục mật khẩu thành công.');
         setMode('login');
         setPassword('');

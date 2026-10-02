@@ -15,7 +15,7 @@ export default function HistoryPage() {
         lang={h.lang}
         activeTab={h.activeTab}
         setActiveTab={h.setActiveTab}
-        browserHistoryLength={h.browserHistory.length}
+        browserHistoryLength={(h.browserHistory || []).length}
       />
 
       {/* TAB 1: WEB BROWSING HISTORY */}

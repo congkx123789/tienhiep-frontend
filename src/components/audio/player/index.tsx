@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, Settings, Minimize2, X, Music } from 'lucide-react';
+import { Volume2, Settings, Minimize2, X, Music, Timer } from 'lucide-react';
 import { AudioPlayerProps } from './AudioPlayer.types';
 import { useDraggablePlayer } from './useDraggablePlayer';
 import { usePlayerSpeech } from './usePlayerSpeech';
@@ -19,6 +19,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const speech = usePlayerSpeech(book, onNextChapter);
   const { sleepTimer, setSleepTimer, timeLeftMin } = useSleepTimer(speech.isPlaying, speech.stopSpeaking);
+
+  const cycleSleepTimer = () => {
+    const steps = [0, 15, 30, 45, 60];
+    const nextIdx = (steps.indexOf(sleepTimer) + 1) % steps.length;
+    setSleepTimer(steps[nextIdx]);
+  };
 
   const {
     playerElRef,
@@ -69,7 +75,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       style={{ ...dragStyle, WebkitAppRegion: 'no-drag' as any }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
-      className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100050] bg-[#0d0e17]/95 border border-purple-500/40 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 shadow-[0_8px_32px_rgba(0,0,0,0.85)] flex flex-col gap-2 w-[340px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-3 duration-250 cursor-grab active:cursor-grabbing select-none"
+      className={`fixed bottom-24 ${dragStyle.left ? '' : 'left-1/2 -translate-x-1/2'} z-[100050] bg-[#0d0e17]/95 border border-purple-500/40 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 shadow-[0_8px_32px_rgba(0,0,0,0.85)] flex flex-col gap-2 w-[340px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-3 duration-250 cursor-grab active:cursor-grabbing select-none`}
     >
       {/* Header Bar */}
       <div className="flex justify-between items-center select-none pb-1 border-b border-white/5">
@@ -79,7 +85,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             {book.isChapter ? 'ĐANG ĐỌC CHƯƠNG...' : 'NGHE TÓM TẮT...'}
           </span>
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1 no-drag" onTouchStart={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <button
+            onClick={cycleSleepTimer}
+            className={`px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1 text-[8.5px] font-bold ${sleepTimer > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            title={`Hẹn giờ tắt: ${sleepTimer > 0 ? timeLeftMin + ' phút còn lại' : 'Bấm để hẹn giờ'}`}
+          >
+            <Timer className="w-3.5 h-3.5" />
+            {sleepTimer > 0 ? <span>{timeLeftMin}p</span> : <span>Hẹn giờ</span>}
+          </button>
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`p-1 rounded-md transition-colors ${showSettings ? 'bg-purple-600/30 text-purple-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}

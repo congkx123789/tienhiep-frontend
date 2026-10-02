@@ -158,7 +158,7 @@ export const TabStats: React.FC<TabStatsProps> = ({ user }) => {
                         {group.group_name}
                       </span>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {group.books.map((book: any, bIdx: number) => (
+                        {(Array.isArray(group?.books) ? group.books : []).map((book: any, bIdx: number) => (
                           <div 
                             key={bIdx} 
                             className="p-3 bg-[#121225] border border-[#1f1f3a]/60 rounded-lg flex gap-3 items-center hover:border-purple-500/50 transition-all group relative overflow-hidden"

@@ -5,6 +5,8 @@ export interface AudioPlayerBook {
   author_hanviet?: string;
   author?: string;
   description?: string;
+  currentChapterContent?: string;
+  content?: string;
   chapterIdx?: number;
   isChapter?: boolean;
   startSentenceIdx?: number;

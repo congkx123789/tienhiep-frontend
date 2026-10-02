@@ -3,7 +3,10 @@ export function getNavigationRulesScript(): string {
   return `
     getNovelKeys: () => {
       const effUrl = window.__TienHiepHelpers.getEffectiveUrl();
-      const host = effUrl.hostname || '';
+      let host = effUrl.hostname || '';
+      if ((!host || host === 'localhost' || host === '127.0.0.1') && window.__originalUrl) {
+        try { host = new URL(window.__originalUrl).hostname || host; } catch(e) {}
+      }
       const path = effUrl.pathname || '';
       const parts = path.split('/').filter(Boolean);
       let novelKey = host;

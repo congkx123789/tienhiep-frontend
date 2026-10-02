@@ -161,10 +161,10 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     else navigate(`/${tab}`);
   };
 
-  const activeTab = (isNativeApp && isVisible) ? 'browser' : getActiveTab();
+  const activeTab = isVisible ? 'browser' : getActiveTab();
 
   const desktopNavItems: NavItem[] = useMemo(() => [
-    ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
+    { key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
     { key: 'all', icon: Compass, label: t.tabDiscover },
     { key: 'bookshelf', icon: BookMarked, label: t.tabBookshelf },
     { key: 'history', icon: History, label: t.tabHistory },
@@ -174,16 +174,16 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     ...(user ? [{ key: 'sects', icon: Crown, label: lang === 'vi' ? 'Tông Môn' : 'Sects' }] : []),
     { key: 'vip', icon: Crown, label: lang === 'vi' ? 'Ủng Hộ VIP' : 'VIP' },
     { key: 'settings', icon: SettingsIcon, label: t.tabSettings },
-  ], [isNativeApp, lang, t, user]);
+  ], [lang, t, user]);
 
   const bottomNavItems: NavItem[] = useMemo(() => [
-    ...(isNativeApp ? [{ key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' }] : []),
+    { key: 'browser', icon: Globe, label: lang === 'vi' ? 'Trình duyệt' : 'Browser' },
     { key: 'all', icon: Compass, label: t.tabDiscover },
     { key: 'bookshelf', icon: BookMarked, label: t.tabBookshelf },
     { key: 'history', icon: History, label: t.tabHistory },
     { key: 'vip', icon: Crown, label: 'VIP' },
     { key: 'settings', icon: SettingsIcon, label: t.tabSettings },
-  ], [isNativeApp, lang, t]);
+  ], [lang, t]);
 
   return (
     <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#0b0b14] text-slate-100">
@@ -271,6 +271,8 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
         onClose={() => setSocialOpen(false)} 
         defaultTab={socialTab === 'chat' ? 'friends' : socialTab} 
       />
+
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       {showLogConsole && (
         <LogConsole onClose={() => setShowLogConsole(false)} />

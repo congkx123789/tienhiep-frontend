@@ -1,9 +1,10 @@
-// Master BrowserProvider and useBrowser hook
-import React, { createContext, useContext, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useState } from 'react';
 import { useTabManager } from './useTabManager';
 import { useBrowserAudio } from './useBrowserAudio';
 import { useWebviewSync } from './useWebviewSync';
 import { BrowserHeader, BrowserViewports, BrowserModals } from './components';
+import ReaderQuickTools from '../../components/reader/ReaderQuickTools';
+import { isElectron } from '../../utils/electron';
 
 export const BrowserContext = createContext<any>(null);
 export const useBrowser = () => useContext(BrowserContext);
@@ -39,7 +40,9 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     activeTabId,
     sendWebviewMessage,
     startAudioFromContent,
-    addToHistory
+    addToHistory,
+    stopAudio,
+    activeAudioObj
   );
   const {
     autoStates,
@@ -67,13 +70,73 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [activeTabId]);
 
+  const handleNavigateBack = useCallback(() => {
+    if (!activeTabId) return;
+    const tab = tabs.find(t => t.id === activeTabId);
+    if (tab && tab.historyStack && (tab.historyIndex ?? 0) > 0) {
+      const newIdx = (tab.historyIndex ?? 0) - 1;
+      const prevUrl = tab.historyStack[newIdx];
+      setTabs(prev => prev.map(t => t.id === activeTabId ? {
+        ...t,
+        url: prevUrl,
+        initialUrl: prevUrl,
+        historyIndex: newIdx,
+        canGoBack: newIdx > 0,
+        canGoForward: true,
+        isLoading: true
+      } : t));
+      return;
+    }
+    sendWebviewMessage(activeTabId, { action: 'NAVIGATE_BACK' });
+    const wv = document.getElementById('global-wv-' + activeTabId) as any;
+    if (wv && wv.contentWindow) {
+      try { wv.contentWindow.history.back(); } catch (e) {}
+    }
+  }, [activeTabId, tabs, setTabs, sendWebviewMessage]);
+
+  const handleNavigateForward = useCallback(() => {
+    if (!activeTabId) return;
+    const tab = tabs.find(t => t.id === activeTabId);
+    if (tab && tab.historyStack && (tab.historyIndex ?? 0) < tab.historyStack.length - 1) {
+      const newIdx = (tab.historyIndex ?? 0) + 1;
+      const nextUrl = tab.historyStack[newIdx];
+      setTabs(prev => prev.map(t => t.id === activeTabId ? {
+        ...t,
+        url: nextUrl,
+        initialUrl: nextUrl,
+        historyIndex: newIdx,
+        canGoBack: true,
+        canGoForward: newIdx < (t.historyStack?.length ?? 1) - 1,
+        isLoading: true
+      } : t));
+      return;
+    }
+    sendWebviewMessage(activeTabId, { action: 'NAVIGATE_FORWARD' });
+    const wv = document.getElementById('global-wv-' + activeTabId) as any;
+    if (wv && wv.contentWindow) {
+      try { wv.contentWindow.history.forward(); } catch (e) {}
+    }
+  }, [activeTabId, tabs, setTabs, sendWebviewMessage]);
+
+  const [isVisible, setIsVisible] = useState(false);
+
+  const handleOpenInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
+    setIsVisible(true);
+    openInBrowser(targetUrl, inNewTab, isPrivate);
+  }, [openInBrowser]);
+
+  const handleOpenNewTab = useCallback((isPrivate: boolean = false, initialUrl: string = 'about:newtab') => {
+    setIsVisible(true);
+    return openNewTab(isPrivate, initialUrl);
+  }, [openNewTab]);
+
   const contextValue = {
     tabs,
     activeTabId,
     activeTab,
     setActiveTabId,
-    openInBrowser,
-    openNewTab,
+    openInBrowser: handleOpenInBrowser,
+    openNewTab: handleOpenNewTab,
     closeTab,
     closeAll,
     bookmarks,
@@ -86,34 +149,57 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     activeAudioObj,
     startAudioFromContent,
     stopAudio,
-    sendWebviewMessage
+    sendWebviewMessage,
+    isVisible,
+    setIsVisible
   };
 
   return (
     <BrowserContext.Provider value={contextValue}>
-      <div className="flex flex-col w-full h-full overflow-hidden bg-slate-950">
-        <BrowserHeader
-          activeTab={activeTab}
-          tabsCount={tabs.length}
-          urlInput={urlInput}
-          setUrlInput={setUrlInput}
-          onNavigate={handleNavigate}
-          onReload={handleReload}
-          onOpenTabSwitcher={() => setIsTabSwitcherOpen(true)}
-          onOpenTabConfig={() => setIsTabConfigOpen(true)}
-          onOpenSettings={() => setIsTranslationSettingsOpen(true)}
-          onTool={(toolId) => handleTool(toolId, activeTabId)}
-          autoTranslateActive={!!autoStates[activeTabId]}
-          pinnedTools={pinnedTools}
-        />
+      <div className="w-full min-h-screen bg-[#0b0b14] flex flex-col">
+        {isVisible && (
+          <div
+            className="fixed inset-0 z-[100] flex flex-col w-full h-screen h-[100dvh] overflow-hidden bg-slate-950 animate-fade-in"
+            style={isElectron ? { WebkitAppRegion: 'no-drag' } as any : {}}
+          >
+            <BrowserHeader
+              activeTab={activeTab}
+              tabsCount={tabs.length}
+              urlInput={urlInput}
+              setUrlInput={setUrlInput}
+              onNavigate={handleNavigate}
+              onNavigateBack={handleNavigateBack}
+              onNavigateForward={handleNavigateForward}
+              onReload={handleReload}
+              onOpenTabSwitcher={() => setIsTabSwitcherOpen(true)}
+              onOpenTabConfig={() => setIsTabConfigOpen(true)}
+              onOpenSettings={() => setIsTranslationSettingsOpen(true)}
+              onTool={(toolId) => handleTool(toolId, activeTabId)}
+              autoTranslateActive={!!autoStates[activeTabId]}
+              pinnedTools={pinnedTools}
+              onCloseBrowser={() => setIsVisible(false)}
+            />
 
-        <BrowserViewports
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onNavigate={handleNavigate}
-          onOpenBookmarks={() => setIsBookmarksOpen(true)}
-          bookmarksCount={bookmarks.length}
-        />
+            <BrowserViewports
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onNavigate={handleNavigate}
+              onOpenBookmarks={() => setIsBookmarksOpen(true)}
+              bookmarksCount={bookmarks.length}
+            />
+
+            {activeTab && activeTab.url && activeTab.url !== 'about:newtab' && (
+              <ReaderQuickTools
+                onToolAction={(action: string, payload?: any) => handleTool(action, activeTabId, payload)}
+                isAudioPlaying={!!activeAudioObj}
+              />
+            )}
+          </div>
+        )}
+
+        <div className={`w-full flex-1 flex flex-col ${isVisible ? 'invisible pointer-events-none' : ''}`}>
+          {children}
+        </div>
 
         <BrowserModals
           tabs={tabs}
@@ -135,7 +221,7 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
           onCloseAudio={stopAudio}
           onNextChapter={handleGlobalNextChapter}
           onPrevChapter={handleGlobalPrevChapter}
-          openNewTab={openNewTab}
+          openNewTab={handleOpenNewTab}
           closeTab={closeTab}
           closeOtherTabs={closeOtherTabs}
           closeAll={closeAll}
@@ -147,8 +233,6 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
           togglePin={togglePin}
           removeBookmark={removeBookmark}
         />
-
-        {children}
       </div>
     </BrowserContext.Provider>
   );

@@ -5,8 +5,8 @@ export function useTranslationSettings(isOpen: boolean) {
   const [activeTab, setActiveTab] = useState<'tools' | 'advanced' | 'history'>('tools');
   const [settings, setSettings] = useState<TranslationSettingsState>({
     engineType: 'browser',
-    mode: 'vietphrase',
-    serverUrl: 'https://cong123779-tienhiep-api.hf.space',
+    mode: '4',
+    serverUrl: '',
     vipKey: '',
     scrollSpeed: 30,
     audioSpeed: 1.0,
@@ -20,10 +20,13 @@ export function useTranslationSettings(isOpen: boolean) {
       if (stored) {
         try {
           let parsed = JSON.parse(stored);
-          if (parsed.serverUrl === 'https://tienhiep.lyvuha.com') {
-            parsed.serverUrl = 'https://cong123779-tienhiep-api.hf.space';
+          if (parsed.serverUrl && (parsed.serverUrl.includes('hf.space') || parsed.serverUrl.includes('lyvuha.com'))) {
+            parsed.serverUrl = '';
           }
-          const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'vietphrase', 'hanviet'];
+          if (!parsed.mode || parsed.mode === 'vietphrase') {
+            parsed.mode = '4';
+          }
+          const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'raw', 'none'];
           if (parsed.engineType === 'browser' && !validModes.includes(parsed.mode)) {
             parsed.mode = '4';
           }
@@ -48,7 +51,7 @@ export function useTranslationSettings(isOpen: boolean) {
 
   const updateSetting = (key: keyof TranslationSettingsState, value: any) => {
     let newSettings = { ...settings, [key]: value };
-    const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'vietphrase', 'hanviet'];
+    const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'vietphrase', 'hanviet', 'raw', 'none'];
     if (key === 'engineType' && value === 'browser') {
       if (!validModes.includes(newSettings.mode)) {
         newSettings.mode = '4';

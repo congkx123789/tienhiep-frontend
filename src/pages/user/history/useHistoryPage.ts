@@ -6,6 +6,47 @@ import { useBrowser } from '../../../contexts/BrowserContext';
 import { userFeatureService } from '../../../services';
 import { HistoryGroup, HistoryBookItem } from './History.types';
 
+function normalizeHistory(raw: any): HistoryGroup[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  if (raw[0] && Array.isArray(raw[0].books)) {
+    return raw.map((g: any) => ({
+      group_name: g.group_name || 'Lịch sử đọc',
+      books: Array.isArray(g.books) ? g.books : []
+    }));
+  }
+
+  const groups: Record<string, HistoryBookItem[]> = { 'Hôm nay': [], 'Hôm qua': [], 'Trước đó': [] };
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const ydayStr = new Date(now.getTime() - 86400000).toDateString();
+
+  raw.forEach((item: any) => {
+    const book: HistoryBookItem = {
+      book_id: item.book_id,
+      url: item.chapter_url || item.url,
+      title: item.title || 'Không có tiêu đề',
+      author: item.author || 'Chưa rõ tác giả',
+      cover: item.cover,
+      last_chapter: item.chapter_title || item.last_chapter,
+      read_date: item.last_read_at || item.created_at,
+    };
+    const d = item.last_read_at ? new Date(item.last_read_at) : null;
+    if (d && !isNaN(d.getTime())) {
+      if (d.toDateString() === todayStr) groups['Hôm nay'].push(book);
+      else if (d.toDateString() === ydayStr) groups['Hôm qua'].push(book);
+      else groups['Trước đó'].push(book);
+    } else {
+      groups['Trước đó'].push(book);
+    }
+  });
+
+  const res: HistoryGroup[] = [];
+  if (groups['Hôm nay'].length) res.push({ group_name: 'Hôm nay', books: groups['Hôm nay'] });
+  if (groups['Hôm qua'].length) res.push({ group_name: 'Hôm qua', books: groups['Hôm qua'] });
+  if (groups['Trước đó'].length) res.push({ group_name: 'Trước đó', books: groups['Trước đó'] });
+  return res.length ? res : [{ group_name: 'Lịch sử đọc', books: [] }];
+}
+
 export function useHistoryPage() {
   const { t, lang } = useLang();
   const { user, loading: authLoading } = useAuth();
@@ -35,9 +76,10 @@ export function useHistoryPage() {
     setLoading(true);
     try {
       const data = await userFeatureService.getHistory(searchQ ? { q: searchQ } : undefined);
-      setHistoryGroups(data || []);
+      setHistoryGroups(normalizeHistory(data));
     } catch (e) {
       console.error(e);
+      setHistoryGroups([]);
     } finally {
       setLoading(false);
     }
@@ -92,8 +134,8 @@ export function useHistoryPage() {
 
   const getAllItemIds = () => {
     const ids: (number | string)[] = [];
-    historyGroups.forEach(g => {
-      g.books.forEach(b => {
+    (historyGroups || []).forEach(g => {
+      (g?.books || []).forEach(b => {
         const ident = b.book_id || b.url;
         if (ident) ids.push(ident);
       });
@@ -120,8 +162,8 @@ export function useHistoryPage() {
     setLoading(true);
     try {
       const booksToDel: HistoryBookItem[] = [];
-      historyGroups.forEach(g => {
-        g.books.forEach(b => {
+      (historyGroups || []).forEach(g => {
+        (g?.books || []).forEach(b => {
           const ident = b.book_id || b.url;
           if (ident && selectedIds.has(ident)) {
             booksToDel.push(b);
@@ -143,7 +185,7 @@ export function useHistoryPage() {
     }
   };
 
-  const totalBooks = historyGroups.reduce((sum, g) => sum + g.books.length, 0);
+  const totalBooks = (historyGroups || []).reduce((sum, g) => sum + (Array.isArray(g?.books) ? g.books.length : 0), 0);
   const allItemIds = getAllItemIds();
   const isAllSelected = selectedIds.size === allItemIds.length && allItemIds.length > 0;
 

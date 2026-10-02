@@ -43,11 +43,12 @@ export const BookCardSources: React.FC<BookCardSourcesProps> = ({
                 target="_blank" 
                 rel="noreferrer" 
                 onClick={(e) => {
-                  const isNativeApp = (window as any).electron || ((window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform());
-                  if (isNativeApp && openInBrowser) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (openInBrowser) {
                     openInBrowser(u.url);
+                  } else {
+                    window.open(u.url, '_blank');
                   }
                 }}
                 className="inline-flex items-center gap-1 bg-[#0b0b14]/40 border border-[#1f1f3a] hover:border-purple-500/30 rounded px-1.5 py-0.5 text-[9px] text-slate-300 hover:text-white transition-all"

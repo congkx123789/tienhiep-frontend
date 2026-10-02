@@ -56,33 +56,38 @@ export function useReaderChapter({
 
       const sampleChinese = `第${chapterIdx}章 开封神殿\n\n武之极，破苍穹，动乾坤！在这片神秘의 개봉신전中，无数强者汇聚。他们为了争夺上古机缘，不惜 blood shed.\n\n杨开迈步走入神殿，神色淡然。他能夠清晰地感受到虚空中波动的强横气息。这一次 exploration，他势在必得。`;
       
-      setTranslating(true);
+      const storedSettings = JSON.parse(localStorage.getItem('translationSettings') || '{}');
+      const activeMode = String(storedSettings.mode || '4');
+      const isRawMode = activeMode === 'raw' || activeMode === 'none' || activeMode === '0';
+
       let finalContent = sampleChinese;
-      try {
-        const storedSettings = JSON.parse(localStorage.getItem('translationSettings') || '{}');
-        const activeMode = storedSettings.mode || '4';
-        const transRes = await api.post('/api/translate', {
-          texts: sampleChinese.split('\n\n'),
-          mode: activeMode
-        }, {
-          headers: {
-            'X-VIP-Key': 'LYVUHA_ADMIN_2026'
-          }
-        });
-        if (transRes.data?.translations) {
-          finalContent = transRes.data.translations.join('\n\n');
-        }
-      } catch (err) {
-        console.warn("[Reader] Cloud translation failed, trying offline localTranslator:", err);
+
+      if (!isRawMode) {
+        setTranslating(true);
         try {
-          await localTranslator.loadDictionaries();
-          const fallbackTranslations = await Promise.all(
-            sampleChinese.split('\n\n').map(text => localTranslator.translate(text, 'cmlm'))
-          );
-          finalContent = fallbackTranslations.join('\n\n');
-        } catch (localErr) {
-          console.error("[Reader] Offline translation failed as well:", localErr);
-          throw new Error("Cả máy chủ dịch và bộ dịch offline đều thất bại.");
+          const transRes = await api.post('/api/translate', {
+            texts: sampleChinese.split('\n\n'),
+            mode: activeMode
+          }, {
+            headers: {
+              'X-VIP-Key': 'LYVUHA_ADMIN_2026'
+            }
+          });
+          if (transRes.data?.translations) {
+            finalContent = transRes.data.translations.join('\n\n');
+          }
+        } catch (err) {
+          console.warn("[Reader] Cloud translation failed, trying offline localTranslator:", err);
+          try {
+            await localTranslator.loadDictionaries();
+            const fallbackTranslations = await Promise.all(
+              sampleChinese.split('\n\n').map(text => localTranslator.translate(text, 'cmlm'))
+            );
+            finalContent = fallbackTranslations.join('\n\n');
+          } catch (localErr) {
+            console.error("[Reader] Offline translation failed as well:", localErr);
+            throw new Error("Cả máy chủ dịch và bộ dịch offline đều thất bại.");
+          }
         }
       }
       setContent(finalContent);
@@ -114,6 +119,14 @@ export function useReaderChapter({
 
   useEffect(() => {
     fetchChapterContent();
+  }, [fetchChapterContent]);
+
+  useEffect(() => {
+    const handleSettingsUpdated = () => {
+      fetchChapterContent();
+    };
+    window.addEventListener('translationSettingsUpdated', handleSettingsUpdated);
+    return () => window.removeEventListener('translationSettingsUpdated', handleSettingsUpdated);
   }, [fetchChapterContent]);
 
   return {

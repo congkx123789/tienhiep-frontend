@@ -8,13 +8,29 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
   const autoAudioStatesRef = useRef<Record<string, boolean>>({});
 
   const sendWebviewMessage = useCallback((tabId: string, payload: any) => {
-    const wv = document.getElementById('global-wv-' + tabId) as any;
-    if (!wv) return;
-    const isIframe = wv.tagName?.toLowerCase() === 'iframe';
-    if (isIframe && wv.contentWindow) {
-      wv.contentWindow.postMessage(payload, '*');
-    } else if (wv.executeJavaScript) {
-      wv.executeJavaScript(`window.postMessage(${JSON.stringify(payload)}, '*');`);
+    let sent = false;
+    if (tabId) {
+      const wv = document.getElementById('global-wv-' + tabId) as any;
+      if (wv) {
+        const isIframe = wv.tagName?.toLowerCase() === 'iframe';
+        if (isIframe && wv.contentWindow) {
+          wv.contentWindow.postMessage(payload, '*');
+          sent = true;
+        } else if (wv.executeJavaScript) {
+          wv.executeJavaScript(`window.postMessage(${JSON.stringify(payload)}, '*');`);
+          sent = true;
+        }
+      }
+    }
+    if (!sent) {
+      const iframes = document.querySelectorAll('iframe[id^="global-wv-"]');
+      iframes.forEach((frame: any) => {
+        try {
+          if (frame.contentWindow) {
+            frame.contentWindow.postMessage(payload, '*');
+          }
+        } catch(e) {}
+      });
     }
   }, []);
 
@@ -41,7 +57,9 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
 
     setActiveAudioObj({
       title: title || tab?.title || 'Chương đọc',
+      title_vietphrase: title || tab?.title || 'Chương đọc',
       author: 'Trình đọc Web',
+      author_hanviet: 'Trình đọc Web',
       sourceUrl: tab?.url,
       tabId,
       currentChapterTitle: title,
@@ -54,6 +72,7 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
     const targetTabId = tabId || activeAudioObj?.tabId;
     if (targetTabId) {
       autoAudioStatesRef.current[targetTabId] = false;
+      try { sessionStorage.removeItem('__tienhiep_tts_active_' + targetTabId); } catch(e) {}
       sendWebviewMessage(targetTabId, { action: 'SET_TTS_PLAYING', playing: false });
       sendWebviewMessage(targetTabId, { action: 'CLEAR_TTS_HIGHLIGHTS' });
     }

@@ -3,6 +3,41 @@ export function getInjectedBridgeScript(): string {
   return `
     if (!window.__tienhiep_injected_ipc) {
       window.__tienhiep_injected_ipc = true;
+
+      function scrollNovelTop() {
+        try {
+          window.scrollTo({ top: 0, behavior: 'auto' });
+          if (document.documentElement) document.documentElement.scrollTop = 0;
+          if (document.body) document.body.scrollTop = 0;
+          const scrollables = document.querySelectorAll('div, section, article, main, #wrapper, .wrapper, #content, .content, #chaptercontent, .read-content, #main, .novel-content');
+          for (let i = 0; i < scrollables.length; i++) {
+            const el = scrollables[i];
+            if (el && el.scrollHeight > el.clientHeight && el.scrollTop > 0) {
+              el.scrollTop = 0;
+            }
+          }
+        } catch(e) {}
+      }
+
+      function scrollNovelBottom() {
+        try {
+          const maxH = Math.max(
+            document.body ? document.body.scrollHeight : 0,
+            document.documentElement ? document.documentElement.scrollHeight : 0
+          );
+          window.scrollTo({ top: maxH, behavior: 'auto' });
+          if (document.documentElement) document.documentElement.scrollTop = maxH;
+          if (document.body) document.body.scrollTop = maxH;
+          const scrollables = document.querySelectorAll('div, section, article, main, #wrapper, .wrapper, #content, .content, #chaptercontent, .read-content, #main, .novel-content');
+          for (let i = 0; i < scrollables.length; i++) {
+            const el = scrollables[i];
+            if (el && el.scrollHeight > el.clientHeight) {
+              el.scrollTop = el.scrollHeight;
+            }
+          }
+        } catch(e) {}
+      }
+
       window.addEventListener('message', (e) => {
         if (!e.data) return;
         const data = e.data;
@@ -21,20 +56,30 @@ export function getInjectedBridgeScript(): string {
             window.__TienHiepHelpers.checkAndTriggerAutoPrev();
           }
         } else if (action === 'EXTRACT_TEXT' || action === 'audio') {
-          let res = { title: document.title, text: document.body.innerText };
+          let res = { title: document.title || 'Chương đọc', text: '' };
           if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.extractCleanChapterText === 'function') {
-            res = window.__TienHiepHelpers.extractCleanChapterText();
+            try {
+              const cleaned = window.__TienHiepHelpers.extractCleanChapterText();
+              if (cleaned && cleaned.text && cleaned.text.trim().length > 20) {
+                res = cleaned;
+              }
+            } catch(e) {}
+          }
+          if (!res.text || res.text.trim().length < 20) {
+            res.text = (document.body ? document.body.innerText : '') || '';
+            res.title = document.title || 'Chương đọc';
           }
           if (window.parent && window.parent !== window) {
             window.parent.postMessage({
               type: 'AUDIO_TEXT_RES',
+              tabId: window.__TIENHIEP_TAB_ID__,
               title: res.title,
               text: res.text
             }, '*');
           }
         } else if (action === 'TRANSLATE_RES' || action === 'translate_res') {
           if (typeof window.__receiveTranslations === 'function') {
-            window.__receiveTranslations(data.id, data.translations || []);
+            window.__receiveTranslations(data.id, data.translations || [], data.pageSessionId);
           }
         } else if (action === 'TOGGLE_AUTO_TRANSLATE') {
           const fn = (window.__TienHiepHelpers && window.__TienHiepHelpers.toggleAutoTranslate) || window.toggleAutoTranslate;
@@ -42,12 +87,6 @@ export function getInjectedBridgeScript(): string {
             fn(data.enabled);
           }
         } else if (action === 'FORCE_TRANSLATE') {
-          const chineseRegex = /[\\u4e00-\\u9fa5]/;
-          const sampleCheckText = (document.body ? document.body.innerText : '') || document.title || '';
-          if (!chineseRegex.test(sampleCheckText)) {
-            window.__autoTranslateEnabled = false;
-            return;
-          }
           window.__autoTranslateEnabled = true;
           if (typeof window.__collectAndTranslateNodes === 'function') {
             window.__collectAndTranslateNodes(document.body || document.documentElement);
@@ -59,13 +98,14 @@ export function getInjectedBridgeScript(): string {
           window.__tienhiepCleanAds = !!data.enabled;
           if (typeof window.__ensureCleanAds === 'function') window.__ensureCleanAds();
         } else if (action === 'COPY_TEXT') {
-          let res = { text: document.body.innerText };
+          let res = { text: document.body ? document.body.innerText : '' };
           if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.extractCleanChapterText === 'function') {
             res = window.__TienHiepHelpers.extractCleanChapterText();
           }
           if (window.parent && window.parent !== window) {
             window.parent.postMessage({
               type: 'COPY_TEXT_RES',
+              tabId: window.__TIENHIEP_TAB_ID__,
               text: res.text
             }, '*');
           }
@@ -97,6 +137,31 @@ export function getInjectedBridgeScript(): string {
               window.scrollBy({ top: 1, behavior: 'instant' });
             }, speed);
           }
+        } else if (action === 'NAVIGATE_BACK') {
+          window.history.back();
+        } else if (action === 'NAVIGATE_FORWARD') {
+          window.history.forward();
+        } else if (action === 'SCROLL_TOP' || action === 'HOME' || action === 'home') {
+          scrollNovelTop();
+        } else if (action === 'SCROLL_BOTTOM' || action === 'END' || action === 'end') {
+          scrollNovelBottom();
+        } else if (action === 'RELOAD_PAGE' || action === 'reload' || action === 'f5') {
+          window.location.reload();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (e.key === 'Home') {
+          e.preventDefault();
+          scrollNovelTop();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          scrollNovelBottom();
+        } else if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+          e.preventDefault();
+          window.location.reload();
         }
       });
 
@@ -119,6 +184,7 @@ export function getInjectedBridgeScript(): string {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage({
           type: 'PAGE_LOADED',
+          tabId: window.__TIENHIEP_TAB_ID__,
           url: (window.__TienHiepHelpers ? window.__TienHiepHelpers.getEffectiveUrl().href : '') || window.__originalUrl || window.location.href,
           title: document.title
         }, '*');

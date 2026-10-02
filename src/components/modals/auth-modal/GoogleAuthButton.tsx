@@ -1,8 +1,9 @@
 interface GoogleAuthButtonProps {
   handleGoogleDesktopLogin: () => void;
+  loading?: boolean;
 }
 
-export function GoogleAuthButton({ handleGoogleDesktopLogin }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ handleGoogleDesktopLogin, loading }: GoogleAuthButtonProps) {
   const isDesktopOrNative =
     (window as any).electron ||
     ((window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform());
@@ -13,7 +14,8 @@ export function GoogleAuthButton({ handleGoogleDesktopLogin }: GoogleAuthButtonP
         <button
           type="button"
           onClick={handleGoogleDesktopLogin}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-bold rounded-xl shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 font-bold rounded-xl shadow-lg transition-all duration-150 active:scale-[0.98] disabled:opacity-60 cursor-pointer touch-manipulation select-none"
         >
           <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
             <path

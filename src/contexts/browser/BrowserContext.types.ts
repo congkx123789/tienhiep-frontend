@@ -10,6 +10,8 @@ export interface BrowserTab {
   isPrivate?: boolean;
   favicon?: string;
   lastAccessed?: number;
+  historyStack?: string[];
+  historyIndex?: number;
 }
 
 export interface BookmarkItem {
@@ -33,7 +35,9 @@ export interface ToastInfo {
 
 export interface ActiveAudioBook {
   title: string;
+  title_vietphrase?: string;
   author?: string;
+  author_hanviet?: string;
   cover?: string;
   sourceUrl?: string;
   tabId?: string;

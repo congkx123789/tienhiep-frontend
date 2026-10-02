@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../../services';
 import { AudioPlayerBook } from './AudioPlayer.types';
-import { getLocalTtsHost, isSpeechSynthesisAvailable, logTrace, ensureLocalEngineRunning, fetchAudioBlob } from './ttsEngineHelper';
+import { getLocalTtsHost, isSpeechSynthesisAvailable, logTrace, ensureLocalEngineRunning, fetchAudioBlob, splitAndMergeSentences } from './ttsEngineHelper';
 
 export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: () => void) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -17,19 +17,12 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
   const [matchaApiKey, setMatchaApiKey] = useState(() => localStorage.getItem('local_tts_api_key') || '');
   const [matchaVoice, setMatchaVoice] = useState(() => localStorage.getItem('local_tts_voice') || 'the_gioi_hoan_my');
   const [rate, setRate] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('translationSettings') || '{}');
-      return stored.audioSpeed || 1.5;
-    } catch { return 1.5; }
+    try { return JSON.parse(localStorage.getItem('translationSettings') || '{}').audioSpeed || 1.5; } catch { return 1.5; }
   });
   const [pitch] = useState(1.0);
   const [volume, setVolume] = useState(() => {
-    try {
-      const v = localStorage.getItem('tts_player_volume');
-      return v !== null ? parseFloat(v) : 1.0;
-    } catch { return 1.0; }
+    try { const v = localStorage.getItem('tts_player_volume'); return v !== null ? parseFloat(v) : 1.0; } catch { return 1.0; }
   });
-
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
   const [voices, setVoices] = useState<any[]>([]);
@@ -49,6 +42,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
   const lastPlaybackProgressTimeRef = useRef(Date.now());
   const lastPlaybackPositionRef = useRef(0);
   const triggerNextRef = useRef<any>(null);
+  const errCountRef = useRef(0);
 
   const cleanupAudio = (aud: HTMLAudioElement | null) => {
     if (!aud) return;
@@ -58,30 +52,56 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     } catch {}
   };
 
+  const clearAudioAndCache = () => {
+    if (audioRef.current) { cleanupAudio(audioRef.current); audioRef.current = null; }
+    if (synthRef.current) synthRef.current.cancel();
+    if (audioCacheRef.current) {
+      Object.values(audioCacheRef.current).forEach(a => {
+        try { if (a?.src?.startsWith('blob:')) URL.revokeObjectURL(a.src); } catch {}
+      });
+      audioCacheRef.current = {};
+    }
+    prefetchQueueRef.current.clear();
+  };
+
   const emitBoundary = useCallback((currentIdx: number) => {
     if (!sentencesRef.current || !sentencesRef.current[currentIdx]) return;
     let estimatedCharIdx = 0;
-    for (let i = 0; i < currentIdx; i++) {
-      estimatedCharIdx += (sentencesRef.current[i] || '').length + 1;
-    }
+    for (let i = 0; i < currentIdx; i++) estimatedCharIdx += (sentencesRef.current[i] || '').length + 1;
     const currentSentence = sentencesRef.current[currentIdx] || '';
     if (typeof book?.onBoundary === 'function') {
       try { book.onBoundary(estimatedCharIdx, currentSentence, currentIdx); } catch {}
     }
     window.dispatchEvent(new CustomEvent('global-tts-boundary', {
-      detail: { charIdx: estimatedCharIdx, sentenceText: currentSentence, sentenceId: currentIdx }
+      detail: { charIdx: estimatedCharIdx, sentenceText: currentSentence, sentenceId: currentIdx + 1, sentenceIdx: currentIdx }
     }));
   }, [book]);
 
+  useEffect(() => {
+    if (!book) return;
+    const rawContent = (book as any).currentChapterContent || book.description || (book as any).content || '';
+    if (!rawContent || !rawContent.trim()) return;
 
+    clearAudioAndCache();
+    errCountRef.current = 0;
+    const finalSentences = splitAndMergeSentences(rawContent);
+    sentencesRef.current = finalSentences.length > 0 ? finalSentences : [rawContent.trim()];
+    userPausedRef.current = false;
+    const startIdx = Math.max(0, Math.min(book.startSentenceIdx || 0, sentencesRef.current.length - 1));
+    currentSentenceIdxRef.current = startIdx;
+    playSessionIdRef.current += 1;
+    triggeredIndicesRef.current.clear();
+    playSentence(startIdx, playSessionIdRef.current);
+    return () => clearAudioAndCache();
+  }, [book?.title, (book as any)?.currentChapterTitle, (book as any)?.currentChapterContent, book?.description]);
 
   const fetchMatchaAudio = async (idx: number, targetSessionId: number | null = null): Promise<HTMLAudioElement | null> => {
     const expectedSession = targetSessionId !== null ? targetSessionId : playSessionIdRef.current;
     if (idx >= sentencesRef.current.length) return null;
     if (audioCacheRef.current[idx]) return audioCacheRef.current[idx];
 
-    let textToSend = (sentencesRef.current[idx] || '').trim().replace(/^[“"'\s«『「]+|[”"'\s»』」]+$/gu, '').trim();
-    if (textToSend && !textToSend.endsWith('...') && !/[!?…:;]$/.test(textToSend)) textToSend += '...';
+    const textToSend = (sentencesRef.current[idx] || '').trim();
+    if (!textToSend) return null;
 
     const audioUrl = await fetchAudioBlob(textToSend, ttsEngine, matchaVoice, matchaApiKey, rateRef.current, api);
     if (expectedSession !== playSessionIdRef.current) {
@@ -112,7 +132,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
       if (mySessionId !== playSessionIdRef.current) return;
       setIsPlaying(false);
       setProgress(100);
-      if (book?.isChapter && onNextChapter) onNextChapter();
+      if (onNextChapter) onNextChapter();
       return;
     }
 
@@ -138,10 +158,16 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     if (!audio) {
       setIsLoading(true);
       try {
-        audio = (await fetchMatchaAudio(idx)) || undefined as any;
+        audio = (await fetchMatchaAudio(idx)) || (undefined as any);
+        errCountRef.current = 0;
       } catch {
         setIsLoading(false);
-        if (idx === currentSentenceIdxRef.current) playSentence(idx + 1, mySessionId);
+        errCountRef.current += 1;
+        if (errCountRef.current >= 3) {
+          setIsPlaying(false);
+          return;
+        }
+        if (idx === currentSentenceIdxRef.current) setTimeout(() => playSentence(idx + 1, mySessionId), 300);
         return;
       }
     }
@@ -153,7 +179,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
 
     setIsLoading(false);
     audioRef.current = audio;
-    audio.playbackRate = rateRef.current;
+    audio.playbackRate = (ttsEngine === 'local') ? 1.0 : rateRef.current;
     audio.volume = Math.max(0, Math.min(1.0, volumeRef.current || 1.0));
 
     audio.onplay = () => {
@@ -166,6 +192,11 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     audio.ontimeupdate = () => {
       lastPlaybackPositionRef.current = audio.currentTime;
       lastPlaybackProgressTimeRef.current = Date.now();
+      // Kích hoạt phát câu tiếp theo sớm ~60ms trước khi audio kết thúc
+      // loại bỏ hoàn toàn khoảng lặng (audio gap) giữa các chunk khi trình duyệt chuyển Audio object
+      if (audio.duration && audio.duration > 0.3 && (audio.duration - audio.currentTime) <= 0.06) {
+        triggerNext(idx);
+      }
     };
 
     audio.play().then(() => {
@@ -183,18 +214,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     userPausedRef.current = true;
     playSessionIdRef.current += 1;
     triggeredIndicesRef.current.clear();
-    if (audioRef.current) {
-      cleanupAudio(audioRef.current);
-      audioRef.current = null;
-    }
-    if (synthRef.current) synthRef.current.cancel();
-    if (audioCacheRef.current) {
-      Object.values(audioCacheRef.current).forEach(a => {
-        try { if (a.src?.startsWith('blob:')) URL.revokeObjectURL(a.src); } catch {}
-      });
-      audioCacheRef.current = {};
-    }
-    prefetchQueueRef.current.clear();
+    clearAudioAndCache();
     sentencesRef.current = [];
     currentSentenceIdxRef.current = 0;
     setIsPlaying(false);
@@ -254,22 +274,19 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
       } catch {}
     },
     handleVolumeChange: (vol: number) => {
-      setVolume(vol);
-      volumeRef.current = vol;
+      setVolume(vol); volumeRef.current = vol;
       localStorage.setItem('tts_player_volume', String(vol));
       if (audioRef.current) audioRef.current.volume = vol;
     },
     handleSeekBarClick: (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      seekToSentence(Math.floor(pct * (sentencesRef.current?.length || 1)));
+      const r = e.currentTarget.getBoundingClientRect();
+      seekToSentence(Math.floor(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (sentencesRef.current?.length || 1)));
     },
     handleSeekBarTouch: (e: React.TouchEvent<HTMLDivElement>) => {
-      const touch = e.touches[0] || e.changedTouches?.[0];
-      if (!touch) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-      seekToSentence(Math.floor(pct * (sentencesRef.current?.length || 1)));
+      const t = e.touches[0] || e.changedTouches?.[0];
+      if (!t) return;
+      const r = e.currentTarget.getBoundingClientRect();
+      seekToSentence(Math.floor(Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)) * (sentencesRef.current?.length || 1)));
     }
   };
 }

@@ -56,10 +56,10 @@ export const ReaderContent: React.FC<ReaderContentProps> = ({
       return (
         <p
           key={pIdx}
-          className="mb-6 leading-relaxed select-text"
+          className={`mb-6 select-text ${getFontClass()} ${getLineHeightClass()}`}
           data-para-idx={pIdx}
           onDoubleClick={() => onParagraphDoubleClick?.(pIdx, trimmed)}
-          style={{ fontSize: `${fontSize}px`, lineHeight: '1.85' }}
+          style={{ fontSize: `${fontSize}px` }}
         >
           {sList.map((st) => {
             const thisId = sCounter++;

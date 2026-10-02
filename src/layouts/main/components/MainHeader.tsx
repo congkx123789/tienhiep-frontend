@@ -56,7 +56,7 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
   return (
     <header 
       className={`relative bg-[#1c183a] border-b border-indigo-950/30 shadow-lg sticky top-0 z-[100000] ${isElectron ? 'select-none' : ''}`}
-      style={isElectron && !isLinux ? { WebkitAppRegion: 'drag' } : {}}
+      style={isElectron ? { WebkitAppRegion: 'drag' } : {}}
     >
       <div 
         className="max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-12 h-14 flex items-center justify-between gap-3"

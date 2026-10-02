@@ -57,37 +57,52 @@ export function cleanNovelTabTitle(title?: string): string {
   return t.trim() || 'Trang web';
 }
 
+import api from '../../services/core/api';
+
 let activeWorkingServer: string | null = (typeof localStorage !== 'undefined' && localStorage.getItem('best_tienhiep_server')) || null;
 
-export async function executeTranslate(texts: string[], mode: string = 'vietphrase', userVipKey: string = 'VIP2026'): Promise<string[]> {
-  const candidateServers: string[] = [];
-  if (activeWorkingServer) candidateServers.push(activeWorkingServer);
-  if (!candidateServers.includes(SERVER_CONFIG.LOCAL_HOST)) candidateServers.push(SERVER_CONFIG.LOCAL_HOST);
-  if (isCapacitor && !candidateServers.includes(SERVER_CONFIG.EMULATOR_HOST)) {
-    candidateServers.push(SERVER_CONFIG.EMULATOR_HOST);
-  }
-
+export async function executeTranslate(texts: string[], mode: string = '4', userVipKey: string = 'VIP2026'): Promise<string[]> {
   try {
     const stored = localStorage.getItem('translationSettings');
     if (stored) {
       const s = JSON.parse(stored);
-      if (s.serverUrl && !s.serverUrl.includes('lyvuha.com') && !candidateServers.includes(s.serverUrl)) {
-        candidateServers.unshift(s.serverUrl);
-      }
+      mode = (s.mode && s.mode !== 'vietphrase') ? String(s.mode) : '4';
     }
   } catch (e) {}
 
-  candidateServers.push('https://cong123779-tienhiep-api.hf.space');
+  const mLower = String(mode).toLowerCase().trim();
+  if (mLower === 'raw' || mLower === 'none' || mLower === '0' || mLower === 'original') {
+    return texts;
+  }
+
+  // 1. Thử qua Axios API trung tâm (tự động điều phối server tốt nhất, token và retry)
+  try {
+    const res = await api.post('/api/translate', {
+      texts,
+      mode: String(mode || '4'),
+      vip_key: userVipKey || 'VIP2026'
+    }, { timeout: 12000 });
+    if (res.data?.translations && Array.isArray(res.data.translations) && res.data.translations.length === texts.length) {
+      return res.data.translations;
+    }
+  } catch (apiErr) {
+    console.warn('[Translate API] Axios error, trying candidate fallbacks:', apiErr);
+  }
+
+  // 2. Dự phòng thủ công qua danh sách candidate servers
+  const candidateServers: string[] = [];
+  if (activeWorkingServer) candidateServers.push(activeWorkingServer);
+  if (!candidateServers.includes(SERVER_CONFIG.LOCAL_HOST)) candidateServers.push(SERVER_CONFIG.LOCAL_HOST);
+  if (isCapacitor && !candidateServers.includes(SERVER_CONFIG.EMULATOR_HOST)) candidateServers.push(SERVER_CONFIG.EMULATOR_HOST);
+  if (!candidateServers.includes(SERVER_CONFIG.REMOTE_HOST)) candidateServers.push(SERVER_CONFIG.REMOTE_HOST);
 
   for (const srv of candidateServers) {
     try {
-      const isCloud = srv.includes('hf.space');
-      const timeoutMs = isCloud ? 8000 : 3000;
       const res = await fetch(`${srv}/api/translate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-VIP-Key': userVipKey || 'VIP2026' },
-        body: JSON.stringify({ texts, mode: String(mode || '1'), vip_key: userVipKey || 'VIP2026' }),
-        signal: AbortSignal.timeout(timeoutMs)
+        body: JSON.stringify({ texts, mode: String(mode || '4'), vip_key: userVipKey || 'VIP2026' }),
+        signal: AbortSignal.timeout(6000)
       });
       if (res.ok) {
         const json = await res.json();
@@ -98,21 +113,28 @@ export async function executeTranslate(texts: string[], mode: string = 'vietphra
         }
       }
     } catch (err) {
-      console.warn(`[Translate Engine] Failed on ${srv}, trying next:`, err);
+      console.warn(`[Translate Engine] Failed on ${srv}:`, err);
     }
   }
 
-  try {
-    await localTranslator.loadDictionaries();
-    return texts.map(t => localTranslator.translateSentence(t, mode));
-  } catch (err) {
-    return texts;
-  }
+  return texts;
 }
 
 export const ensureVietnameseText = async (rawTitle: string, rawText: string) => {
   let title = rawTitle || 'Chương đọc';
   let text = rawText || '';
+
+  try {
+    const stored = localStorage.getItem('translationSettings');
+    if (stored) {
+      const s = JSON.parse(stored);
+      const m = String(s.mode || '').toLowerCase().trim();
+      if (m === 'raw' || m === 'none' || m === '0' || m === 'original') {
+        return { title, text };
+      }
+    }
+  } catch (e) {}
+
   const chineseRegex = /[\u4e00-\u9fa5]/;
   if (!chineseRegex.test(title) && !chineseRegex.test(text)) return { title, text };
 
@@ -147,23 +169,49 @@ export const ensureVietnameseText = async (rawTitle: string, rawText: string) =>
 };
 
 export const normalizeUrlForIframe = (url?: string): string => {
-  if (!url) return '';
+  if (!url || url === 'http://localhost' || url === 'http://localhost/' || url.startsWith('http://localhost:5173') || url.startsWith('http://127.0.0.1:5173') || url.startsWith('http://localhost:3532') || url.startsWith('http://127.0.0.1:3532')) return 'about:newtab';
   if (url.startsWith('about:')) return url;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    if (host.includes('google.') || host === 'goo.gl') {
+  if (url.includes('/api/iframe_proxy')) {
+    // Sửa nếu url proxy bị dính https:// hoặc hash
+    return url.replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');
+  }
+
+  let baseServer = '';
+  if (typeof localStorage !== 'undefined') {
+    const cached = localStorage.getItem('best_tienhiep_server');
+    if (cached) {
+      if (cached.includes(':5051') || cached.includes('10.0.2.2') || cached.includes('127.0.0.1')) {
+        baseServer = cached.replace(/^https:\/\//i, 'http://');
+      } else if (!cached.includes(':8001') && !cached.includes('lyvuha.com')) {
+        baseServer = cached;
+      }
+    }
+  }
+  if (!baseServer && activeWorkingServer) {
+    baseServer = activeWorkingServer;
+  }
+  if (!baseServer && typeof window !== 'undefined') {
+    const isNative = (window as any).Capacitor?.isNativePlatform?.();
+    baseServer = isNative ? (activeWorkingServer || SERVER_CONFIG.EMULATOR_HOST) : window.location.origin;
+  }
+  if (!baseServer) baseServer = SERVER_CONFIG.LOCAL_HOST;
+
+  // Đảm bảo tuyệt đối không dùng HTTPS cho cổng 5051 hoặc IP local
+  if (baseServer.includes(':5051') || baseServer.includes('10.0.2.2') || baseServer.includes('127.0.0.1') || baseServer.includes('localhost')) {
+    baseServer = baseServer.replace(/^https:\/\//i, 'http://');
+  }
+  baseServer = baseServer.split('#')[0].split('?')[0];
+  if (baseServer.endsWith('/')) baseServer = baseServer.slice(0, -1);
+
+  if (url.includes('google.') && url.includes('search')) {
+    try {
+      const parsed = new URL(url);
       if (!parsed.searchParams.has('igu')) parsed.searchParams.set('igu', '1');
       return parsed.toString();
-    }
-    if (host.includes('youtube.com') && !host.includes('m.youtube.com')) {
-      parsed.hostname = 'm.youtube.com';
-      return parsed.toString();
-    }
-  } catch (e) {
-    if (url.includes('google.') && !url.includes('igu=1')) {
+    } catch (_) {
       return url.includes('?') ? `${url}&igu=1` : `${url}?igu=1`;
     }
   }
-  return url;
+
+  return `${baseServer}/api/iframe_proxy?url=${encodeURIComponent(url)}`;
 };

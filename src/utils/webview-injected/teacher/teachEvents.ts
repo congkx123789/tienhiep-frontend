@@ -93,7 +93,10 @@ export function getTeachEventsScript(): string {
       if (!container) return;
       const selector = generateContainerSelector(container);
       const pCount = container.querySelectorAll ? container.querySelectorAll('p, [data-tts-idx]').length : 0;
-      const host = window.__TienHiepHelpers.getEffectiveUrl().hostname || window.location.hostname || '';
+      let host = window.__TienHiepHelpers.getEffectiveUrl().hostname || window.location.hostname || '';
+      if ((!host || host === 'localhost' || host === '127.0.0.1') && window.__originalUrl) {
+        try { host = new URL(window.__originalUrl).hostname || host; } catch(e) {}
+      }
       if (host && selector) {
         try { localStorage.setItem('__tienhiep_content_selector_' + host, selector); } catch(e) {}
       }
@@ -207,7 +210,10 @@ export function getTeachEventsScript(): string {
     bindInstantAction(document.getElementById("__cancel_teach_next"), () => { cleanup(); banner.remove(); });
     bindInstantAction(document.getElementById("__reset_teach_next"), () => {
       window.__TienHiepHelpers.deleteNextRule();
-      const host = window.__TienHiepHelpers.getEffectiveUrl().hostname || window.location.hostname || '';
+      let host = window.__TienHiepHelpers.getEffectiveUrl().hostname || window.location.hostname || '';
+      if ((!host || host === 'localhost' || host === '127.0.0.1') && window.__originalUrl) {
+        try { host = new URL(window.__originalUrl).hostname || host; } catch(e) {}
+      }
       if (host) { try { localStorage.removeItem('__tienhiep_content_selector_' + host); } catch(e) {} }
       cleanup();
       banner.style.background = "linear-gradient(135deg,#3b82f6,#2563eb)";

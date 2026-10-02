@@ -32,11 +32,12 @@ export function BookHeroCover({
   const { openInBrowser } = useBrowser();
 
   const handleOpenSource = (url: string, e: React.MouseEvent) => {
-    const isNativeApp = (window as any).electron || ((window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform());
-    if (isNativeApp) {
-      e.preventDefault();
-      e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
+    if (openInBrowser) {
       openInBrowser(url);
+    } else {
+      window.open(url, '_blank');
     }
   };
 

@@ -1,20 +1,31 @@
 // Injected Translator: DOM text scanner, batch queue, typewriter effect and cache
 export function getInjectedTranslatorScript(useTypewriter: boolean = false): string {
   return `
+    window.__pageSessionId = window.__pageSessionId || ('ps_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
     window.__translatePromises = window.__translatePromises || {};
     window.__transId = window.__transId || 0;
-    window.__receiveTranslations = (id, results) => {
+    window.__receiveTranslations = (id, results, pageSessionId) => {
+      if (pageSessionId && pageSessionId !== window.__pageSessionId) return;
       if (window.__translatePromises[id]) {
         window.__translatePromises[id](results);
         delete window.__translatePromises[id];
       }
     };
+    const resetTransSession = () => {
+      window.__pageSessionId = 'ps_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      uniqueTranslateQueue.length = 0;
+      targetGroupsMap.clear();
+      window.__translatePromises = {};
+      if (translateTimeout) { clearTimeout(translateTimeout); translateTimeout = null; }
+    };
+    window.addEventListener('beforeunload', resetTransSession);
+    window.addEventListener('popstate', resetTransSession);
+    window.addEventListener('hashchange', resetTransSession);
 
     window.__translationCache = window.__translationCache || new Map();
-    let uniqueTranslateQueue = [];
-    let targetGroupsMap = new Map();
-    let translateTimeout = null;
-    let isTranslating = false;
+    window.__ti_translation_pairs = window.__ti_translation_pairs || new Map();
+    window.__ti_original_title = window.__ti_original_title || (document ? document.title : "");
+    let uniqueTranslateQueue = [], targetGroupsMap = new Map(), translateTimeout = null, isTranslating = false;
 
     function streamTypewriterText(node, fullText) {
       if (!node || !node.parentNode) return;
@@ -33,20 +44,26 @@ export function getInjectedTranslatorScript(useTypewriter: boolean = false): str
     function applyTranslatedText(target, transText, enableStream = ${useTypewriter ? 'true' : 'false'}) {
       if (!target || !transText) return;
       try {
+        if (target.orig) {
+          window.__ti_translation_pairs.set(transText, target.orig);
+          const trT = transText.trim(), trO = target.orig.trim();
+          if (trT && trO) window.__ti_translation_pairs.set(trT, trO);
+        }
         if (target.type === "text") {
           const node = target.node;
-          if (!node || !node.parentNode) return;
+          if (!node || !node.parentNode || !document.contains(node)) return;
+          if (target.orig && !node.__original_chinese__) {
+            node.__original_chinese__ = target.orig;
+          }
           enableStream ? streamTypewriterText(node, transText) : (node.nodeValue = transText);
         } else if (target.type === "attr") {
           const el = target.element;
-          if (!el) return;
+          if (!el || !document.contains(el)) return;
           el.setAttribute(target.attr, transText);
           if (target.attr === "value" && "value" in el) el.value = transText;
         } else if (target.type === "title") {
           document.title = transText;
-          if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: "TITLE_UPDATED", title: transText }, "*");
-          }
+          if (window.parent && window.parent !== window) window.parent.postMessage({ type: "TITLE_UPDATED", title: transText }, "*");
         }
       } catch(e) {}
     }
@@ -54,14 +71,15 @@ export function getInjectedTranslatorScript(useTypewriter: boolean = false): str
     async function processTranslateQueue() {
       if (uniqueTranslateQueue.length === 0 || isTranslating || !window.__autoTranslateEnabled) return;
       isTranslating = true;
-      const batchUniqueTexts = uniqueTranslateQueue.splice(0, 120);
+      const curSession = window.__pageSessionId;
+      const batchUniqueTexts = uniqueTranslateQueue.splice(0, 50);
       try {
         const id = window.__transId++;
-        const reqPayload = JSON.stringify({ id, texts: batchUniqueTexts });
+        const reqPayload = JSON.stringify({ id, pageSessionId: curSession, texts: batchUniqueTexts });
         const translations = await new Promise((resolve) => {
           window.__translatePromises[id] = resolve;
           if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: "TRANSLATE_REQ", id, texts: batchUniqueTexts }, "*");
+            window.parent.postMessage({ type: "TRANSLATE_REQ", id, pageSessionId: curSession, texts: batchUniqueTexts }, "*");
           }
           console.log("[TRANSLATE_REQ]" + reqPayload);
           setTimeout(() => {
@@ -69,8 +87,10 @@ export function getInjectedTranslatorScript(useTypewriter: boolean = false): str
               window.__translatePromises[id]([]);
               delete window.__translatePromises[id];
             }
-          }, 3500);
+          }, 15000);
         });
+
+        if (curSession !== window.__pageSessionId) return;
 
         if (translations && Array.isArray(translations)) {
           if (window.__autoTranslateObserver) {
@@ -129,9 +149,6 @@ export function getInjectedTranslatorScript(useTypewriter: boolean = false): str
       const chineseRegex = /[\\u4e00-\\u9fa5]/;
       const currentRoot = root || document.body || document.documentElement;
       if (!currentRoot) return;
-
-      const sampleCheckText = (document.body ? document.body.innerText : '') || document.title || '';
-      if (!chineseRegex.test(sampleCheckText)) return;
 
       if (document.title && chineseRegex.test(document.title)) {
         const rawTitle = document.title.trim();
@@ -215,38 +232,52 @@ export function getInjectedTranslatorScript(useTypewriter: boolean = false): str
     };
 
     window.toggleAutoTranslate = (enabled) => {
-      if (enabled) {
-        const chineseRegex = /[\\u4e00-\\u9fa5]/;
-        const sampleCheckText = (document.body ? document.body.innerText : '') || document.title || '';
-        if (!chineseRegex.test(sampleCheckText)) { window.__autoTranslateEnabled = false; return; }
-      }
       window.__autoTranslateEnabled = enabled;
       if (window.__TienHiepHelpers) window.__TienHiepHelpers.__autoTranslateEnabled = enabled;
+      try { localStorage.setItem('__tienhiep_auto_translate_active', String(enabled)); } catch(e) {}
       if (enabled) {
-        if (window.__autoTranslateObserver && rootTarget) {
-          try { window.__autoTranslateObserver.observe(rootTarget, { childList: true, subtree: true, characterData: true }); } catch(e) {}
+        const rootEl = document.body || document.documentElement;
+        if (window.__autoTranslateObserver && rootEl) {
+          try { window.__autoTranslateObserver.observe(rootEl, { childList: true, subtree: true, characterData: true }); } catch(e) {}
         }
-        if (typeof window.__collectAndTranslateNodes === "function") {
-          window.__collectAndTranslateNodes(document.body || document.documentElement);
-        }
+        if (typeof window.__collectAndTranslateNodes === "function") window.__collectAndTranslateNodes(rootEl);
       } else {
-        if (window.__autoTranslateObserver) {
-          try { window.__autoTranslateObserver.disconnect(); } catch(e) {}
-        }
+        if (window.__autoTranslateObserver) { try { window.__autoTranslateObserver.disconnect(); } catch(e) {} }
         uniqueTranslateQueue.length = 0;
         targetGroupsMap.clear();
         if (translateTimeout) { clearTimeout(translateTimeout); translateTimeout = null; }
-        const b = document.getElementById("__teach_next_banner");
-        if (b) b.remove();
-        const box = document.getElementById("__teach_highlighter_box");
-        if (box) box.remove();
+        const b = document.getElementById("__teach_next_banner"); if (b) b.remove();
+        const box = document.getElementById("__teach_highlighter_box"); if (box) box.remove();
+        if (window.__ti_original_title) document.title = window.__ti_original_title;
         try {
-          const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT, null);
-          let n = walker.nextNode();
-          while (n) {
-            if (n.__original_chinese__) n.nodeValue = n.__original_chinese__;
-            n = walker.nextNode();
+          const rootEl = document.body || document.documentElement;
+          if (rootEl) {
+            const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+              acceptNode: (n) => (n && n.nodeValue ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT)
+            });
+            let n = walker.nextNode();
+            while (n) {
+              const cur = n.nodeValue;
+              if (n.__original_chinese__) {
+                n.nodeValue = n.__original_chinese__;
+              } else if (cur && window.__ti_translation_pairs?.has(cur)) {
+                n.nodeValue = window.__ti_translation_pairs.get(cur);
+              } else if (cur && window.__ti_translation_pairs) {
+                const tr = cur.trim();
+                if (tr && window.__ti_translation_pairs.has(tr)) n.nodeValue = cur.replace(tr, window.__ti_translation_pairs.get(tr));
+              }
+              n = walker.nextNode();
+            }
           }
+        } catch(err) {}
+        try {
+          const attrEls = document.querySelectorAll('[placeholder], [title], [alt], input[type="button"], input[type="submit"]');
+          attrEls.forEach(el => {
+            ["placeholder", "title", "alt", "value"].forEach(attr => {
+              const curVal = el.getAttribute(attr);
+              if (curVal && window.__ti_translation_pairs?.has(curVal)) el.setAttribute(attr, window.__ti_translation_pairs.get(curVal));
+            });
+          });
         } catch(e) {}
       }
       return enabled;

@@ -148,7 +148,7 @@ export const LocalReadingView: React.FC<LocalReadingViewProps> = ({
           return (
             <p
               key={pIdx}
-              className="mb-6 leading-relaxed select-text"
+              className={`mb-6 select-text ${getFontClass()} ${getLineHeightClass()}`}
               onDoubleClick={() => onParagraphDoubleClick(pIdx, trimmed)}
             >
               {sList.map((st) => {

@@ -69,15 +69,40 @@ export function getInjectedAdBlockDarkScript(): string {
 
           const link = target.closest ? target.closest('a') : null;
           if (link) {
+            function unwrapRedirect(rawUrl) {
+              try {
+                const u = new URL(rawUrl);
+                if (u.hostname.includes('google.') && (u.pathname === '/url' || u.pathname.startsWith('/url'))) {
+                  const target = u.searchParams.get('url') || u.searchParams.get('q');
+                  if (target && target.startsWith('http')) return target;
+                }
+                if (u.hostname.includes('baidu.') && u.searchParams.get('url')) {
+                  const target = u.searchParams.get('url');
+                  if (target && target.startsWith('http')) return target;
+                }
+              } catch(e) {}
+              return rawUrl;
+            }
+
             const rawHref = (link.getAttribute('href') || '').trim();
             let href = link.href ? link.href.trim() : '';
             const effUrl = window.__TienHiepHelpers ? window.__TienHiepHelpers.getEffectiveUrl() : null;
-            const baseHref = effUrl && effUrl.origin && effUrl.origin !== 'null' ? effUrl.href : (window.__originalUrl || '');
+            let baseHref = window.__originalUrl || '';
+            if (!baseHref || baseHref.includes('localhost') || baseHref.includes('127.0.0.1') || baseHref.includes('10.0.2.2')) {
+              baseHref = effUrl && effUrl.origin && !effUrl.origin.includes('localhost') && !effUrl.origin.includes('127.0.0.1') && !effUrl.origin.includes('10.0.2.2') ? effUrl.href : '';
+            }
+            if (!baseHref) {
+              const baseEl = document.querySelector('base');
+              if (baseEl && baseEl.href && !baseEl.href.includes('localhost') && !baseEl.href.includes('127.0.0.1')) baseHref = baseEl.href;
+            }
+            if (!baseHref && effUrl && effUrl.href) baseHref = effUrl.href;
+
             if (rawHref && (rawHref.startsWith('/') || !rawHref.includes('://')) && !rawHref.startsWith('javascript:') && !rawHref.startsWith('#')) {
               try { if (baseHref) href = new URL(rawHref, baseHref).href; } catch(e) {}
-            } else if (href && (href.startsWith('http://localhost') || href.startsWith('capacitor://localhost'))) {
+            } else if (href && (href.startsWith('http://localhost') || href.startsWith('capacitor://localhost') || href.includes('127.0.0.1') || href.includes('10.0.2.2'))) {
               try { if (baseHref) { const u = new URL(href); href = new URL(u.pathname + u.search + u.hash, baseHref).href; } } catch(e) {}
             }
+            href = unwrapRedirect(href);
 
             const isAd = /(magsrv|geniees|popads|propeller|adsterra|cpm|zoneid|guanggao|doubleclick|affiliate|track\\.|click\\.|ads\\.|bet\\b|casino\\b|18\\+)/i.test(href);
             if (isAd) {
@@ -89,7 +114,7 @@ export function getInjectedAdBlockDarkScript(): string {
             if (href && !href.startsWith('javascript:') && !href.startsWith('#') && !href.includes('void(0)')) {
               e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
               if (window.parent && window.parent !== window) {
-                window.parent.postMessage({ type: 'NAVIGATE_REQ', url: href }, '*');
+                window.parent.postMessage({ type: 'NAVIGATE_REQ', tabId: window.__TIENHIEP_TAB_ID__, url: href }, '*');
               } else {
                 window.location.href = href;
               }
@@ -107,7 +132,26 @@ export function getInjectedAdBlockDarkScript(): string {
         return;
       }
       if (window.open !== window.__tienhiepBlockedOpen) {
-        window.__tienhiepBlockedOpen = function() { return null; };
+        window.__tienhiepBlockedOpen = function(u) {
+          if (u && typeof u === 'string') {
+            try {
+              let clean = u;
+              if (clean.includes('google.') || clean.includes('baidu.')) {
+                const pu = new URL(clean);
+                const t = pu.searchParams.get('url') || pu.searchParams.get('q');
+                if (t && t.startsWith('http')) clean = t;
+              }
+              if (!clean.startsWith('javascript:') && !clean.startsWith('#')) {
+                if (window.parent && window.parent !== window) {
+                  window.parent.postMessage({ type: 'NAVIGATE_REQ', tabId: window.__TIENHIEP_TAB_ID__, url: clean }, '*');
+                } else {
+                  window.location.href = clean;
+                }
+              }
+            } catch(e) {}
+          }
+          return null;
+        };
         window.open = window.__tienhiepBlockedOpen;
       }
 

@@ -41,7 +41,7 @@ export function getNavigatorTriggerScript(): string {
         } catch(e) {}
 
         if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ type: 'NAVIGATE_REQ', url: fullUrl }, '*');
+          window.parent.postMessage({ type: 'NAVIGATE_REQ', tabId: window.__TIENHIEP_TAB_ID__, url: fullUrl }, '*');
           return true;
         }
         window.location.href = fullUrl;
@@ -132,7 +132,31 @@ export function getNavigatorTriggerScript(): string {
 
     checkAndTriggerAutoPrev: () => {
       let prevBtn = null;
-      const selector = '.prev-btn, #prev-chap, .prev, #prev, .prev-chapter, #prev-chapter, [id*="prev-chap"], [class*="prev-chap"], a[rel="prev"]';
+      const effUrl = window.__TienHiepHelpers.getEffectiveUrl();
+      const currentHref = effUrl.href;
+      const chapterNumRegex = /(\\d+)(?:_\\d+)?(?:\\.html?|\\/)?$/;
+
+      // 1. Tìm bằng URL decrement (-1)
+      try {
+        const numMatch = currentHref.match(chapterNumRegex);
+        if (numMatch) {
+          const currentNum = parseInt(numMatch[1], 10);
+          if (currentNum > 1) {
+            const prevNum = currentNum - 1;
+            const allLinks = Array.from(document.querySelectorAll("a[href]"));
+            for (const a of allLinks) {
+              const targetMatch = (a.href || "").match(chapterNumRegex);
+              if (targetMatch && parseInt(targetMatch[1], 10) === prevNum) {
+                try { localStorage.setItem('__tienhiep_auto_translate_active', 'true'); } catch(e) {}
+                return window.__TienHiepHelpers.triggerNavigation(a);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
+      // 2. Tìm bằng Selectors phổ biến của các trang truyện
+      const selector = '#page_prev a, .page_prev a, #page_prev, .page_prev, .prev-btn, #prev-chap, .prev, #prev, .prev-chapter, #prev-chapter, [id*="prev-chap"], [class*="prev-chap"], [id*="prev_url"], [class*="prev_url"], #prev_url, #pb_prev, #pt_prev, #linkPrev, .linkPrev, #chapter_prev, a.prev, a.prevchapter, a.btn-prev, a[rel="prev"], [rel="prev"]';
       const selectors = selector.split(",").map(s => s.trim());
       for (const sel of selectors) {
         try {
@@ -144,17 +168,27 @@ export function getNavigatorTriggerScript(): string {
         } catch (e) {}
       }
 
+      // 3. Khớp từ khóa nút Chương Trước
       if (!prevBtn) {
-        const regex = /^\\s*(上一章|上一页|上一頁|chương trước|trang trước|hồi trước|prev chapter)\\s*$/i;
-        prevBtn = Array.from(document.querySelectorAll("a, button, span")).find(el => {
+        const regex = /^\\s*(上一章|上一页|上一頁|上页|上頁|chương trước|trang trước|hồi trước|prev chapter|prev page|trước)\\s*$/i;
+        prevBtn = Array.from(document.querySelectorAll("a, button, span, [role='button']")).find(el => {
           return regex.test((el.textContent || "").trim());
         });
       }
 
       if (prevBtn) {
-        localStorage.setItem('__tienhiep_auto_translate_active', 'true');
+        try { localStorage.setItem('__tienhiep_auto_translate_active', 'true'); } catch(e) {}
         return window.__TienHiepHelpers.triggerNavigation(prevBtn);
       }
+
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'PREV_CHAPTER_NOT_FOUND', url: window.location.href }, '*');
+      }
+      const tip = document.createElement("div");
+      tip.style.cssText = "position:fixed;bottom:24px;left:24px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;padding:12px 18px;border-radius:10px;z-index:99999;font-size:12px;font-weight:bold;box-shadow:0 4px 16px rgba(0,0,0,0.3);font-family:sans-serif;max-width:320px;";
+      tip.innerText = '⚠️ Không tìm thấy nút Chương Trước!';
+      document.body.appendChild(tip);
+      setTimeout(() => tip.remove(), 4000);
       return false;
     },
   `;

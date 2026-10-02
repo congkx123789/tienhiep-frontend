@@ -41,11 +41,12 @@ export function AuthForms({
             <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
             <input
               type="text"
+              name="username"
+              autoComplete="username"
               placeholder={t.auth?.usernamePlaceholder || 'Tên đăng nhập'}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors"
-              required
+              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors placeholder:text-slate-500 text-sm sm:text-base"
             />
           </div>
         )}
@@ -55,11 +56,12 @@ export function AuthForms({
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               placeholder={t.auth?.emailPlaceholder || 'Email'}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors"
-              required
+              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors placeholder:text-slate-500 text-sm sm:text-base"
               disabled={mode === 'verify_reg'}
             />
           </div>
@@ -70,11 +72,12 @@ export function AuthForms({
             <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
             <input
               type="text"
+              name="otp"
+              autoComplete="one-time-code"
               placeholder={t.auth?.otpPlaceholder || 'Mã OTP'}
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors"
-              required
+              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors placeholder:text-slate-500 text-sm sm:text-base"
             />
           </div>
         )}
@@ -84,11 +87,12 @@ export function AuthForms({
             <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
             <input
               type="password"
+              name="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               placeholder={mode === 'reset' ? (t.auth?.newPasswordPlaceholder || 'Mật khẩu mới') : (t.auth?.passwordPlaceholder || 'Mật khẩu')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors"
-              required
+              className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors placeholder:text-slate-500 text-sm sm:text-base"
             />
           </div>
         )}
@@ -96,9 +100,14 @@ export function AuthForms({
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-gradient-to-r from-brand-500 to-purple-600 hover:opacity-90 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg transition-all"
+          className="w-full py-3.5 bg-gradient-to-r from-brand-500 via-purple-600 to-indigo-600 hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-white font-bold rounded-xl shadow-lg transition-all cursor-pointer touch-manipulation flex items-center justify-center gap-2 select-none"
         >
-          {loading ? (t.auth?.processing || 'Đang xử lý...') : (
+          {loading ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>{t.auth?.processing || 'Đang xử lý...'}</span>
+            </>
+          ) : (
             mode === 'login' ? (t.auth?.submitLogin || 'Đăng nhập') :
             mode === 'register' ? (t.auth?.submitRegister || 'Đăng ký') :
             mode === 'forgot' ? (t.auth?.submitForgot || 'Gửi mã khôi phục') :
@@ -110,9 +119,10 @@ export function AuthForms({
       {mode === 'verify_reg' && (
         <div className="mt-3 text-center">
           <button
+            type="button"
             onClick={handleResendVerification}
             disabled={loading}
-            className="text-xs text-brand-400 font-bold hover:underline"
+            className="text-xs text-brand-400 font-bold hover:underline cursor-pointer touch-manipulation active:opacity-75"
           >
             {t.auth?.resendOtpBtn || 'Gửi lại mã OTP'}
           </button>

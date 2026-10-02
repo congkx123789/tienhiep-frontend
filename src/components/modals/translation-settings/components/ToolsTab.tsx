@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Globe, 
   Server, 
   Zap, 
   Key, 
   Pin, 
-  PinOff 
+  PinOff,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { TranslationSettingsState, ToolItem } from '../TranslationSettings.types';
 
@@ -20,6 +22,51 @@ interface ToolsTabProps {
   onClose: () => void;
 }
 
+interface ModeItem {
+  id: string;
+  name: string;
+  desc: string;
+  badge?: string;
+}
+
+interface ModeGroup {
+  category: string;
+  items: ModeItem[];
+}
+
+const BASE_MODE_GROUPS: ModeGroup[] = [
+  {
+    category: '📖 Chế Độ Hiển Thị & Nguyên Bản',
+    items: [
+      { id: 'raw', name: 'Nguyên Bản (Tắt Dịch)', desc: 'Giữ nguyên văn bản gốc, không qua bộ dịch', badge: 'Gốc' },
+    ]
+  },
+  {
+    category: '⚡ Phiên Bản C++ CMLM Mới (Zero-Dependencies, 6ms)',
+    items: [
+      { id: '4', name: 'Mode 4: Hybrid Chuẩn AI', desc: 'Trung > Nhật > Anh (Khuyên dùng)', badge: 'Khuyên dùng' },
+      { id: '1', name: 'Mode 1: Tiên Hiệp / Cổ Trang', desc: 'Ưu tiên Names Trung Quốc cổ trang' },
+      { id: '2', name: 'Mode 2: Anime / Manga', desc: 'Romaji Japanese Names Nhật Bản' },
+      { id: '3', name: 'Mode 3: Phương Tây / Hiện Đại', desc: 'English & Modern Names' },
+    ]
+  },
+  {
+    category: '📚 Từ Điển Truyền Thống',
+    items: [
+      { id: 'vietphrase', name: 'Vietphrase (Dịch Thô)', desc: 'Thuật toán từ điển VietPhrase truyền thống' },
+      { id: 'hanviet', name: 'Hán Việt (Âm Hán Việt)', desc: 'Phiên âm âm Hán Việt thuần túy' },
+    ]
+  }
+];
+
+const SERVER_MODE_GROUP: ModeGroup = {
+  category: '👑 Cloud Server Python Fallback',
+  items: [
+    { id: 'fast', name: '👑 Dịch Nhanh (Server AI)', desc: 'Tốc độ cao qua API Server' },
+    { id: 'advanced', name: '👑 Nâng Cao (Server AI)', desc: 'Dịch ngữ cảnh chuyên sâu qua Cloud' },
+  ]
+};
+
 export const ToolsTab: React.FC<ToolsTabProps> = ({
   settings,
   updateSetting,
@@ -30,6 +77,15 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({
   onTogglePin,
   onClose,
 }) => {
+  const [isModeOpen, setIsModeOpen] = useState(false);
+
+  const allGroups = settings.engineType === 'server'
+    ? [...BASE_MODE_GROUPS, SERVER_MODE_GROUP]
+    : BASE_MODE_GROUPS;
+
+  const currentModeItem = allGroups.flatMap(g => g.items).find(i => String(i.id) === String(settings.mode));
+  const currentModeName = currentModeItem ? currentModeItem.name : `Mode ${settings.mode}`;
+
   return (
     <>
       {/* Language Overview */}
@@ -77,30 +133,78 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({
       {/* Mode Selection */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5" /> Chế Độ Dịch (4 Phiên Bản C++ Mới & Cổ Điển)
+          <Zap className="w-3.5 h-3.5 text-amber-400" /> Chế Độ Dịch (4 Phiên Bản C++ Mới & Cổ Điển)
         </label>
-        <select 
-          value={settings.mode}
-          onChange={(e) => updateSetting('mode', e.target.value)}
-          className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-indigo-500 transition-colors"
+        
+        {/* Custom Dropdown Trigger */}
+        <button
+          type="button"
+          onClick={() => setIsModeOpen(prev => !prev)}
+          className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
+            isModeOpen
+              ? 'bg-[#18182f] border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.25)] text-white'
+              : 'bg-black/40 hover:bg-white/5 border-white/10 text-slate-200'
+          }`}
         >
-          <optgroup label="⚡ Phiên Bản C++ CMLM Mới (Zero-Dependencies, 6ms)">
-            <option value="4">Mode 4: Hybrid Chuẩn AI (Trung &gt; Nhật &gt; Anh - Khuyên dùng)</option>
-            <option value="1">Mode 1: Tiên Hiệp / Cổ Trang (Ưu tiên Names Trung)</option>
-            <option value="2">Mode 2: Anime / Manga Nhật Bản (Romaji Japanese Names)</option>
-            <option value="3">Mode 3: Phương Tây / Hiện Đại (English Names)</option>
-          </optgroup>
-          <optgroup label="📚 Từ Điển Truyền Thống">
-            <option value="vietphrase">Vietphrase (Dịch Thô)</option>
-            <option value="hanviet">Hán Việt (Âm Hán Việt)</option>
-          </optgroup>
-          {settings.engineType === 'server' && (
-            <optgroup label="👑 Cloud Server Python Fallback">
-              <option value="fast">👑 Dịch Nhanh (Server AI)</option>
-              <option value="advanced">👑 Nâng Cao (Server AI)</option>
-            </optgroup>
-          )}
-        </select>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+            <div className="min-w-0">
+              <span className="font-bold text-xs truncate block">{currentModeName}</span>
+              <span className="text-[10px] text-slate-400 truncate block">Nhấn để thay đổi chế độ dịch</span>
+            </div>
+          </div>
+          <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isModeOpen ? 'rotate-180 text-indigo-400' : ''}`} />
+        </button>
+
+        {/* Custom Mode Menu Container */}
+        {isModeOpen && (
+          <div className="flex flex-col gap-3 p-3 bg-[#0d0d18] border border-indigo-500/30 rounded-2xl max-h-[300px] overflow-y-auto shadow-2xl animate-in fade-in duration-150">
+            {allGroups.map((group, gIdx) => (
+              <div key={gIdx} className="space-y-1.5">
+                <span className="text-[10px] font-bold text-indigo-300/80 uppercase tracking-wider block px-1">
+                  {group.category}
+                </span>
+                <div className="space-y-1">
+                  {group.items.map(item => {
+                    const isSelected = String(settings.mode) === String(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          updateSetting('mode', item.id);
+                          setIsModeOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? 'bg-indigo-600/25 border-indigo-500 text-white shadow-md'
+                            : 'bg-white/[0.02] hover:bg-white/[0.06] border-white/5 text-slate-300'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold truncate">{item.name}</span>
+                            {item.badge && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30">
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 block truncate">{item.desc}</span>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                          isSelected ? 'border-indigo-400 bg-indigo-500 text-white' : 'border-slate-600'
+                        }`}>
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Server Config */}

@@ -28,25 +28,22 @@ export async function getBestServer(): Promise<string> {
     typeof window !== 'undefined' &&
     Boolean((window as any).Capacitor?.isNativePlatform?.());
 
-  // Web Mode (cả Prod trên Vercel và Dev trên local browser):
-  if (!(window as any).electron && !isCapacitorNative) {
-    return typeof window !== 'undefined' ? window.location.origin : '';
+  // 1. Luôn ưu tiên Local Engine (127.0.0.1:5051) nếu đang chạy local (Electron, Browser local dev, hoặc adb reverse)
+  if (await pingServer(SERVER_CONFIG.LOCAL_HOST, 800)) {
+    return SERVER_CONFIG.LOCAL_HOST;
   }
 
-  // 1. Nếu chạy trong Electron: ưu tiên hàng đầu là Local Engine chạy offline
-  if ((window as any).electron) {
-    const localServer = SERVER_CONFIG.LOCAL_HOST;
-    const isLocalAlive = await pingServer(localServer, 1500);
-    if (isLocalAlive) {
-      return localServer;
-    }
-  } else if (isCapacitorNative) {
-    // Với Android Capacitor: thử localhost (hỗ trợ adb reverse) và emulator host
-    if (await pingServer(SERVER_CONFIG.LOCAL_HOST, 1200)) {
-      return SERVER_CONFIG.LOCAL_HOST;
-    }
-    if (await pingServer(SERVER_CONFIG.EMULATOR_HOST, 2000)) {
+  // Với Android Capacitor: thử thêm emulator host (10.0.2.2:5051)
+  if (isCapacitorNative) {
+    if (await pingServer(SERVER_CONFIG.EMULATOR_HOST, 1500)) {
       return SERVER_CONFIG.EMULATOR_HOST;
+    }
+  }
+
+  // Web Mode nếu có cùng origin phục vụ API:
+  if (!(window as any).electron && !isCapacitorNative && typeof window !== 'undefined') {
+    if (window.location.port !== '3000' && window.location.port !== '3532' && window.location.port !== '5173') {
+      return window.location.origin;
     }
   }
 

@@ -36,6 +36,8 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     overscroll-behavior-y: none;
+    /* Electron frameless window: make all elements clickable by default */
+    -webkit-app-region: no-drag;
   }
 
   /* Prevent iOS zoom on input focus */

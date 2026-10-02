@@ -77,22 +77,34 @@ export const TabSecurity: React.FC<TabSecurityProps> = ({
     }
   };
 
-  const handleSendOtp = () => {
-    if (!phone) {
-      alert("Vui lòng nhập số điện thoại trước.");
+  const handleSendOtp = async () => {
+    const target = user?.email || phone;
+    if (!target) {
+      alert("Vui lòng cung cấp email hoặc số điện thoại để nhận mã OTP.");
       return;
     }
-    setOtpSent(true);
-    alert("Hệ thống đã giả lập mã OTP gửi tới " + phone + ". Nhập 123456 để xác thực.");
+    try {
+      const res = await api.post('/api/auth/resend-verification', { email: target });
+      setOtpSent(true);
+      alert(res.data?.message || "Mã OTP xác thực đã được gửi! Vui lòng kiểm tra hộp thư.");
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Lỗi khi gửi mã xác thực OTP.");
+    }
   };
 
-  const handleVerifyOtp = () => {
-    if (otp === '123456') {
+  const handleVerifyOtp = async () => {
+    const target = user?.email || phone;
+    if (!otp.trim()) {
+      alert("Vui lòng nhập mã OTP xác thực.");
+      return;
+    }
+    try {
+      const res = await api.post('/api/auth/verify-registration', { email: target, otp: otp.trim() });
       setPhoneVerified(true);
       setOtpSent(false);
-      alert("Xác thực số điện thoại thành công!");
-    } else {
-      alert("Mã OTP không chính xác. Thử lại với 123456.");
+      alert(res.data?.message || "Xác thực OTP thành công!");
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Mã OTP không chính xác hoặc đã hết hạn.");
     }
   };
 
@@ -213,7 +225,7 @@ export const TabSecurity: React.FC<TabSecurityProps> = ({
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="Mã 6 số (123456)"
+                  placeholder="Nhập mã OTP (6 số)"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   className="flex-1 px-4 py-2.5 bg-[#0b0b14] border border-[#1f1f3a] rounded-xl text-xs text-white outline-none text-center font-mono tracking-widest focus:border-purple-500"
@@ -245,13 +257,9 @@ export const TabSecurity: React.FC<TabSecurityProps> = ({
           <button
             type="button"
             onClick={toggle2FA}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-              twoFactorEnabled ? 'bg-purple-600' : 'bg-slate-700'
-            }`}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${twoFactorEnabled ? 'bg-purple-600' : 'bg-slate-700'}`}
           >
-            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-              twoFactorEnabled ? 'translate-x-5' : 'translate-x-0'
-            }`} />
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${twoFactorEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
       </div>
@@ -274,9 +282,7 @@ export const TabSecurity: React.FC<TabSecurityProps> = ({
             <div className="flex items-center gap-2 text-xs font-bold text-white">🐙 GitHub</div>
             <button 
               onClick={() => setSocials(prev => ({ ...prev, github: true }))}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold transition-all uppercase ${
-                socials.github ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 bg-white/5 border border-white/10 hover:text-white'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold transition-all uppercase ${socials.github ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 bg-white/5 border border-white/10 hover:text-white'}`}
             >
               {socials.github ? d.authLinked : d.authLinkBtn}
             </button>

@@ -2,9 +2,17 @@
 export function getInjectedExtractorScript(): string {
   return `
     getEffectiveUrl: () => {
-      let raw = window.__originalUrl || (document.querySelector('base') && document.querySelector('base').href) || document.baseURI || window.location.href;
+      let raw = window.__originalUrl || '';
       if (!raw || raw.startsWith('about:') || raw === 'null') {
-        raw = window.__originalUrl || (document.querySelector('base') && document.querySelector('base').href) || document.baseURI || '';
+        const baseEl = document.querySelector('base');
+        raw = (baseEl && baseEl.href) || document.baseURI || window.location.href || '';
+      }
+      if (raw && (raw.includes('iframe_proxy') || raw.includes('localhost') || raw.includes('127.0.0.1'))) {
+        try {
+          const u = new URL(raw, window.location.href);
+          const real = u.searchParams.get('url');
+          if (real) raw = real;
+        } catch(e) {}
       }
       try {
         return new URL(raw);
@@ -129,12 +137,7 @@ export function getInjectedExtractorScript(): string {
       }
 
       if (!mainEl) {
-        return {
-          title: document.title || "Trang chủ",
-          text: "",
-          isChapter: false,
-          error: "NOT_CHAPTER_PAGE"
-        };
+        mainEl = document.querySelector('article, section, main, #main, .content, .container, body') || document.body;
       }
 
       let chapterTitle = "Chương đọc";

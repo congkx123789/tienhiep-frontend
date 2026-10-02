@@ -15,32 +15,35 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[200050] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full sm:max-w-md bg-[#131324] border border-[#2d2d6b] sm:rounded-2xl rounded-t-3xl p-6 shadow-2xl overflow-hidden animate-slide-up sm:animate-fadeIn max-h-[92dvh] overflow-y-auto">
-        {/* Mobile drag handle */}
-        <div className="sm:hidden w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
-        <button onClick={onClose} className="absolute right-4 top-4 text-slate-500 hover:text-white transition-colors">
-          <X className="w-6 h-6" />
+      <div className="relative w-full max-w-md bg-[#131324] border border-[#2d2d6b] rounded-2xl p-6 shadow-2xl max-h-[90dvh] overflow-y-auto animate-fadeIn pb-6">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 p-2 -mr-1 -mt-1 text-slate-400 hover:text-white transition-colors cursor-pointer touch-manipulation rounded-lg active:bg-white/10"
+        >
+          <X className="w-5 h-5" />
         </button>
 
-        <h3 className="text-xl font-bold text-white mb-6">
-          {m.mode === 'login' && m.t.auth?.loginTitle}
-          {m.mode === 'register' && m.t.auth?.registerTitle}
-          {m.mode === 'verify_reg' && m.t.auth?.verifyRegTitle}
-          {m.mode === 'forgot' && m.t.auth?.forgotTitle}
-          {m.mode === 'reset' && m.t.auth?.resetTitle}
+        <h3 className="text-xl font-bold text-white mb-6 pr-8">
+          {m.mode === 'login' && (m.t.auth?.loginTitle || 'Đăng Nhập')}
+          {m.mode === 'register' && (m.t.auth?.registerTitle || 'Đăng Ký')}
+          {m.mode === 'verify_reg' && (m.t.auth?.verifyRegTitle || 'Xác Minh Email')}
+          {m.mode === 'forgot' && (m.t.auth?.forgotTitle || 'Quên Mật Khẩu')}
+          {m.mode === 'reset' && (m.t.auth?.resetTitle || 'Khôi Phục Mật Khẩu')}
         </h3>
 
         {m.error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+          <div className="mb-4 p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-red-300 text-sm font-medium animate-fadeIn">
             {m.error}
           </div>
         )}
 
         {m.message && (
-          <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
+          <div className="mb-4 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-300 text-sm font-medium animate-fadeIn">
             {m.message}
           </div>
         )}
@@ -62,21 +65,32 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         />
 
         {m.mode === 'login' && (
-          <GoogleAuthButton handleGoogleDesktopLogin={m.handleGoogleDesktopLogin} />
+          <GoogleAuthButton
+            handleGoogleDesktopLogin={m.handleGoogleDesktopLogin}
+            loading={m.loading}
+          />
         )}
 
-        <div className="mt-6 text-center text-sm text-slate-400 space-y-2">
+        <div className="mt-6 text-center text-sm text-slate-400 space-y-3">
           {m.mode === 'login' && (
             <>
               <div>
-                {m.t.auth?.noAccount}{' '}
-                <button onClick={() => m.setMode('register')} className="text-brand-400 font-semibold hover:underline">
-                  {m.t.auth?.registerNow}
+                {m.t.auth?.noAccount || 'Chưa có tài khoản?'}{' '}
+                <button
+                  type="button"
+                  onClick={() => m.setMode('register')}
+                  className="text-brand-400 font-bold hover:underline cursor-pointer touch-manipulation active:opacity-75"
+                >
+                  {m.t.auth?.registerNow || 'Đăng ký ngay'}
                 </button>
               </div>
               <div>
-                <button onClick={() => m.setMode('forgot')} className="text-slate-500 text-xs hover:underline">
-                  {m.t.auth?.forgotPassLink}
+                <button
+                  type="button"
+                  onClick={() => m.setMode('forgot')}
+                  className="text-slate-400 text-xs hover:text-slate-200 hover:underline cursor-pointer touch-manipulation active:opacity-75 py-1 px-2"
+                >
+                  {m.t.auth?.forgotPassLink || 'Quên mật khẩu?'}
                 </button>
               </div>
             </>
@@ -84,17 +98,25 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           {m.mode === 'register' && (
             <div>
-              {m.t.auth?.haveAccount}{' '}
-              <button onClick={() => m.setMode('login')} className="text-brand-400 font-semibold hover:underline">
-                {m.t.auth?.submitLogin}
+              {m.t.auth?.haveAccount || 'Đã có tài khoản?'}{' '}
+              <button
+                type="button"
+                onClick={() => m.setMode('login')}
+                className="text-brand-400 font-bold hover:underline cursor-pointer touch-manipulation active:opacity-75"
+              >
+                {m.t.auth?.submitLogin || 'Đăng nhập'}
               </button>
             </div>
           )}
 
           {(m.mode === 'forgot' || m.mode === 'reset' || m.mode === 'verify_reg') && (
             <div>
-              <button onClick={() => m.setMode('login')} className="text-brand-400 font-semibold hover:underline">
-                {m.t.auth?.backToLogin}
+              <button
+                type="button"
+                onClick={() => m.setMode('login')}
+                className="text-brand-400 font-bold hover:underline cursor-pointer touch-manipulation active:opacity-75"
+              >
+                {m.t.auth?.backToLogin || 'Quay lại Đăng nhập'}
               </button>
             </div>
           )}

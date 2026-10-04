@@ -120,11 +120,11 @@ export function getInjectedBridgeScript(): string {
         } else if (action === 'SET_TTS_PLAYING') {
           window.isTtsPlaying = !!data.playing;
           if (!data.playing && window.__TienHiepHelpers && typeof window.__TienHiepHelpers.clearAllTtsHighlights === 'function') {
-            window.__TienHiepHelpers.clearAllTtsHighlights();
+            window.__TienHiepHelpers.clearAllTtsHighlights(true);
           }
         } else if (action === 'CLEAR_TTS_HIGHLIGHTS') {
           if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.clearAllTtsHighlights === 'function') {
-            window.__TienHiepHelpers.clearAllTtsHighlights();
+            window.__TienHiepHelpers.clearAllTtsHighlights(true);
           }
         } else if (action === 'EXEC_HELPER') {
           if (data.fn && window.__TienHiepHelpers && typeof window.__TienHiepHelpers[data.fn] === 'function') {

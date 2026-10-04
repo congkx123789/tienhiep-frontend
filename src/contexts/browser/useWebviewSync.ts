@@ -188,13 +188,14 @@ export function useWebviewSync(
 
   useEffect(() => {
     const handleTtsBoundary = (e: any) => {
-      if (!activeTabId) return;
+      const targetTabId = activeAudioObj?.tabId || activeTabId;
+      if (!targetTabId) return;
       const { sentenceText, sentenceId, charIdx } = e.detail || {};
-      sendWebviewMessage(activeTabId, { action: 'HIGHLIGHT_SENTENCE', sentenceText, sentenceId, charIdx });
+      sendWebviewMessage(targetTabId, { action: 'HIGHLIGHT_SENTENCE', sentenceText, sentenceId, charIdx });
     };
     window.addEventListener('global-tts-boundary', handleTtsBoundary);
     return () => window.removeEventListener('global-tts-boundary', handleTtsBoundary);
-  }, [activeTabId, sendWebviewMessage]);
+  }, [activeTabId, activeAudioObj?.tabId, sendWebviewMessage]);
 
   const handleTool = useCallback((toolId: string, tabId: string, payload?: any) => {
     if (!tabId) return;
@@ -287,7 +288,6 @@ export function useWebviewSync(
       } catch (e) {}
     }
   }, [autoStates, sendWebviewMessage, activeAudioObj, stopAudio]);
-
   return {
     autoStates, setAutoStates,
     toastInfo, setToastInfo,

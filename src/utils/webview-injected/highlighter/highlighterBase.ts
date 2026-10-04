@@ -11,8 +11,11 @@ export function getHighlighterBaseScript(): string {
 
     clearAllTtsHighlights: () => {
       if (typeof CSS !== 'undefined' && CSS.highlights) { try { CSS.highlights.delete('tienhiep-tts-highlight'); } catch(e) {} }
-      document.querySelectorAll('#tienhiep-active-highlight').forEach(el => {
-        if (el.parentNode) { el.parentNode.replaceChild(document.createTextNode(el.textContent), el); el.parentNode.normalize(); }
+      document.querySelectorAll('#tienhiep-active-highlight, .tienhiep-active-word-highlight').forEach(el => {
+        if (el.parentNode) {
+          while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+          el.parentNode.removeChild(el);
+        }
       });
       document.querySelectorAll('.tienhiep-tts-active-span').forEach(sp => {
         if (sp.parentNode) { while (sp.firstChild) sp.parentNode.insertBefore(sp.firstChild, sp); sp.parentNode.removeChild(sp); }
@@ -70,14 +73,16 @@ export function getHighlighterBaseScript(): string {
       if (!ttsStyle) {
         ttsStyle = document.createElement('style');
         ttsStyle.id = '__tienhiep_tts_para_style';
-        ttsStyle.textContent = 'body, #content, .txtnav, .read-content, article, main, .tienhiep-tts-paragraph { padding-bottom: 95px !important; } ::highlight(tienhiep-tts-highlight) { background-color: #f59e0b !important; color: #000000 !important; font-weight: 700 !important; border-radius: 3px !important; } #tienhiep-active-highlight, span#tienhiep-active-highlight, .tts-active-sentence { background-color: #f59e0b !important; color: #000000 !important; font-weight: 700 !important; border-radius: 4px !important; padding: 2px 4px !important; box-shadow: 0 0 14px rgba(245, 158, 11, 0.85) !important; border-bottom: 2px solid #b45309 !important; display: inline !important; } [data-tts-active-para="true"] { border-left: 4px solid #8b5cf6 !important; padding-left: 8px !important; transition: border-left 0.2s ease !important; }';
         (document.head || document.documentElement).appendChild(ttsStyle);
       }
+      ttsStyle.textContent = 'body, #content, .txtnav, .read-content, article, main, .tienhiep-tts-paragraph { padding-bottom: 95px !important; } ' +
+        '[data-tts-active="true"], [data-tts-active-para="true"] { background: rgba(254, 240, 138, 0.28) !important; border-left: 4px solid #8b5cf6 !important; padding-left: 8px !important; border-radius: 4px !important; transition: all 0.2s ease !important; } ' +
+        '.tts-active-sentence, .tienhiep-active-word-highlight, #tienhiep-active-highlight { background-color: #f59e0b !important; color: #000000 !important; font-weight: 700 !important; border-radius: 4px !important; padding: 2px 4px !important; box-shadow: 0 0 14px rgba(245, 158, 11, 0.85) !important; border-bottom: 2px solid #b45309 !important; display: inline !important; }';
 
       const sId = typeof sentenceId === 'number' ? sentenceId : parseInt(sentenceId, 10);
       let targetEl = null;
 
-      // 1. Thử tìm theo ID chuẩn s-X hoặc data-sid
+      // 1. Thử tìm span theo ID chuẩn s-X hoặc data-sid
       if (!isNaN(sId) && sId >= 0) {
         targetEl = document.getElementById('s-' + sId) || 
                    document.querySelector('[data-sid="' + sId + '"]') ||
@@ -85,56 +90,66 @@ export function getHighlighterBaseScript(): string {
                    document.querySelector('[data-sid="' + (sId - 1) + '"]');
       }
 
-      // 2. Tìm kiếm theo nội dung câu (hỗ trợ cả từ ngắn, quét tuần tự theo chiều đọc để không bị nhảy ngược)
-      if (sentenceText) {
-        const norm = (str) => (str || '').toLowerCase().replace(/["“”'’«»『』\s]/g, '').trim();
-        const cleanTarget = norm(sentenceText).slice(0, 30);
+      // 2. Tìm kiếm theo nội dung câu từ allSpans (.tts-sentence)
+      const norm = (str) => (str || '').toLowerCase().replace(/["“”'’«»『』\s]/g, '').trim();
+      const cleanTarget = sentenceText ? norm(sentenceText).slice(0, 30) : '';
 
-        if (cleanTarget.length >= 1) {
-          const allSpans = Array.from(document.querySelectorAll('.tts-sentence'));
-          
-          if (allSpans.length > 0) {
-            const lastIdx = typeof window.__lastTtsSpanIdx === 'number' ? Math.max(0, window.__lastTtsSpanIdx) : 0;
-            let foundIdx = -1;
-
-            for (let i = lastIdx; i < allSpans.length; i++) {
+      if (!targetEl && cleanTarget.length >= 1) {
+        const allSpans = Array.from(document.querySelectorAll('.tts-sentence'));
+        if (allSpans.length > 0) {
+          const lastIdx = typeof window.__lastTtsSpanIdx === 'number' ? Math.max(0, window.__lastTtsSpanIdx) : 0;
+          for (let i = lastIdx; i < allSpans.length; i++) {
+            const spNorm = norm(allSpans[i].textContent);
+            if (spNorm && (spNorm.includes(cleanTarget) || cleanTarget.includes(spNorm))) {
+              targetEl = allSpans[i];
+              window.__lastTtsSpanIdx = i;
+              break;
+            }
+          }
+          if (!targetEl && lastIdx > 0) {
+            for (let i = 0; i < lastIdx; i++) {
               const spNorm = norm(allSpans[i].textContent);
               if (spNorm && (spNorm.includes(cleanTarget) || cleanTarget.includes(spNorm))) {
-                foundIdx = i;
+                targetEl = allSpans[i];
+                window.__lastTtsSpanIdx = i;
                 break;
               }
-            }
-
-            if (foundIdx === -1 && lastIdx > 0) {
-              for (let i = 0; i < lastIdx; i++) {
-                const spNorm = norm(allSpans[i].textContent);
-                if (spNorm && (spNorm.includes(cleanTarget) || cleanTarget.includes(spNorm))) {
-                  foundIdx = i;
-                  break;
-                }
-              }
-            }
-
-            if (foundIdx !== -1) {
-              targetEl = allSpans[foundIdx];
-              window.__lastTtsSpanIdx = foundIdx;
             }
           }
         }
       }
 
-      // 3. Nếu chưa có span .tts-sentence trên trang, tự động kích hoạt index
-      if (!targetEl && document.querySelectorAll('.tts-sentence').length === 0) {
-        if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.indexParagraphsForTTS === 'function') {
-          window.__TienHiepHelpers.indexParagraphsForTTS();
-          if (!isNaN(sId) && sId >= 0) {
-            targetEl = document.getElementById('s-' + sId) || document.getElementById('s-' + (sId - 1));
+      // 3. Fallback: Nếu không có thẻ span hoặc chưa match, tìm paragraph theo data-tts-idx hoặc nội dung text
+      if (!targetEl) {
+        if (!isNaN(sId) && sId >= 0) {
+          targetEl = document.querySelector('[data-tts-idx="' + (sId - 1) + '"]') ||
+                     document.querySelector('[data-tts-idx="' + sId + '"]');
+        }
+        if (!targetEl && cleanTarget.length >= 1) {
+          const allParas = Array.from(document.querySelectorAll('.txtnav p, #content p, .read-content p, article p, [data-tts-idx], p'));
+          const lastPIdx = typeof window.__lastTtsParaIdx === 'number' ? Math.max(0, window.__lastTtsParaIdx) : 0;
+          for (let i = lastPIdx; i < allParas.length; i++) {
+            const pNorm = norm(allParas[i].textContent);
+            if (pNorm && (pNorm.includes(cleanTarget) || cleanTarget.includes(pNorm.slice(0, 30)))) {
+              targetEl = allParas[i];
+              window.__lastTtsParaIdx = i;
+              break;
+            }
+          }
+          if (!targetEl && lastPIdx > 0) {
+            for (let i = 0; i < lastPIdx; i++) {
+              const pNorm = norm(allParas[i].textContent);
+              if (pNorm && (pNorm.includes(cleanTarget) || cleanTarget.includes(pNorm.slice(0, 30)))) {
+                targetEl = allParas[i];
+                window.__lastTtsParaIdx = i;
+                break;
+              }
+            }
           }
         }
       }
 
       if (targetEl) {
-        // TUYỆT ĐỐI KHÔNG BÔI MÀU NGUYÊN KHỐI LÊN THẺ P HOẶC DIV
         const isContainer = targetEl.tagName === 'P' || targetEl.tagName === 'DIV' || targetEl.tagName === 'ARTICLE';
         if (!isContainer) {
           targetEl.classList.add('tts-active-sentence');
@@ -144,6 +159,37 @@ export function getHighlighterBaseScript(): string {
           targetEl.style.boxShadow = '0 0 14px rgba(245, 158, 11, 0.85)';
           targetEl.style.borderBottom = '2px solid #b45309';
           window.__lastTtsSentenceEl = targetEl;
+        } else {
+          let wrapped = false;
+          if (cleanTarget.length >= 2) {
+            try {
+              const tw = document.createTreeWalker(targetEl, NodeFilter.SHOW_TEXT);
+              let tn = tw.nextNode();
+              while (tn) {
+                const tNorm = norm(tn.nodeValue);
+                const sSub = cleanTarget.slice(0, 16);
+                const mIdx = tNorm.indexOf(sSub);
+                if (mIdx !== -1 && sSub.length >= 2) {
+                  const rawIdx = (tn.nodeValue || '').toLowerCase().indexOf((sentenceText || '').trim().slice(0, 8).toLowerCase());
+                  const st = rawIdx !== -1 ? rawIdx : 0;
+                  const rng = document.createRange();
+                  rng.setStart(tn, st);
+                  rng.setEnd(tn, Math.min(tn.nodeValue.length, st + Math.max(sSub.length, (sentenceText || '').length)));
+                  const sp = document.createElement('span');
+                  sp.className = 'tienhiep-active-word-highlight tts-active-sentence';
+                  sp.style.cssText = 'background-color: #f59e0b !important; color: #000000 !important; font-weight: 700 !important; border-radius: 4px !important; padding: 2px 4px !important; box-shadow: 0 0 12px rgba(245, 158, 11, 0.85) !important; border-bottom: 2px solid #b45309 !important; display: inline !important;';
+                  rng.surroundContents(sp);
+                  window.__lastTtsSentenceEl = sp;
+                  wrapped = true;
+                  break;
+                }
+                tn = tw.nextNode();
+              }
+            } catch(e) {}
+          }
+          if (!wrapped) {
+            targetEl.setAttribute('data-tts-active', 'true');
+          }
         }
 
         const parentPara = isContainer ? targetEl : targetEl.closest('p, [data-tts-idx], .tienhiep-tts-paragraph');

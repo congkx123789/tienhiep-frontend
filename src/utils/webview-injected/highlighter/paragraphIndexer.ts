@@ -184,13 +184,13 @@ export function getParagraphIndexerScript(): string {
           }
           const text = (pEl.textContent || '').trim();
           if (!text) return;
-          const parts = text.split(/([.!?。！？]+["”'’」]?\\s*)/);
+          const parts = text.split(/([.!?。！？…]+["”'’」]*\\s*)/);
           const sList = [];
           let cur = "";
           for (let pi = 0; pi < parts.length; pi++) {
             cur += parts[pi];
-            const isPunct = /[.!?。！？]/.test(parts[pi]);
-            if ((isPunct && cur.trim().length >= 70) || cur.length >= 220) {
+            const isPunct = /[.!?。！？…]/.test(parts[pi]);
+            if (isPunct || cur.length >= 200) {
               if (cur.trim() && validCharRegex.test(cur)) sList.push(cur.trim());
               cur = "";
             }

@@ -174,13 +174,13 @@ export async function fetchAudioBlob(
 }
 
 /**
- * Tách và gộp câu ngắn hợp lý để nạp vào TTS engine.
- * Tránh dùng dấu ba chấm '...' vì khiến TTS ngập ngừng, phát âm ngắc ngứ và lag.
- * Giữ nguyên dấu câu tự nhiên và giới hạn độ dài vừa phải để TTS sinh audio tức thì.
+ * Tách câu chuẩn xác để nạp vào TTS engine và đồng bộ 100% với highlight DOM.
+ * Không gộp bừa bãi các câu ngắn có dấu kết câu hoàn chỉnh để tránh lệch ID và lệch bôi đen.
+ * Chỉ nối các dòng phân đoạn bị ngắt dở dang không có dấu kết câu.
  */
 export function splitAndMergeSentences(rawContent: string): string[] {
   if (!rawContent || !rawContent.trim()) return [];
-  const parts = rawContent.split(/([.!?。！？\n]+)/);
+  const parts = rawContent.split(/([.!?。！？…]+["”'’」]*\s*|\n+)/);
   const rawList: string[] = [];
   for (let i = 0; i < parts.length; i += 2) {
     const full = (parts[i] + (parts[i + 1] || '')).trim();
@@ -190,8 +190,8 @@ export function splitAndMergeSentences(rawContent: string): string[] {
   }
   if (rawList.length === 0) return [rawContent.trim()];
 
-  const countWords = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
-  const merged: string[] = [];
+  const isCompleteSentence = (s: string) => /[.!?。！？…]["”'’」]*$/.test(s.trim());
+  const result: string[] = [];
   let buffer = '';
 
   for (let i = 0; i < rawList.length; i++) {
@@ -199,34 +199,18 @@ export function splitAndMergeSentences(rawContent: string): string[] {
     if (!buffer) {
       buffer = item;
     } else {
-      const bufWords = countWords(buffer);
-      const itemWords = countWords(item);
-      const shouldMerge = (bufWords <= 2 || itemWords <= 2 || buffer.length < 18 || item.length < 18) 
-                          && (buffer.length + item.length < 95);
-      if (shouldMerge) {
-        const cleanBuf = buffer.trim();
-        const sep = /[.!?。！？]$/.test(cleanBuf) ? ' ' : '. ';
-        buffer = cleanBuf + sep + item;
+      if (!isCompleteSentence(buffer) && (buffer.length + item.length < 180)) {
+        buffer = buffer + ' ' + item;
       } else {
-        merged.push(buffer);
+        result.push(buffer);
         buffer = item;
       }
     }
   }
   if (buffer) {
-    if (merged.length > 0 && (countWords(buffer) <= 2 || buffer.length < 15)) {
-      const prev = merged[merged.length - 1].trim();
-      if (prev.length + buffer.length < 110) {
-        const sep = /[.!?。！？]$/.test(prev) ? ' ' : '. ';
-        merged[merged.length - 1] = prev + sep + buffer;
-      } else {
-        merged.push(buffer);
-      }
-    } else {
-      merged.push(buffer);
-    }
+    result.push(buffer);
   }
 
-  return merged;
+  return result;
 }
 

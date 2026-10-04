@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { ActiveAudioBook, BrowserTab } from './BrowserContext.types';
 import { ensureVietnameseText } from './browserHelpers';
 import { useBrowserAudioChapter } from './useBrowserAudioChapter';
+import { splitAndMergeSentences } from '../../components/audio/player/ttsEngineHelper';
 
 export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<React.SetStateAction<BrowserTab[]>>) {
   const [activeAudioObj, setActiveAudioObj] = useState<ActiveAudioBook | null>(null);
@@ -73,21 +74,11 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
     let startSnippet = '';
     if (initialParaIdx && initialParaIdx > 0 && text) {
       const paragraphs = text.split(/\n+/);
-      const validTextRegex = /\p{L}|\p{N}/u;
-      let count = title ? 1 : 0;
+      let count = 0;
       for (let pi = 0; pi < initialParaIdx && pi < paragraphs.length; pi++) {
         const p = paragraphs[pi].trim();
         if (!p) continue;
-        const parts = p.split(/([.!?。！？]+["”'’」]?\s*)/);
-        let cur = '';
-        for (let i = 0; i < parts.length; i++) {
-          cur += parts[i];
-          if (/[.!?。！？]/.test(parts[i]) || cur.length > 250) {
-            if (cur.trim() && validTextRegex.test(cur.trim())) count++;
-            cur = '';
-          }
-        }
-        if (cur.trim() && validTextRegex.test(cur.trim())) count++;
+        count += splitAndMergeSentences(p).length;
       }
       startSentenceIdx = count;
       if (paragraphs[initialParaIdx]) {

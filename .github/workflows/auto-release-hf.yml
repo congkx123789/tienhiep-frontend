@@ -1,0 +1,105 @@
+name: Auto Build & Release to Hugging Face
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    name: Build All Clients & Upload to Hugging Face
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          npm ci
+          pip install huggingface_hub
+
+      - name: Build Web App
+        run: npm run build
+
+      - name: Build Android APK
+        run: |
+          npx cap sync android
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug
+          cd ..
+          mkdir -p public/downloads
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/app-tienhiep.apk
+
+      - name: Build Linux AppImage
+        run: |
+          npm run electron:build:main
+          npx vite build --mode electron
+          npx electron-builder --linux
+
+      - name: Build Windows Client in Wine Container
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE":/project \
+            -w /project \
+            electronuserland/builder:20-wine \
+            npx electron-builder --win
+
+      - name: Compress Windows Portable ZIP
+        run: |
+          cd dist-electron-build
+          zip -r -q TienHiepAI-windows-latest.zip win-unpacked
+
+      - name: Upload to Hugging Face
+        if: env.HF_TOKEN != ''
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 -c "
+          import os, glob
+          from huggingface_hub import HfApi
+
+          token = os.environ.get('HF_TOKEN')
+          if not token:
+              print('HF_TOKEN not found, skipping upload')
+              exit(0)
+
+          api = HfApi(token=token)
+          repo_id = 'Cong123779/tienhiep-releases'
+
+          win_exe = glob.glob('dist-electron-build/*Setup*.exe')
+          appimage = glob.glob('dist-electron-build/*.AppImage')
+          win_zip = 'dist-electron-build/TienHiepAI-windows-latest.zip'
+          apk = 'public/downloads/app-tienhiep.apk'
+
+          uploads = []
+          if win_exe: uploads.append((win_exe[0], 'TienHiepAI-Setup-latest.exe'))
+          if appimage: uploads.append((appimage[0], 'TienHiepAI-latest.AppImage'))
+          if os.path.exists(win_zip): uploads.append((win_zip, 'TienHiepAI-windows-latest.zip'))
+          if os.path.exists(apk):
+              uploads.append((apk, 'app-tienhiep-latest.apk'))
+              uploads.append((apk, 'app-tienhiep.apk'))
+
+          for local, remote in uploads:
+              print(f'Uploading {remote}...')
+              api.upload_file(path_or_fileobj=local, path_in_repo=remote, repo_id=repo_id, repo_type='dataset', commit_message=f'CI release: {remote}')
+              print(f'Done {remote}!')
+          "

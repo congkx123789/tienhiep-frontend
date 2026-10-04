@@ -65,6 +65,7 @@ export default function App() {
                       <Route path={APP_ROUTES.READER()}                element={<Reader />} />
                       <Route path={APP_ROUTES.AUTHOR()}                element={<AuthorDetail />} />
                       <Route path={APP_ROUTES.EMBED}                   element={<LocalReader />} />
+                      <Route path="*"                                  element={<Discover />} />
                     </Routes>
                   </Suspense>
                 </Router>

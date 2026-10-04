@@ -231,11 +231,11 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
             type="button"
             onClick={onToggleDirectMode}
             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all ${
-              isDirectMode !== false
+              isDirectMode === true
                 ? 'text-emerald-300 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30'
                 : 'text-purple-300 hover:text-white hover:bg-purple-500/20 border border-purple-500/30'
             }`}
-            title={isDirectMode !== false ? 'Chế độ: Web gốc ban đầu (Trực tiếp 100%) - Nhấp để đổi sang Proxy' : 'Chế độ: Proxy (Qua máy chủ) - Nhấp để đổi sang Web gốc ban đầu'}
+            title={isDirectMode === true ? 'Chế độ: Web gốc ban đầu (Trực tiếp 100%) - Nhấp để đổi sang Proxy' : 'Chế độ: Proxy (Qua máy chủ) - Nhấp để đổi sang Web gốc ban đầu'}
           >
             <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>

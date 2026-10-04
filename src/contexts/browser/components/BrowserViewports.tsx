@@ -36,7 +36,7 @@ export const BrowserViewports: React.FC<BrowserViewportsProps> = ({
   const getIframeSrc = (tab: BrowserTab) => {
     const rawUrl = tab.initialUrl || tab.url;
     if (!rawUrl || rawUrl === 'about:newtab') return 'about:blank';
-    if (tab.isDirectMode !== false) {
+    if (tab.isDirectMode === true) {
       if (rawUrl.includes('youtube.com/watch') || rawUrl.includes('youtu.be/') || (rawUrl.includes('google.') && rawUrl.includes('search'))) {
         return normalizeUrlForIframe(rawUrl);
       }

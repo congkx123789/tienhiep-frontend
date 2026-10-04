@@ -10,7 +10,7 @@ const BOOKMARKS_KEY = 'tienhiep_browser_bookmarks';
 const HISTORY_KEY = 'tienhiep_browser_history';
 
 const DEFAULT_TABS: BrowserTab[] = [
-  { id: 'tab-init-1', url: 'about:newtab', title: 'Tab mới', isLoading: false, canGoBack: false, canGoForward: false, isDesktopMode: true, isDirectMode: true }
+  { id: 'tab-init-1', url: 'about:newtab', title: 'Tab mới', isLoading: false, canGoBack: false, canGoForward: false, isDesktopMode: true, isDirectMode: false }
 ];
 
 export function useTabManager() {
@@ -27,7 +27,8 @@ export function useTabManager() {
             ...t,
             url: u,
             initialUrl: u,
-            title: u === 'about:newtab' ? 'Tab mới' : t.title
+            title: u === 'about:newtab' ? 'Tab mới' : t.title,
+            isDirectMode: false
           };
         });
       }
@@ -102,7 +103,7 @@ export function useTabManager() {
       canGoForward: false,
       isPrivate,
       isDesktopMode: true,
-      isDirectMode: true,
+      isDirectMode: false,
       historyStack: [initialUrl],
       historyIndex: 0
     };

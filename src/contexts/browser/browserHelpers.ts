@@ -172,15 +172,32 @@ export const normalizeUrlForIframe = (url?: string): string => {
   if (!url || url === 'http://localhost' || url === 'http://localhost/' || url.startsWith('http://localhost:5173') || url.startsWith('http://127.0.0.1:5173') || url.startsWith('http://localhost:3532') || url.startsWith('http://127.0.0.1:3532') || url.startsWith('chrome') || url.startsWith('chrome-error')) return 'about:newtab';
   if (url.startsWith('about:')) return url;
   if (!url.startsWith('http://') && !url.startsWith('https://')) return 'about:newtab';
-  if (url.includes('/api/iframe_proxy')) {
-    // Sửa nếu url proxy bị dính https:// hoặc hash
-    return url.replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');
+
+  // Giải mã nếu URL đã bị lồng proxy
+  if (url.includes('/api/iframe_proxy?url=') || url.includes('/iframe_proxy?url=')) {
+    try {
+      const match = url.match(/[\?&]url=([^&]+)/);
+      if (match && match[1]) {
+        url = decodeURIComponent(match[1]);
+      }
+    } catch (_) {}
+  }
+
+  // Khắc phục đường dẫn tương đối vô tình bị resolve theo host backend
+  if (url.includes('cong123779-tienhiep-api.hf.space/n/')) {
+    url = url.replace('https://cong123779-tienhiep-api.hf.space/n/', 'https://www.quanben5.com/n/');
+  }
+  if (url.includes(':5051/n/')) {
+    url = url.replace(/^https?:\/\/[^\/]+\/n\//, 'https://www.quanben5.com/n/');
   }
 
   let baseServer = '';
   const isElectronApp = typeof window !== 'undefined' && ((window as any).electron || (navigator && navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron')));
+  const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
 
   if (isElectronApp) {
+    baseServer = SERVER_CONFIG.LOCAL_HOST;
+  } else if (isNative) {
     baseServer = SERVER_CONFIG.LOCAL_HOST;
   } else if (typeof localStorage !== 'undefined') {
     const cached = localStorage.getItem('best_tienhiep_server');
@@ -196,8 +213,7 @@ export const normalizeUrlForIframe = (url?: string): string => {
     baseServer = activeWorkingServer;
   }
   if (!baseServer && typeof window !== 'undefined') {
-    const isNative = (window as any).Capacitor?.isNativePlatform?.();
-    baseServer = isNative ? (activeWorkingServer || SERVER_CONFIG.EMULATOR_HOST) : window.location.origin;
+    baseServer = isNative ? SERVER_CONFIG.EMULATOR_HOST : window.location.origin;
   }
   if (!baseServer) baseServer = SERVER_CONFIG.LOCAL_HOST;
 

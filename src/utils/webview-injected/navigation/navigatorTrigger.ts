@@ -49,6 +49,16 @@ export function getNavigatorTriggerScript(): string {
       }
 
       if (clickEl) {
+        try {
+          const rawH = (clickEl.getAttribute('href') || clickEl.href || '').trim();
+          if (rawH.toLowerCase().startsWith('javascript:')) {
+            const jsCode = rawH.substring(11).trim();
+            if (jsCode) {
+              window.eval(jsCode);
+              return true;
+            }
+          }
+        } catch(e) {}
         clickEl.click();
         return true;
       }

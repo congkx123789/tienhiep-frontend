@@ -32,6 +32,9 @@ export function useLocalBooks(lang: string) {
 
   useEffect(() => {
     loadBooks();
+    const handleAuthChange = () => loadBooks();
+    window.addEventListener('sync-auth-event', handleAuthChange);
+    return () => window.removeEventListener('sync-auth-event', handleAuthChange);
   }, [loadBooks]);
 
   const handleSelectBook = (book: LocalBook) => {

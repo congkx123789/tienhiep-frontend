@@ -56,26 +56,26 @@ export const DiscoverBookGrid: React.FC<DiscoverBookGridProps> = ({
                   <table className="w-full text-left text-[11px] text-slate-300">
                     <thead>
                       <tr className="border-b border-[#2d2d55] text-slate-400 font-bold">
-                        <th className="pb-2">{lang === 'vi' ? 'Chỉ số' : lang === 'en' ? 'Metric' : '指标'}</th>
-                        <th className="pb-2">{lang === 'vi' ? 'Điểm số' : lang === 'en' ? 'Score' : '评分'}</th>
-                        <th className="pb-2">{lang === 'vi' ? 'Nguồn tiêu biểu' : lang === 'en' ? 'Best Source' : '推荐站'}</th>
+                        <th className="pb-2">{lang === 'vi' ? 'Bộ máy dịch' : 'Engine'}</th>
+                        <th className="pb-2">{lang === 'vi' ? 'Tiêu đề bản dịch' : 'Translated Title'}</th>
+                        <th className="pb-2">{lang === 'vi' ? 'Đặc điểm' : 'Characteristics'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1f1f3a]">
                       <tr>
-                        <td className="py-2 font-semibold text-slate-400">{lang === 'vi' ? 'Tốc độ cập nhật' : lang === 'en' ? 'Update Speed' : '更新速度'}</td>
-                        <td className="py-2 text-emerald-400 font-bold">4.8</td>
-                        <td className="py-2 text-slate-300">Metruyenchu <span className="text-slate-500 text-[10px]">31 votes</span></td>
+                        <td className="py-2 font-semibold text-purple-400">Vietphrase AI</td>
+                        <td className="py-2 text-slate-200 font-bold">{comparisonData?.vietphrase?.title || b.title_vietphrase || b.title}</td>
+                        <td className="py-2 text-emerald-400 text-[10px]">Ngữ nghĩa Hán-Việt</td>
                       </tr>
                       <tr>
-                        <td className="py-2 font-semibold text-slate-400">{lang === 'vi' ? 'Quảng cáo & Sạch' : lang === 'en' ? 'Ads & Cleanliness' : '广告与排版'}</td>
-                        <td className="py-2 text-emerald-400 font-bold">4.9</td>
-                        <td className="py-2 text-slate-300">TruyenFull <span className="text-slate-500 text-[10px]">81 votes</span></td>
+                        <td className="py-2 font-semibold text-blue-400">Hán Việt Char</td>
+                        <td className="py-2 text-slate-200 font-bold">{comparisonData?.hanviet?.title || b.title_hanviet || b.title}</td>
+                        <td className="py-2 text-sky-400 text-[10px]">Âm Hán nguyên bản</td>
                       </tr>
                       <tr>
-                        <td className="py-2 font-semibold text-slate-400">{lang === 'vi' ? 'Độ chuẩn bản dịch' : lang === 'en' ? 'Translation Standard' : '翻译准确度'}</td>
-                        <td className="py-2 text-emerald-400 font-bold">4.7</td>
-                        <td className="py-2 text-slate-300">MeDoc <span className="text-slate-500 text-[10px]">63 votes</span></td>
+                        <td className="py-2 font-semibold text-emerald-400">CMLM Neural</td>
+                        <td className="py-2 text-slate-200 font-bold">{comparisonData?.advanced?.title || b.title_vietphrase || b.title}</td>
+                        <td className="py-2 text-emerald-300 text-[10px]">Ngữ cảnh mượt mà</td>
                       </tr>
                     </tbody>
                   </table>

@@ -61,8 +61,21 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     writeAppLog('--- KHỞI ĐỘNG TIÊN HIỆP AI ELECTRON (TYPESCRIPT) ---');
-    registerLinuxDevProtocol();
-    setupAdBlockerForSession(session.defaultSession);
+    // Bỏ logic Clean Ad theo yêu cầu người dùng, giữ nguyên vẹn 100% tài nguyên trang web
+    // setupAdBlockerForSession(session.defaultSession);
+
+    app.on('web-contents-created', (_event, contents) => {
+      contents.setWindowOpenHandler((details) => {
+        const targetUrl = details.url;
+        if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
+          const win = getMainWindow();
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('open-in-new-tab', targetUrl);
+          }
+        }
+        return { action: 'deny' };
+      });
+    });
 
     // Register all IPC module handlers
     registerWindowHandlers(getMainWindow);

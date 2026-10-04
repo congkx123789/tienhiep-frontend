@@ -6,29 +6,29 @@ const INITIAL_RELEASES: ReleasesState = {
   extension: {
     version: '1.0.0',
     download_url: '/downloads/tts_extension.zip',
-    file_size: '10.7 MB',
+    file_size: '20.5 MB',
     release_notes: 'Tiện ích Chrome Extension Trợ lý Dịch & Đọc Truyện AI'
   },
   desktop_linux: {
-    version: '1.0.18',
-    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-1.0.18.AppImage',
-    file_size: '641 MB',
-    release_notes: 'Phiên bản AppImage v1.0.18 dành cho Linux'
+    version: 'latest',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-latest.AppImage',
+    file_size: '223 MB',
+    release_notes: 'Phiên bản AppImage mới nhất dành cho Linux'
   },
   desktop_windows: {
-    version: '1.0.18',
-    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-Setup-1.0.18.exe',
-    file_size: '232 MB',
-    release_notes: 'Bản cài đặt Windows Setup EXE v1.0.18 chính thức'
+    version: 'latest',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-Setup-latest.exe',
+    file_size: '189 MB',
+    release_notes: 'Bản cài đặt Windows Setup EXE mới nhất chính thức'
   },
   android_apk: {
-    version: '1.0.18',
+    version: 'latest',
     download_url: '/downloads/app-tienhiep.apk',
-    file_size: '66 MB',
+    file_size: '54 MB',
     release_notes: 'Bản APK Android chính thức tối ưu WebView, đọc truyện mượt mà, hỗ trợ dịch nhanh và tải chương ngoại tuyến.'
   },
   ios_ipa: {
-    version: '1.0.18',
+    version: 'latest',
     download_url: '/downloads/TienHiepAI.ipa',
     file_size: '22 MB',
     release_notes: 'Bản cài đặt IPA cho iPhone / iPad - Hỗ trợ cài qua AltStore, Sideloadly, TrollStore, Scarlet.'

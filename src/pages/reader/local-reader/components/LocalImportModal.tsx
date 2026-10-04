@@ -15,10 +15,10 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const [title, setTitle] = useState('Truyện Test Offline');
-  const [author, setAuthor] = useState('Antigravity');
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
-  const [rawText, setRawText] = useState('Chương 1: Khởi Đầu\nĐây là nội dung chương 1.\nChương 2: Bước Ngoặt\nĐây là nội dung chương 2.');
+  const [rawText, setRawText] = useState('');
   const [importMode, setImportMode] = useState<'auto' | 'paste'>('auto');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -183,6 +183,7 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Nhập tên tác phẩm..."
                 className="w-full p-2.5 rounded-xl bg-[#0b0b14] border border-[#1f1f3a] text-white outline-none focus:border-purple-500"
                 required
               />
@@ -193,6 +194,7 @@ export const LocalImportModal: React.FC<LocalImportModalProps> = ({
                 type="text"
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
+                placeholder="Nhập tên tác giả..."
                 className="w-full p-2.5 rounded-xl bg-[#0b0b14] border border-[#1f1f3a] text-white outline-none focus:border-purple-500"
               />
             </div>

@@ -12,7 +12,10 @@ import {
   Target,
   ArrowLeft,
   Search,
-  X
+  X,
+  Menu,
+  Monitor,
+  Smartphone
 } from 'lucide-react';
 import { BrowserTab } from '../BrowserContext.types';
 
@@ -31,7 +34,12 @@ interface BrowserHeaderProps {
   onTool: (toolId: string) => void;
   autoTranslateActive: boolean;
   pinnedTools: string[];
+  isDesktopMode?: boolean;
+  onToggleDesktopMode?: () => void;
+  isDirectMode?: boolean;
+  onToggleDirectMode?: () => void;
   onCloseBrowser?: () => void;
+  onOpenNavMenu?: () => void;
 }
 
 export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
@@ -49,7 +57,12 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
   onTool,
   autoTranslateActive,
   pinnedTools,
-  onCloseBrowser
+  isDesktopMode,
+  onToggleDesktopMode,
+  isDirectMode,
+  onToggleDirectMode,
+  onCloseBrowser,
+  onOpenNavMenu
 }) => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -189,10 +202,42 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
         {pinnedTools.includes('teachNext') && (
           <button
             onClick={() => onTool('teachNext')}
-            className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-white/10 transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-white/10 transition-colors"
             title="Chỉ định nút chuyển chương"
           >
-            <Target className="w-4 h-4" />
+            <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+        )}
+
+        {/* Nút chuyển đổi Máy tính / Điện thoại */}
+        {onToggleDesktopMode && (
+          <button
+            type="button"
+            onClick={onToggleDesktopMode}
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all ${
+              isDesktopMode !== false
+                ? 'text-cyan-300 hover:text-white hover:bg-cyan-500/20 border border-cyan-500/30 shadow-sm'
+                : 'text-amber-300 hover:text-white hover:bg-amber-500/20 border border-amber-500/30 shadow-sm'
+            }`}
+            title={isDesktopMode !== false ? 'Chế độ Máy tính (Desktop) - Nhấp để chuyển sang Điện thoại' : 'Chế độ Điện thoại (Mobile) - Nhấp để chuyển sang Máy tính'}
+          >
+            {isDesktopMode !== false ? <Monitor className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          </button>
+        )}
+
+        {/* Nút chuyển đổi Web gốc ban đầu / Proxy */}
+        {onToggleDirectMode && (
+          <button
+            type="button"
+            onClick={onToggleDirectMode}
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all ${
+              isDirectMode !== false
+                ? 'text-emerald-300 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30'
+                : 'text-purple-300 hover:text-white hover:bg-purple-500/20 border border-purple-500/30'
+            }`}
+            title={isDirectMode !== false ? 'Chế độ: Web gốc ban đầu (Trực tiếp 100%) - Nhấp để đổi sang Proxy' : 'Chế độ: Proxy (Qua máy chủ) - Nhấp để đổi sang Web gốc ban đầu'}
+          >
+            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         )}
 
@@ -212,6 +257,17 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
         >
           <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
+
+        {/* Hamburger mở nav menu — chỉ hiển thị trên mobile */}
+        {onOpenNavMenu && (
+          <button
+            onClick={onOpenNavMenu}
+            className="sm:hidden w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Menu điều hướng"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -55,19 +55,44 @@ export function getNextTargetScript(): string {
         }
       };
 
+      const isAdOrSpamEl = (targetEl) => {
+        if (!targetEl) return false;
+        const h = (targetEl.getAttribute('href') || targetEl.href || '').toLowerCase();
+        const oc = (targetEl.getAttribute('onclick') || '').toLowerCase();
+        const t = (targetEl.textContent || '').trim().toLowerCase();
+        if (h.includes('gourl') || oc.includes('gourl') || h.includes('closead') || oc.includes('closead')) return true;
+        if (/哄骗|做爱|巨乳|小姨子|偷情|操了|高潮|抽插|cầm thú|lừa nữ|ký túc xá|报错|báo lỗi/.test(t)) return true;
+        return false;
+      };
+
       const resolveTargetEl = (el, sourceDesc) => {
-        if (!el) return null;
+        if (!el || isAdOrSpamEl(el)) return null;
         const txt = (el.textContent || "").trim();
         if (negativeTextRegex.test(txt) || negativeTextContainsRegex.test(txt)) return null;
 
         const a = el.tagName === 'A' ? el : (el.closest('a') || el.querySelector('a'));
         if (a) {
+          if (isAdOrSpamEl(a)) return null;
           const aTxt = (a.textContent || "").trim();
           if (negativeTextRegex.test(aTxt) || negativeTextContainsRegex.test(aTxt)) return null;
+
           const validHref = isValidNextLink(a.href, a);
           if (validHref) return { type: 'element', el: a, source: sourceDesc };
+
+          // Hỗ trợ nút AJAX / SPA dùng javascript: (ví dụ: a#pb_next có href="javascript:urlpage('next')")
+          const rawH = (a.getAttribute('href') || a.href || '').trim();
+          const isNextKw = nextKeywordRegex.test(aTxt) || nextKeywordRegex.test(txt);
+          const isNextIdCls = /(pb_next|pt_next|next|page_next|readpage_down|js_page_down)/i.test((a.id || '') + ' ' + (a.className || ''));
+          const isNextJs = /javascript:.*(next|page|urlpage)/i.test(rawH) || /javascript:.*(next|page|urlpage)/i.test(a.getAttribute('onclick') || '');
+          if (isNextKw || isNextIdCls || isNextJs) {
+            return { type: 'element', el: a, source: sourceDesc + ' (Nút AJAX/JS)' };
+          }
         } else if (el) {
-          return { type: 'element', el: el, source: sourceDesc };
+          const isNextKw = nextKeywordRegex.test(txt);
+          const isNextIdCls = /(pb_next|pt_next|next|page_next|readpage_down|js_page_down)/i.test((el.id || '') + ' ' + (el.className || ''));
+          if (isNextKw || isNextIdCls) {
+            return { type: 'element', el: el, source: sourceDesc };
+          }
         }
         return null;
       };

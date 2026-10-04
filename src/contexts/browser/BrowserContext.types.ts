@@ -12,6 +12,8 @@ export interface BrowserTab {
   lastAccessed?: number;
   historyStack?: string[];
   historyIndex?: number;
+  isDesktopMode?: boolean;
+  isDirectMode?: boolean;
 }
 
 export interface BookmarkItem {
@@ -44,4 +46,22 @@ export interface ActiveAudioBook {
   currentChapterTitle?: string;
   currentChapterContent?: string;
   initialParaIdx?: number;
+  startSentenceIdx?: number;
+  startSnippet?: string;
+  isChapter?: boolean;
+  description?: string;
+  chapterIdx?: number;
+  paragraphs?: string[];
+  book?: {
+    id: number | string;
+    title?: string;
+    title_vietphrase?: string;
+    author?: string;
+    author_hanviet?: string;
+    cover?: string;
+    chapters_max?: number;
+  };
+  onBoundary?: (charIdx: number, sentenceText: string, sentenceId: number) => void;
+  /** online = web reader (iframe), offline = local epub/file, webview = electron webview */
+  playType?: 'online' | 'offline' | 'webview';
 }

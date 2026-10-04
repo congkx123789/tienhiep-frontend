@@ -115,3 +115,9 @@
 body.global-dragging * {
   -webkit-app-region: no-drag !important;
 }
+
+/* ── Shimmer animation cho thanh tiến độ dịch ── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}

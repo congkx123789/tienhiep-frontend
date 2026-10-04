@@ -48,6 +48,8 @@ export default function Sects() {
     handleJoinSect,
     handleLeaveSect,
     handleContribute,
+    handleShareBook,
+    handleRemoveBook,
     fetchUserBookshelf,
     showError,
     showSuccess
@@ -210,8 +212,8 @@ export default function Sects() {
             userBookshelf={userBookshelf}
             myRole={mySectData?.role}
             myUserId={user?.id}
-            onShareBook={handleContribute}
-            onRemoveBook={() => {}}
+            onShareBook={handleShareBook}
+            onRemoveBook={handleRemoveBook}
             onOpenShareModal={fetchUserBookshelf}
           />
         )}

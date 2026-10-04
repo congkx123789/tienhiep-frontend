@@ -2,7 +2,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useLang } from '../../../contexts/LangContext';
-import { bookService, socialService, userFeatureService } from '../../../services';
+import api, { bookService, socialService, userFeatureService } from '../../../services';
 import { BookInfo, ChapterItem, CommentItem, ParsedSource } from './BookDetail.types';
 
 export function useBookDetail() {
@@ -23,39 +23,30 @@ export function useBookDetail() {
   const [chapters, setChapters] = useState<ChapterItem[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(true);
 
-  // Initial comments data
-  const [comments, setComments] = useState<CommentItem[]>([
-    {
-      id: 1,
-      user: 'Lê Hoàng Nam',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60',
-      rating: 5,
-      text: 'Bản dịch AI của trang này chuẩn thật sự, đọc Hán Việt rất mượt mà. Mong nhóm update chương mới nhanh hơn nữa!',
-      time: '2 giờ trước',
-      likes: 12
-    },
-    {
-      id: 2,
-      user: 'Nguyễn Thu Thảo',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&auto=format&fit=crop&q=60',
-      rating: 4,
-      text: 'Truyện hay, cốt truyện sát phạt quyết đoán đúng gu mình. Bản dịch máy thỉnh thoảng có vài từ Hán Việt chưa dịch nghĩa kỹ nhưng tổng thể vẫn rất dễ hiểu.',
-      time: '5 giờ trước',
-      likes: 8
-    },
-    {
-      id: 3,
-      user: 'Trần Minh Đức',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=60',
-      rating: 5,
-      text: 'So sánh bản dịch Metruyenchu với trang này thì bản ở đây sạch QC hơn nhiều. Giao diện đọc truyện tối ưu tốt trên di động.',
-      time: '1 ngày trước',
-      likes: 19
-    }
-  ]);
+  const [comments, setComments] = useState<CommentItem[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [newCommentRating, setNewCommentRating] = useState(5);
   const [likedComments, setLikedComments] = useState<Set<number>>(new Set());
+
+  const fetchComments = async (bId: string | number) => {
+    try {
+      const res = await api.get(`/api/comments?book_id=${bId}`);
+      if (res.data?.comments) {
+        const mapped: CommentItem[] = res.data.comments.map((c: any) => ({
+          id: c.id,
+          user: c.user_name || 'Độc giả',
+          avatar: c.user_avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60',
+          rating: c.rating || 5,
+          text: c.content,
+          time: c.time_ago || 'Vừa xong',
+          likes: c.likes || 0
+        }));
+        setComments(mapped);
+      }
+    } catch (e) {
+      console.error('Failed to load comments:', e);
+    }
+  };
 
   useEffect(() => {
     if (shareOpen && user) {
@@ -71,9 +62,32 @@ export function useBookDetail() {
 
   useEffect(() => {
     fetchBookDetails();
-    fetchChaptersList();
     checkIfFavorite();
+    if (bookId) fetchComments(bookId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId, user]);
+
+  const fetchChapterList = async (bookIdParam: string | number, chapMax?: number) => {
+
+    setChaptersLoading(true);
+    try {
+      const res = await api.get(`/api/book/${bookIdParam}/chapters`, { params: { lang } });
+      if (res.data?.chapters && Array.isArray(res.data.chapters)) {
+        setChapters(res.data.chapters);
+        return;
+      }
+    } catch (e) {
+      console.warn('[BookDetail] chapters API failed, using fallback:', e);
+    }
+    // Fallback: sinh danh sách đánh số tối giản nếu API lỗi
+    const total = Math.min(Math.max(chapMax || 50, 1), 5000);
+    setChapters(Array.from({ length: total }, (_, i) => ({
+      id: i + 1,
+      title: lang === 'vi' ? `Chương ${i + 1}` : lang === 'en' ? `Chapter ${i + 1}` : `第 ${i + 1} 章`,
+      url_idx: i + 1
+    })));
+  };
+
 
   const logReadingHistory = async (loadedBook: BookInfo) => {
     if (!user || !loadedBook) return;
@@ -97,6 +111,7 @@ export function useBookDetail() {
       if (bookData && (bookData.id || bookData.title)) {
         setBook(bookData);
         logReadingHistory(bookData);
+        await fetchChapterList(bookId, bookData.chapters_max);
       }
     } catch {
       try {
@@ -106,6 +121,7 @@ export function useBookDetail() {
         if (found) {
           setBook(found);
           logReadingHistory(found);
+          await fetchChapterList(bookId, found.chapters_max);
         } else {
           const detailRes = await bookService.getBookTranslations(bookId);
           if (detailRes.data) {
@@ -120,6 +136,7 @@ export function useBookDetail() {
             };
             setBook(fallbackBook);
             logReadingHistory(fallbackBook);
+            await fetchChapterList(bookId, 50);
           }
         }
       } catch {
@@ -130,21 +147,7 @@ export function useBookDetail() {
     }
   };
 
-  const fetchChaptersList = async () => {
-    setChaptersLoading(true);
-    try {
-      const list: ChapterItem[] = Array.from({ length: 50 }, (_, i) => ({
-        id: i + 1,
-        title: lang === 'vi' ? `Chương ${i + 1}: Tiết tử và khởi nguyên` : lang === 'en' ? `Chapter ${i + 1}: Prologue` : `第 ${i + 1} 章: 楔子与起源`,
-        url_idx: i + 1
-      }));
-      setChapters(list);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setChaptersLoading(false);
-    }
-  };
+
 
   const checkIfFavorite = async () => {
     if (!user || !bookId) return;
@@ -196,59 +199,66 @@ export function useBookDetail() {
     }
   };
 
-  const handleLikeComment = (commentId: number) => {
+  const handleLikeComment = async (commentId: number) => {
     setLikedComments(prev => {
       const next = new Set(prev);
       if (next.has(commentId)) {
         next.delete(commentId);
-        setComments(comments.map(c => c.id === commentId ? { ...c, likes: c.likes - 1 } : c));
+        setComments(comments.map(c => c.id === commentId ? { ...c, likes: Math.max(0, c.likes - 1) } : c));
       } else {
         next.add(commentId);
         setComments(comments.map(c => c.id === commentId ? { ...c, likes: c.likes + 1 } : c));
+        api.post('/api/comments/like', { comment_id: commentId }).catch(() => {});
       }
       return next;
     });
   };
 
-  const handleAddComment = (e: FormEvent) => {
+  const handleAddComment = async (e: FormEvent) => {
     e.preventDefault();
     if (!newCommentText.trim()) return;
+    if (!user) {
+      alert(lang === 'vi' ? 'Vui lòng đăng nhập để gửi bình luận!' : 'Please log in to submit a comment!');
+      return;
+    }
+    if (!bookId) return;
 
-    const commentObj: CommentItem = {
-      id: Date.now(),
-      user: user ? (user.name || user.email?.split('@')[0]) : (lang === 'vi' ? 'Khách vãng lai' : lang === 'en' ? 'Guest user' : '访客'),
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=60',
-      rating: newCommentRating,
-      text: newCommentText,
-      time: lang === 'vi' ? 'Vừa xong' : lang === 'en' ? 'Just now' : '刚刚',
-      likes: 0
-    };
+    try {
+      const res = await api.post('/api/comments/add', {
+        book_id: parseInt(bookId),
+        content: newCommentText.trim(),
+        rating: newCommentRating
+      });
 
-    setComments([commentObj, ...comments]);
-    setNewCommentText('');
-    setNewCommentRating(5);
+      if (res.data?.comment) {
+        const c = res.data.comment;
+        const commentObj: CommentItem = {
+          id: c.id,
+          user: c.user_name || user.name || user.email?.split('@')[0] || 'Độc giả',
+          avatar: c.user_avatar || user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60',
+          rating: c.rating || newCommentRating,
+          text: c.content,
+          time: c.time_ago || 'Vừa xong',
+          likes: 0
+        };
+        setComments(prev => [commentObj, ...prev]);
+        setNewCommentText('');
+        setNewCommentRating(5);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Lỗi gửi bình luận.');
+    }
   };
 
   const getParsedSources = (): ParsedSource[] => {
     if (!book) return [];
-    const list: ParsedSource[] = [];
-    if (book.parsed_sources && book.parsed_sources.length > 0) {
-      book.parsed_sources.forEach(src => {
-        list.push({ site: src.source, url: src.url });
-      });
-    } else if (book.urls) {
-      const parts = book.urls.split(' | ');
-      for (const p of parts) {
-        const idx = p.indexOf(':');
-        if (idx > 0) {
-          list.push({
-            site: p.substring(0, idx).trim(),
-            url: p.substring(idx + 1).trim()
-          });
-        }
-      }
+    if (book.parsed_sources?.length) {
+      return book.parsed_sources.map(src => ({ site: src.source, url: src.url }));
     }
-    return list;
+    return (book.urls || '').split(' | ').filter(p => p.includes(':')).map(p => {
+      const idx = p.indexOf(':');
+      return { site: p.substring(0, idx).trim(), url: p.substring(idx + 1).trim() };
+    });
   };
 
   return {

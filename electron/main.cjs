@@ -24,167 +24,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // electron/src/main.ts
 var import_electron9 = require("electron");
-var import_path8 = __toESM(require("path"), 1);
-var import_os3 = __toESM(require("os"), 1);
-var import_fs8 = __toESM(require("fs"), 1);
-var import_child_process4 = require("child_process");
-
-// electron/src/adblock/adRules.ts
-var AD_DOMAINS = [
-  "magsrv.com",
-  "genieesspv.jp",
-  "popads.net",
-  "popcash.net",
-  "propellerads.com",
-  "adsterra.com",
-  "exoclick.com",
-  "trafficjunky.com",
-  "adtrue.com",
-  "monetag.com",
-  "adnxs.com",
-  "cpmstar.com",
-  "onclickalgo.com",
-  "bidvertiser.com",
-  "infolinks.com",
-  "taboola.com",
-  "outbrain.com",
-  "doubleclick.net",
-  "googlesyndication.com",
-  "googleadservices.com",
-  "google-analytics.com",
-  "googletagmanager.com",
-  "tongji.baidu.com",
-  "hm.baidu.com",
-  "cnzz.com",
-  "51.la",
-  "umeng.com",
-  "hilltopads.net",
-  "richpush.co",
-  "clickadu.com",
-  "admob.com",
-  "adroll.com",
-  "rubiconproject.com",
-  "openx.net",
-  "pubmatic.com",
-  "criteo.com",
-  "zergnet.com",
-  "mgid.com",
-  "revcontent.com",
-  "yandex.ru",
-  "yandex.net",
-  "an.yandex.ru",
-  "adhigh.net",
-  "juicyads.com",
-  "trafficfactory.biz",
-  "adx1.com",
-  "exosrv.com",
-  "syndication.exoclick.com",
-  "tsyndicate.com",
-  "realsrv.com",
-  "wigetmedia.com",
-  "ad-provider.js",
-  "syndication.com",
-  "vidoomy.com",
-  "seedr.cc",
-  "yieldlove.com",
-  "vantagefx.com",
-  "vantagemarkets.com",
-  "adcash.com",
-  "popmyads.com",
-  "admaven.com",
-  "ad-maven.com",
-  "alwingulla.com",
-  "highperformancecpmgate.com",
-  "richads.com",
-  "trafficstars.com",
-  "daolan.net",
-  "yuhuads.com"
-];
-var AD_PATH_PATTERNS = [
-  /\/ad-provider\.js/i,
-  /\/pagead\//i,
-  /zoneid=\d+/i,
-  /\/ad\.js/i,
-  /\/ads\.js/i,
-  /\/adv\.js/i,
-  /\/adx\.js/i,
-  /\/guanggao\//i,
-  /partner\.googleadservices/i,
-  /pos\.baidu\.com/i,
-  /cpro\.baidustatic\.com/i,
-  /\/popunder/i,
-  /\/adservice\./i,
-  /googleads/i,
-  /\/banner_ad/i,
-  /\/float_ad/i,
-  /\/fake_captcha/i,
-  /\/not_a_robot/i,
-  /\/vantage/i
-];
-
-// electron/src/adblock/adFilter.ts
-function isAdUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== "string") return false;
-  if (rawUrl.startsWith("http://localhost") || rawUrl.startsWith("http://127.0.0.1") || rawUrl.startsWith("tienhiepai:") || rawUrl.startsWith("file:") || rawUrl.startsWith("devtools:")) {
-    return false;
-  }
-  try {
-    const parsed = new URL(rawUrl);
-    const host = parsed.hostname.toLowerCase();
-    for (const domain of AD_DOMAINS) {
-      if (host === domain || host.endsWith("." + domain)) {
-        return true;
-      }
-    }
-    const full = rawUrl.toLowerCase();
-    for (const pattern of AD_PATH_PATTERNS) {
-      if (pattern.test(full)) {
-        return true;
-      }
-    }
-  } catch {
-    const lower = rawUrl.toLowerCase();
-    for (const domain of AD_DOMAINS) {
-      if (lower.includes(domain)) return true;
-    }
-  }
-  return false;
-}
-function setupAdBlockerForSession(sess) {
-  if (!sess || sess.__adBlockerInstalled) return;
-  sess.__adBlockerInstalled = true;
-  try {
-    sess.setPermissionRequestHandler((_webContents, permission, callback) => {
-      if (permission === "notifications" || permission === "geolocation" || permission === "media") {
-        return callback(false);
-      }
-      callback(true);
-    });
-  } catch {
-  }
-  try {
-    sess.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
-      if (isAdUrl(details.url)) {
-        console.log(`[Network AdBlock] \u{1F6AB} \u0110\xE3 ch\u1EB7n request qu\u1EA3ng c\xE1o: ${details.url.substring(0, 100)}...`);
-        return callback({ cancel: true });
-      }
-      return callback({ cancel: false });
-    });
-    sess.webRequest.onHeadersReceived({ urls: ["*://*/*"] }, (details, callback) => {
-      const responseHeaders = { ...details.responseHeaders || {} };
-      delete responseHeaders["x-frame-options"];
-      delete responseHeaders["X-Frame-Options"];
-      delete responseHeaders["content-security-policy"];
-      delete responseHeaders["Content-Security-Policy"];
-      delete responseHeaders["content-security-policy-report-only"];
-      delete responseHeaders["Content-Security-Policy-Report-Only"];
-      responseHeaders["Access-Control-Allow-Origin"] = ["*"];
-      callback({ responseHeaders });
-    });
-  } catch (err) {
-    console.error("[Network AdBlock] L\u1ED7i g\u1EAFn b\u1ED9 l\u1ECDc request:", err);
-  }
-}
 
 // electron/src/window/windowManager.ts
 var import_electron2 = require("electron");
@@ -342,6 +181,13 @@ function createWindow() {
   mainWindow.setAutoHideMenuBar(true);
   mainWindow.on("page-title-updated", (event) => {
     event.preventDefault();
+  });
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    const targetUrl = details.url;
+    if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
+      mainWindow?.webContents.send("open-in-new-tab", targetUrl);
+    }
+    return { action: "deny" };
   });
   mainWindow.on("maximize", () => {
     mainWindow?.webContents.send("window-state-change", true);
@@ -644,6 +490,13 @@ function registerWindowHandlers(getMainWindow2) {
   import_electron4.ipcMain.handle("window-is-maximized", () => {
     const win = getMainWindow2();
     return win ? win.isMaximized() : false;
+  });
+  import_electron4.ipcMain.on("window-move", (_event, { deltaX, deltaY }) => {
+    const win = getMainWindow2();
+    if (win && !win.isMaximized()) {
+      const [x, y] = win.getPosition();
+      win.setPosition(Math.round(x + deltaX), Math.round(y + deltaY));
+    }
   });
 }
 
@@ -1093,32 +946,6 @@ import_electron9.app.commandLine.appendSwitch("autoplay-policy", "no-user-gestur
 import_electron9.app.commandLine.appendSwitch("disable-web-security");
 import_electron9.app.commandLine.appendSwitch("disable-site-isolation-trials");
 var gotTheLock = import_electron9.app.requestSingleInstanceLock();
-function registerLinuxDevProtocol() {
-  if (process.platform !== "linux" || import_electron9.app.isPackaged) return;
-  try {
-    const destDir = import_path8.default.join(import_os3.default.homedir(), ".local/share/applications");
-    const iconPath = import_path8.default.join(import_path8.default.resolve(import_electron9.app.getAppPath()), "public/icon.png");
-    import_electron9.app.desktopName = "tienhiepai.desktop";
-    const desktopContent = `[Desktop Entry]
-Name=Ti\xEAn Hi\u1EC7p AI Dev
-Exec="${process.execPath}" "${import_path8.default.resolve(import_electron9.app.getAppPath())}" %u
-Icon=${iconPath}
-Type=Application
-Terminal=false
-MimeType=x-scheme-handler/tienhiepai;
-`;
-    if (!import_fs8.default.existsSync(destDir)) import_fs8.default.mkdirSync(destDir, { recursive: true });
-    ["tienhiepai.desktop", "TienHiepAI.desktop", "tienhiepai-dev.desktop"].forEach((file) => {
-      const filePath = import_path8.default.join(destDir, file);
-      import_fs8.default.writeFileSync(filePath, desktopContent, "utf-8");
-      (0, import_child_process4.exec)(`chmod +x "${filePath}"`);
-    });
-    (0, import_child_process4.exec)(`update-desktop-database ${destDir}`);
-    (0, import_child_process4.exec)(`xdg-mime default tienhiepai.desktop x-scheme-handler/tienhiepai`);
-  } catch (e) {
-    console.error("[Linux Dev Protocol] Error registering:", e?.message);
-  }
-}
 if (!gotTheLock) {
   import_electron9.app.quit();
 } else {
@@ -1135,8 +962,18 @@ if (!gotTheLock) {
   });
   import_electron9.app.whenReady().then(() => {
     writeAppLog("--- KH\u1EDEI \u0110\u1ED8NG TI\xCAN HI\u1EC6P AI ELECTRON (TYPESCRIPT) ---");
-    registerLinuxDevProtocol();
-    setupAdBlockerForSession(import_electron9.session.defaultSession);
+    import_electron9.app.on("web-contents-created", (_event, contents) => {
+      contents.setWindowOpenHandler((details) => {
+        const targetUrl = details.url;
+        if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
+          const win = getMainWindow();
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("open-in-new-tab", targetUrl);
+          }
+        }
+        return { action: "deny" };
+      });
+    });
     registerWindowHandlers(getMainWindow);
     registerSystemHandlers(getMainWindow);
     registerStoreHandlers();

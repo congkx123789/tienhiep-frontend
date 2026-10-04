@@ -107,10 +107,10 @@ export const SectLibraryTab: React.FC<SectLibraryTabProps> = ({
                 <p className="text-xs text-slate-500 text-center py-6">Tủ sách cá nhân của bạn đang trống.</p>
               ) : (
                 userBookshelf?.map((b) => (
-                  <div key={b.book_id} className="p-2.5 rounded-xl bg-[#0b0b14] border border-white/5 flex items-center justify-between">
+                  <div key={b.book_id || b.id} className="p-2.5 rounded-xl bg-[#0b0b14] border border-white/5 flex items-center justify-between">
                     <span className="text-xs font-bold text-white truncate max-w-[200px]">{b.title_vietphrase || b.title}</span>
                     <button
-                      onClick={() => { onShareBook(b.book_id); setShowModal(false); }}
+                      onClick={() => { onShareBook(b.book_id || b.id); setShowModal(false); }}
                       className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold"
                     >
                       Đóng góp

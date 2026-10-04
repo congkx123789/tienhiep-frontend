@@ -13,42 +13,6 @@ import { DiscoverFilterBar } from './components/DiscoverFilterBar';
 import { DiscoverRawSources } from './components/DiscoverRawSources';
 import { DiscoverBookGrid } from './components/DiscoverBookGrid';
 import { DiscoverSidebar } from './components/DiscoverSidebar';
-import { CommentItem } from './Discover.types';
-
-const COMMUNITY_COMMENTS: CommentItem[] = [
-  {
-    id: 1,
-    user: "Minh Quân",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60",
-    source: "Metruyenchu",
-    comment: "Bản dịch CMLM đọc rất mượt, câu cú tự nhiên hơn hẳn bản QT cũ! 👏",
-    time: "2 phút trước"
-  },
-  {
-    id: 2,
-    user: "Thanh Trúc",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&auto=format&fit=crop&q=60",
-    source: "Truyenchu",
-    comment: "Vừa cày xong chương mới, truyện này cuốn thực sự. Tốc độ dịch siêu nhanh! 🔥",
-    time: "5 phút trước"
-  },
-  {
-    id: 3,
-    user: "Quốc Bảo",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=60",
-    source: "Tàng Kinh Các",
-    comment: "Chế độ đọc ban đêm dịu mắt, tính năng TTS đọc giọng AI rất êm tai. 🎧",
-    time: "12 phút trước"
-  },
-  {
-    id: 4,
-    user: "Lan Hương",
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=80&auto=format&fit=crop&q=60",
-    source: "Tiêu Dao Tông",
-    comment: "Tính năng Tàng Kinh Các tông môn chia sẻ sách hay lắm, đệ tử vào đọc cùng rất tiện! ✨",
-    time: "25 phút trước"
-  }
-];
 
 export default function Discover() {
   const { t, lang } = useLang();
@@ -117,6 +81,7 @@ export default function Discover() {
     compLoading,
     bookshelfIds,
     leaderboard,
+    recentComments,
     fetchBooks,
     handleToggleFav,
     handleCompare,
@@ -260,7 +225,7 @@ export default function Discover() {
 
         <DiscoverSidebar
           leaderboard={leaderboard}
-          communityComments={COMMUNITY_COMMENTS}
+          communityComments={recentComments}
           lang={lang}
         />
       </div>

@@ -1,9 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  LogOut, Crown, Terminal, MessageSquare, Bell,
-  Minus, Square, X, Menu
-} from 'lucide-react';
+import { LogOut, Crown, Terminal, MessageSquare, Bell, Minus, Square, X, Menu } from 'lucide-react';
 import { FlagIcon } from './FlagIcon';
 import { NavItem } from '../MainLayout.types';
 
@@ -30,37 +27,57 @@ interface MainHeaderProps {
 }
 
 export const MainHeader: React.FC<MainHeaderProps> = ({
-  desktopNavItems,
-  activeTab,
-  onTabChange,
-  user,
-  logout,
-  lang,
-  setLang,
-  t,
-  isElectron,
-  isLinux,
-  isWindowMaximized,
-  showLogConsole,
-  onToggleLogConsole,
-  unreadMsgCount,
-  unreadNotifCount,
-  onOpenAuth,
-  onOpenNotifications,
-  mobileMenuOpen,
-  onToggleMobileMenu
+  desktopNavItems, activeTab, onTabChange, user, logout,
+  lang, setLang, t, isElectron, isLinux, isWindowMaximized,
+  showLogConsole, onToggleLogConsole, unreadMsgCount, unreadNotifCount,
+  onOpenAuth, onOpenNotifications, mobileMenuOpen, onToggleMobileMenu
 }) => {
   const navigate = useNavigate();
   const win = typeof window !== 'undefined' ? (window as any) : {};
+  const dragRef = useRef<{ startScreenX: number; startScreenY: number } | null>(null);
+
+  const handleHeaderMouseDown = (e: React.MouseEvent) => {
+    if (!isElectron || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [data-no-drag]')) return;
+
+    dragRef.current = { startScreenX: e.screenX, startScreenY: e.screenY };
+
+    const handleMouseMove = (moveEv: MouseEvent) => {
+      if (!dragRef.current) return;
+      const deltaX = moveEv.screenX - dragRef.current.startScreenX;
+      const deltaY = moveEv.screenY - dragRef.current.startScreenY;
+      dragRef.current = { startScreenX: moveEv.screenX, startScreenY: moveEv.screenY };
+      if (deltaX !== 0 || deltaY !== 0) {
+        win.electron?.moveWindow?.(deltaX, deltaY);
+      }
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleHeaderDoubleClick = (e: React.MouseEvent) => {
+    if (!isElectron) return;
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [data-no-drag]')) return;
+    win.electron?.maximize?.();
+  };
 
   return (
     <header 
-      className={`relative bg-[#1c183a] border-b border-indigo-950/30 shadow-lg sticky top-0 z-[100000] ${isElectron ? 'select-none' : ''}`}
+      className={`relative bg-[#1c183a] border-b border-indigo-950/30 shadow-lg sticky top-0 z-[100000] overflow-hidden ${isElectron ? 'select-none cursor-default' : ''}`}
       style={isElectron ? { WebkitAppRegion: 'drag' } : {}}
+      onMouseDown={handleHeaderMouseDown}
+      onDoubleClick={handleHeaderDoubleClick}
     >
       <div 
-        className="max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-12 h-14 flex items-center justify-between gap-3"
-        style={{ paddingRight: isElectron ? '160px' : undefined }}
+        className="max-w-[2200px] mx-auto px-3 sm:px-5 lg:px-8 h-14 flex items-center justify-between gap-2 sm:gap-3"
+        style={{ paddingRight: isElectron ? '175px' : undefined, WebkitAppRegion: isElectron ? 'drag' : undefined }}
       >
         {/* LEFT: Logo */}
         <button
@@ -76,7 +93,7 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
 
         {/* CENTER: Desktop tabs */}
         <nav 
-          className="hidden sm:flex items-center bg-[#0f0f26]/60 rounded-full p-1 border border-white/5 text-[11px] font-bold gap-0.5"
+          className="hidden sm:flex items-center bg-[#0f0f26]/60 rounded-full p-1 border border-white/5 text-[11px] font-bold gap-0.5 overflow-hidden shrink min-w-0"
           style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
         >
           {desktopNavItems.map(({ key, icon: Icon, label }) => {
@@ -93,7 +110,7 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span className={`${isActive ? 'inline' : 'hidden 2xl:inline'}`}>
+                <span className={isActive ? 'inline' : 'hidden'}>
                   {label}
                 </span>
                 {key === 'settings' && user?.require_password_change === 1 && (
@@ -109,7 +126,7 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
 
         {/* RIGHT: Language + Auth */}
         <div 
-          className="flex items-center gap-1.5 sm:gap-2 shrink-0 pr-1" 
+          className="flex items-center gap-1.5 sm:gap-2 shrink-0 pr-1 z-10" 
           style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
         >
           <div className="hidden lg:flex bg-[#0f0f26]/60 rounded-full p-0.5 border border-white/5 text-[9px] font-bold">

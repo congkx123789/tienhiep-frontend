@@ -30,7 +30,12 @@ export const TabStats: React.FC<TabStatsProps> = ({ user }) => {
         api.get('/api/user/history')
       ]);
       setStats(statsRes.data?.stats || statsRes.data || null);
-      setReadingHistory(historyRes.data?.history || historyRes.data || []);
+      const rawHistory = historyRes.data?.history || (Array.isArray(historyRes.data) ? historyRes.data : []);
+      if (Array.isArray(rawHistory) && rawHistory.length > 0 && !rawHistory[0].books) {
+        setReadingHistory([{ group_name: 'Truyện đọc gần đây', books: rawHistory }]);
+      } else {
+        setReadingHistory(Array.isArray(rawHistory) ? rawHistory : []);
+      }
     } catch {} finally {
       setStatsLoading(false);
     }

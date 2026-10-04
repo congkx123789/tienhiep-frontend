@@ -1,11 +1,13 @@
-// Browser Audio and Persistent TTS player controller
 import { useState, useRef, useCallback } from 'react';
 import { ActiveAudioBook, BrowserTab } from './BrowserContext.types';
 import { ensureVietnameseText } from './browserHelpers';
+import { useBrowserAudioChapter } from './useBrowserAudioChapter';
 
 export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<React.SetStateAction<BrowserTab[]>>) {
   const [activeAudioObj, setActiveAudioObj] = useState<ActiveAudioBook | null>(null);
   const autoAudioStatesRef = useRef<Record<string, boolean>>({});
+  const activeAudioObjRef = useRef<ActiveAudioBook | null>(null);
+  activeAudioObjRef.current = activeAudioObj;
 
   const sendWebviewMessage = useCallback((tabId: string, payload: any) => {
     let sent = false;
@@ -34,26 +36,64 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
     }
   }, []);
 
-  const handleGlobalNextChapter = useCallback((tabId?: string) => {
-    const targetTabId = tabId || activeAudioObj?.tabId;
-    if (targetTabId) {
-      sendWebviewMessage(targetTabId, { action: 'TRIGGER_NEXT', delay: 0 });
-    }
-  }, [activeAudioObj?.tabId, sendWebviewMessage]);
+  const { handleGlobalNextChapter, handleGlobalPrevChapter } = useBrowserAudioChapter(
+    activeAudioObjRef,
+    setActiveAudioObj,
+    sendWebviewMessage
+  );
 
-  const handleGlobalPrevChapter = useCallback((tabId?: string) => {
-    const targetTabId = tabId || activeAudioObj?.tabId;
-    if (targetTabId) {
-      sendWebviewMessage(targetTabId, { action: 'TRIGGER_PREV' });
-    }
-  }, [activeAudioObj?.tabId, sendWebviewMessage]);
-
-  const startAudioFromContent = useCallback(async (tabId: string, rawTitle: string, rawText: string, initialParaIdx: number = 0) => {
-    const { title, text } = await ensureVietnameseText(rawTitle, rawText);
+  /**
+   * startAudioFromContent — phát TTS từ nội dung web tab.
+   * Nếu đã là tiếng Việt -> khởi phát ngay tức thì, không dịch lại.
+   */
+  const startAudioFromContent = useCallback(async (
+    tabId: string,
+    rawTitle: string,
+    rawText: string,
+    initialParaIdx: number = 0
+  ) => {
     const tab = tabs.find(t => t.id === tabId);
-    
+
     autoAudioStatesRef.current[tabId] = true;
     sendWebviewMessage(tabId, { action: 'SET_TTS_PLAYING', playing: true });
+
+    const hasChinese = /[\u4e00-\u9fa5]/.test(rawText || '') || /[\u4e00-\u9fa5]/.test(rawTitle || '');
+    let title = rawTitle || tab?.title || 'Chương đọc';
+    let text = rawText || '';
+
+    if (hasChinese) {
+      const res = await ensureVietnameseText(rawTitle, rawText);
+      title = res.title || title;
+      text = res.text || text;
+    }
+
+    if (!autoAudioStatesRef.current[tabId]) return;
+
+    let startSentenceIdx = 0;
+    let startSnippet = '';
+    if (initialParaIdx && initialParaIdx > 0 && text) {
+      const paragraphs = text.split(/\n+/);
+      const validTextRegex = /\p{L}|\p{N}/u;
+      let count = title ? 1 : 0;
+      for (let pi = 0; pi < initialParaIdx && pi < paragraphs.length; pi++) {
+        const p = paragraphs[pi].trim();
+        if (!p) continue;
+        const parts = p.split(/([.!?。！？]+["”'’」]?\s*)/);
+        let cur = '';
+        for (let i = 0; i < parts.length; i++) {
+          cur += parts[i];
+          if (/[.!?。！？]/.test(parts[i]) || cur.length > 250) {
+            if (cur.trim() && validTextRegex.test(cur.trim())) count++;
+            cur = '';
+          }
+        }
+        if (cur.trim() && validTextRegex.test(cur.trim())) count++;
+      }
+      startSentenceIdx = count;
+      if (paragraphs[initialParaIdx]) {
+        startSnippet = paragraphs[initialParaIdx].trim().slice(0, 40);
+      }
+    }
 
     setActiveAudioObj({
       title: title || tab?.title || 'Chương đọc',
@@ -64,12 +104,16 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
       tabId,
       currentChapterTitle: title,
       currentChapterContent: text,
-      initialParaIdx
+      initialParaIdx,
+      startSentenceIdx,
+      startSnippet,
+      isChapter: true,
+      playType: 'online' as any
     });
   }, [tabs, sendWebviewMessage]);
 
   const stopAudio = useCallback((tabId?: string) => {
-    const targetTabId = tabId || activeAudioObj?.tabId;
+    const targetTabId = tabId || activeAudioObjRef.current?.tabId;
     if (targetTabId) {
       autoAudioStatesRef.current[targetTabId] = false;
       try { sessionStorage.removeItem('__tienhiep_tts_active_' + targetTabId); } catch(e) {}
@@ -77,7 +121,7 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
       sendWebviewMessage(targetTabId, { action: 'CLEAR_TTS_HIGHLIGHTS' });
     }
     setActiveAudioObj(null);
-  }, [activeAudioObj?.tabId, sendWebviewMessage]);
+  }, [sendWebviewMessage]);
 
   return {
     activeAudioObj, setActiveAudioObj,

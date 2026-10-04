@@ -208,6 +208,19 @@ export const normalizeUrlForIframe = (url?: string): string => {
   baseServer = baseServer.split('#')[0].split('?')[0];
   if (baseServer.endsWith('/')) baseServer = baseServer.slice(0, -1);
 
+  if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+    try {
+      const parsed = new URL(url);
+      let videoId = parsed.searchParams.get('v');
+      if (!videoId && url.includes('youtu.be/')) {
+        videoId = parsed.pathname.replace(/^\//, '');
+      }
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    } catch (_) {}
+  }
+
   if (url.includes('google.') && url.includes('search')) {
     try {
       const parsed = new URL(url);

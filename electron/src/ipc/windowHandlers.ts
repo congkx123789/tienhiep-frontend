@@ -26,4 +26,12 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
     const win = getMainWindow();
     return win ? win.isMaximized() : false;
   });
+
+  ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
+    const win = getMainWindow();
+    if (win && !win.isMaximized()) {
+      const [x, y] = win.getPosition();
+      win.setPosition(Math.round(x + deltaX), Math.round(y + deltaY));
+    }
+  });
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, MessageSquare, Send, BookOpen, Heart, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../../services';
 
@@ -79,19 +80,19 @@ export default function Footer() {
           <h4 className="text-white font-bold text-xs tracking-wider uppercase">Menu nhanh</h4>
           <ul className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
             <li>
-              <a href="/" className="hover:text-purple-400 transition-colors">Khám phá</a>
+              <Link to="/" className="hover:text-purple-400 transition-colors">Khám phá</Link>
             </li>
             <li>
-              <a href="/bookshelf" className="hover:text-purple-400 transition-colors">Tủ sách</a>
+              <Link to="/bookshelf" className="hover:text-purple-400 transition-colors">Tủ sách</Link>
             </li>
             <li>
-              <a href="/history" className="hover:text-purple-400 transition-colors">Lịch sử</a>
+              <Link to="/history" className="hover:text-purple-400 transition-colors">Lịch sử</Link>
             </li>
             <li>
-              <a href="/developer" className="hover:text-purple-400 transition-colors">API Dịch</a>
+              <Link to="/developer" className="hover:text-purple-400 transition-colors">API Dịch</Link>
             </li>
             <li>
-              <a href="/settings" className="hover:text-purple-400 transition-colors">Cài đặt</a>
+              <Link to="/settings" className="hover:text-purple-400 transition-colors">Cài đặt</Link>
             </li>
           </ul>
         </div>

@@ -7,6 +7,7 @@ import { getInjectedTeacherScript } from './teacher';
 import { getInjectedTranslatorScript } from './injectedTranslator';
 import { getInjectedAdBlockDarkScript } from './injectedAdBlockDark';
 import { getInjectedBridgeScript } from './injectedBridge';
+import { getEjoyDictionaryScript } from './highlighter/ejoyDictionary';
 
 export function createTranslateScript(useTypewriter: boolean = false): string {
   return `(function() {
@@ -26,5 +27,6 @@ export function createTranslateScript(useTypewriter: boolean = false): string {
     ${getInjectedTranslatorScript(useTypewriter)}
     ${getInjectedAdBlockDarkScript()}
     ${getInjectedBridgeScript()}
+    ${getEjoyDictionaryScript()}
   })();`;
 }

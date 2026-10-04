@@ -3,26 +3,36 @@ import { useState, useEffect, useCallback } from 'react';
 import { BrowserTab, BookmarkItem, HistoryItem } from './BrowserContext.types';
 import { cleanNovelTabTitle, executeTranslate } from './browserHelpers';
 
+import { getAccountItem, setAccountItem } from '../../utils/accountStorage';
+
 const INITIAL_TABS_KEY = 'tienhiep_browser_tabs';
 const BOOKMARKS_KEY = 'tienhiep_browser_bookmarks';
 const HISTORY_KEY = 'tienhiep_browser_history';
 
+const DEFAULT_TABS: BrowserTab[] = [
+  { id: 'tab-init-1', url: 'about:newtab', title: 'Tab mới', isLoading: false, canGoBack: false, canGoForward: false, isDesktopMode: true, isDirectMode: true }
+];
+
 export function useTabManager() {
   const [tabs, setTabs] = useState<BrowserTab[]>(() => {
     try {
-      const saved = localStorage.getItem(INITIAL_TABS_KEY);
-      if (saved) {
-        let parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsed = parsed.map(t => ({
+      const saved = getAccountItem<BrowserTab[]>(INITIAL_TABS_KEY, DEFAULT_TABS);
+      if (Array.isArray(saved) && saved.length > 0) {
+        return saved.map(t => {
+          let u = (t.url || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');
+          if (u.includes('localhost:3532') || u.includes('127.0.0.1:3532') || u.startsWith('http://localhost') || u === 'about:blank') {
+            u = 'about:newtab';
+          }
+          return {
             ...t,
-            url: (t.url || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/')
-          }));
-          return parsed;
-        }
+            url: u,
+            initialUrl: u,
+            title: u === 'about:newtab' ? 'Tab mới' : t.title
+          };
+        });
       }
     } catch (e) {}
-    return [{ id: 'tab-init-1', url: 'about:newtab', title: 'Tab mới', isLoading: false, canGoBack: false, canGoForward: false }];
+    return DEFAULT_TABS;
   });
 
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id || 'tab-init-1');
@@ -32,39 +42,51 @@ export function useTabManager() {
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
 
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(BOOKMARKS_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    return getAccountItem<BookmarkItem[]>(BOOKMARKS_KEY, []);
   });
 
   const [history, setHistory] = useState<HistoryItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(HISTORY_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    return getAccountItem<HistoryItem[]>(HISTORY_KEY, []);
   });
+
+  // Tự động nạp lại tabs, bookmarks và history khi chuyển đổi tài khoản (đăng nhập / đăng xuất)
+  const reloadAccountData = useCallback(() => {
+    const loadedTabs = getAccountItem<BrowserTab[]>(INITIAL_TABS_KEY, DEFAULT_TABS);
+    const validTabs = Array.isArray(loadedTabs) && loadedTabs.length > 0 ? loadedTabs : DEFAULT_TABS;
+    setTabs(validTabs);
+    setActiveTabId(validTabs[0]?.id || 'tab-init-1');
+    setBookmarks(getAccountItem<BookmarkItem[]>(BOOKMARKS_KEY, []));
+    setHistory(getAccountItem<HistoryItem[]>(HISTORY_KEY, []));
+  }, []);
+
+  useEffect(() => {
+    const onAuthChange = () => reloadAccountData();
+    window.addEventListener('sync-auth-event', onAuthChange);
+    return () => window.removeEventListener('sync-auth-event', onAuthChange);
+  }, [reloadAccountData]);
 
   useEffect(() => {
     try {
       const regularTabs = tabs.filter(t => !t.isPrivate);
-      localStorage.setItem(INITIAL_TABS_KEY, JSON.stringify(regularTabs));
+      setAccountItem(INITIAL_TABS_KEY, regularTabs);
     } catch (e) {}
   }, [tabs]);
 
   useEffect(() => {
-    try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks)); } catch (e) {}
+    setAccountItem(BOOKMARKS_KEY, bookmarks);
   }, [bookmarks]);
 
   useEffect(() => {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 500))); } catch (e) {}
+    setAccountItem(HISTORY_KEY, history.slice(0, 500));
   }, [history]);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
   useEffect(() => {
     if (activeTab) {
-      setUrlInput(activeTab.url === 'about:newtab' ? '' : (activeTab.url || ''));
+      const u = activeTab.url || '';
+      const isInternal = !u || u === 'about:newtab' || u.includes('localhost:3532') || u.includes('127.0.0.1:3532') || u.startsWith('chrome');
+      setUrlInput(isInternal ? '' : u);
     }
   }, [activeTabId, activeTab?.url]);
 
@@ -75,10 +97,12 @@ export function useTabManager() {
       url: initialUrl,
       initialUrl,
       title: initialUrl === 'about:newtab' ? (isPrivate ? 'Tab ẩn danh' : 'Tab mới') : 'Đang tải...',
-      isLoading: false,
+      isLoading: initialUrl !== 'about:newtab',
       canGoBack: false,
       canGoForward: false,
       isPrivate,
+      isDesktopMode: true,
+      isDirectMode: true,
       historyStack: [initialUrl],
       historyIndex: 0
     };
@@ -87,8 +111,21 @@ export function useTabManager() {
     return newId;
   }, []);
 
+  const toggleDesktopMode = useCallback((tabId?: string) => {
+    const targetId = tabId || activeTabId;
+    setTabs(prev => prev.map(t => t.id === targetId ? { ...t, isDesktopMode: t.isDesktopMode === false ? true : false } : t));
+  }, [activeTabId]);
+
+  const toggleDirectMode = useCallback((tabId?: string) => {
+    const targetId = tabId || activeTabId;
+    setTabs(prev => prev.map(t => t.id === targetId ? { ...t, isDirectMode: t.isDirectMode === false ? true : false } : t));
+  }, [activeTabId]);
+
   const openInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
-    const cleanUrl = targetUrl.replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');
+    let cleanUrl = (targetUrl || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051');
+    if (cleanUrl.includes('localhost:3532') || cleanUrl.includes('127.0.0.1:3532') || cleanUrl.startsWith('http://localhost/') || cleanUrl === 'http://localhost') {
+      cleanUrl = 'about:newtab';
+    }
     if (inNewTab || !activeTabId) {
       openNewTab(isPrivate, cleanUrl);
     } else {
@@ -101,6 +138,7 @@ export function useTabManager() {
           url: cleanUrl,
           initialUrl: cleanUrl,
           title: 'Đang tải...',
+          isLoading: true,
           historyStack: stack,
           historyIndex: newIdx,
           canGoBack: newIdx > 0,
@@ -181,6 +219,7 @@ export function useTabManager() {
     bookmarks, setBookmarks,
     history, setHistory,
     openNewTab, openInBrowser, closeTab, closeOtherTabs, closeAll,
-    addToHistory, addBookmark, removeBookmark, translateAllTabTitles
+    addToHistory, addBookmark, removeBookmark, translateAllTabTitles,
+    toggleDesktopMode, toggleDirectMode
   };
 }

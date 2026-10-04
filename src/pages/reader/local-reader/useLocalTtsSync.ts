@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { LocalBook } from './LocalReader.types';
 
 interface UseLocalTtsSyncProps {
@@ -6,17 +6,23 @@ interface UseLocalTtsSyncProps {
   activeChapterIdx: number;
   activeAudioObj: any;
   setActiveAudioObj: (obj: any) => void;
+  /** Nội dung đã qua dịch (truyền từ useLocalTranslate) */
+  translatedContent: string;
 }
 
 export function useLocalTtsSync({
   activeBook,
   activeChapterIdx,
   activeAudioObj,
-  setActiveAudioObj
+  setActiveAudioObj,
+  translatedContent
 }: UseLocalTtsSyncProps) {
   const [currentSpokenCharIdx, setCurrentSpokenCharIdx] = useState(-1);
   const [currentSpokenSentenceText, setCurrentSpokenSentenceText] = useState('');
   const [currentSpokenSentenceId, setCurrentSpokenSentenceId] = useState(-1);
+  // Ref để luôn dùng nội dung dịch mới nhất khi bắt đầu phát
+  const translatedContentRef = useRef(translatedContent);
+  translatedContentRef.current = translatedContent;
 
   const [autoScrollTts, setAutoScrollTts] = useState(() => {
     return localStorage.getItem('tts_auto_scroll') !== 'false';
@@ -95,13 +101,15 @@ export function useLocalTtsSync({
       setCurrentSpokenCharIdx(-1);
       setCurrentSpokenSentenceText('');
     } else {
+      // Ưu tiên dùng translatedContent (đã dịch), fallback raw nếu chưa dịch xong
+      const contentToPlay = translatedContentRef.current || currentChapter.content;
       setActiveAudioObj({
         title_vietphrase: currentChapter.title,
         author_hanviet: activeBook.author,
-        description: currentChapter.content,
+        description: contentToPlay,
         isChapter: true,
         startSentenceIdx: 0,
-        paragraphs: currentChapter.content.split(/\n+/),
+        paragraphs: contentToPlay.split(/\n+/),
         onBoundary: (charIdx: number, sentenceText: string, sentenceId: number) => {
           if (typeof charIdx === 'number') setCurrentSpokenCharIdx(charIdx);
           if (sentenceText) setCurrentSpokenSentenceText(sentenceText);
@@ -119,7 +127,9 @@ export function useLocalTtsSync({
     const currentChapter = activeBook.chapters[activeChapterIdx];
     if (!currentChapter) return;
 
-    const paragraphs = currentChapter.content.split(/\n+/);
+    // Dùng translated paragraphs để đếm câu trước đó cho đúng vị trí
+    const contentToPlay = translatedContentRef.current || currentChapter.content;
+    const paragraphs = contentToPlay.split(/\n+/);
     const validTextRegex = /\p{L}|\p{N}/u;
     let sentenceCountBefore = currentChapter.title ? 1 : 0;
     for (let pi = 0; pi < pIdx && pi < paragraphs.length; pi++) {
@@ -140,7 +150,7 @@ export function useLocalTtsSync({
     setActiveAudioObj({
       title_vietphrase: currentChapter.title,
       author_hanviet: activeBook.author,
-      description: currentChapter.content,
+      description: contentToPlay,
       isChapter: true,
       startSentenceIdx: sentenceCountBefore,
       startSnippet: text ? text.trim().slice(0, 40) : '',

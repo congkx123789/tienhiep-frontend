@@ -99,7 +99,7 @@ api.interceptors.request.use(async (config) => {
   }
 
   try {
-    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token') || localStorage.getItem('access_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

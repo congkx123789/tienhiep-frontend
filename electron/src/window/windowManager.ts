@@ -62,6 +62,14 @@ export function createWindow(): BrowserWindow {
     event.preventDefault();
   });
 
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    const targetUrl = details.url;
+    if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
+      mainWindow?.webContents.send('open-in-new-tab', targetUrl);
+    }
+    return { action: 'deny' };
+  });
+
   mainWindow.on('maximize', () => {
     mainWindow?.webContents.send('window-state-change', true);
   });

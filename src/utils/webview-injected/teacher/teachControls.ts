@@ -36,9 +36,17 @@ export function getTeachControlsScript(): string {
 
         floatingBadge.style.setProperty("display", "flex", "important");
         const chRect = crosshair.getBoundingClientRect();
-        let badgeTop = chRect.bottom + 12;
-        if (badgeTop + 55 > window.innerHeight) badgeTop = Math.max(50, chRect.top - 58);
-        let badgeLeft = Math.max(8, Math.min(window.innerWidth - 330, chRect.left + 34 - 150));
+        const badgeW = floatingBadge.offsetWidth || 280;
+        let badgeTop = chRect.bottom + 10;
+        if (badgeTop + 55 > window.innerHeight) {
+          badgeTop = Math.max(50, chRect.top - 55);
+        }
+        let badgeLeft;
+        if (window.innerWidth < 480) {
+          badgeLeft = Math.max(6, Math.round((window.innerWidth - Math.min(window.innerWidth - 12, badgeW)) / 2));
+        } else {
+          badgeLeft = Math.max(8, Math.min(window.innerWidth - badgeW - 8, chRect.left + 34 - Math.round(badgeW / 2)));
+        }
         floatingBadge.style.setProperty("top", badgeTop + "px", "important");
         floatingBadge.style.setProperty("left", badgeLeft + "px", "important");
       } else {
@@ -60,6 +68,27 @@ export function getTeachControlsScript(): string {
       if (rafLoopId) { cancelAnimationFrame(rafLoopId); rafLoopId = null; }
     };
 
+    let collectedRegions = [];
+    let currentHierarchy = null;
+
+    window.__TienHiepTeachState = {
+      getHierarchy: () => currentHierarchy,
+      getCollectedRegions: () => collectedRegions,
+      addCurrentRegion: () => {
+        if (!currentHierarchy) return false;
+        const reg = {
+          lcaSelector: currentHierarchy.lcaSelector,
+          chunkTag: currentHierarchy.chunkTag,
+          relativeDepth: currentHierarchy.relativeDepth,
+          count: currentHierarchy.count
+        };
+        const exists = collectedRegions.some(r => r.lcaSelector === reg.lcaSelector && r.chunkTag === reg.chunkTag);
+        if (!exists) collectedRegions.push(reg);
+        return true;
+      },
+      clearRegions: () => { collectedRegions = []; }
+    };
+
     const updateTargetUI = () => {
       if (!currentTarget) return;
       const getEl = (id) => document.getElementById(id);
@@ -70,9 +99,10 @@ export function getTeachControlsScript(): string {
       const els = {
         infoText: getEl("__teach_info_text"), confirmBtn: getEl("__confirm_teach_next"), readBtn: getEl("__read_from_here"),
         scopeToggleBtn: getEl("__scope_toggle_btn"), saveContentBtn: getEl("__save_content_area"), backToChunkBtn: getEl("__back_to_chunk"),
-        testNextBtn: getEl("__test_next_teach"), badgeTypeTag: getEl("__teach_badge_type_tag"), badgeName: getEl("__teach_badge_name"),
-        badgeSub: getEl("__teach_badge_sub"), badgePrevBtn: getEl("__teach_badge_prev"), badgeNextBtn: getEl("__teach_badge_next"),
-        badgeSaveBtn: getEl("__teach_badge_save"), badgeReadBtn: getEl("__teach_badge_read"), badgeScopeBtn: getEl("__teach_badge_scope")
+        testNextBtn: getEl("__test_next_teach"), addRegionBtn: getEl("__add_region_btn"), badgeAddRegionBtn: getEl("__teach_badge_add_region"),
+        badgeTypeTag: getEl("__teach_badge_type_tag"), badgeName: getEl("__teach_badge_name"), badgeSub: getEl("__teach_badge_sub"),
+        badgePrevBtn: getEl("__teach_badge_prev"), badgeNextBtn: getEl("__teach_badge_next"), badgeSaveBtn: getEl("__teach_badge_save"),
+        badgeReadBtn: getEl("__teach_badge_read"), badgeScopeBtn: getEl("__teach_badge_scope")
       };
 
       const setDisplay = (el, show, style = "inline-flex") => { if (el) el.style.setProperty("display", show ? style : "none", "important"); };
@@ -86,7 +116,7 @@ export function getTeachControlsScript(): string {
         if (els.badgeTypeTag) { els.badgeTypeTag.textContent = "NÚT CHUYỂN"; els.badgeTypeTag.style.background = "#10b981"; }
         if (els.infoText) els.infoText.innerHTML = '🎯 Đã nhắm nút: <b style="color:#fde047;">' + displayName + '</b>' + (hrefSnippet ? ' <span style="opacity:0.75;">' + hrefSnippet + '</span>' : '');
         [els.badgePrevBtn, els.badgeNextBtn, els.confirmBtn, els.badgeSaveBtn, els.testNextBtn].forEach(el => setDisplay(el, true));
-        [els.readBtn, els.scopeToggleBtn, els.saveContentBtn, els.backToChunkBtn, els.badgeReadBtn, els.badgeScopeBtn].forEach(el => setDisplay(el, false));
+        [els.readBtn, els.scopeToggleBtn, els.saveContentBtn, els.backToChunkBtn, els.badgeReadBtn, els.badgeScopeBtn, els.addRegionBtn, els.badgeAddRegionBtn].forEach(el => setDisplay(el, false));
         if (els.confirmBtn) els.confirmBtn.innerHTML = '✓ Lưu nút: ' + (textSnippet ? ('"' + textSnippet.slice(0, 10) + '"') : tag);
         if (els.badgeSaveBtn) { els.badgeSaveBtn.innerHTML = '✓ Lưu'; els.badgeSaveBtn.style.background = "#10b981"; }
         if (els.badgeName) els.badgeName.textContent = displayName;
@@ -109,33 +139,35 @@ export function getTeachControlsScript(): string {
         if (els.badgeScopeBtn) { els.badgeScopeBtn.innerHTML = '📄 1 Đoạn'; els.badgeScopeBtn.style.background = "rgba(255,255,255,0.2)"; }
         if (els.badgeSaveBtn) { els.badgeSaveBtn.innerHTML = '✓ Lưu vùng này'; els.badgeSaveBtn.style.background = "#10b981"; }
       } else {
-        let paraIdx = parseInt(currentTarget.getAttribute('data-tts-idx'));
-        let totalParas = document.querySelectorAll('[data-tts-idx]').length;
-        if (isNaN(paraIdx) || totalParas === 0) {
-          const allP = Array.from(document.querySelectorAll('p'));
-          paraIdx = allP.indexOf(currentTarget);
-          totalParas = allP.length;
-        }
-        const stepDisplay = (paraIdx >= 0) ? ('Đoạn ' + (paraIdx + 1)) : 'Đoạn văn';
-        const stepSub = (paraIdx >= 0 && totalParas > 0) ? ('Bước ' + (paraIdx + 1) + '/' + totalParas) : 'Đoạn đọc theo cây HTML';
+        currentHierarchy = analyzeChunkHierarchy(currentTarget);
+        const relDepth = currentHierarchy ? currentHierarchy.relativeDepth : 1;
+        const matchedCount = currentHierarchy ? currentHierarchy.count : 1;
+        const lcaSel = currentHierarchy ? currentHierarchy.lcaSelector : '';
 
-        if (els.badgeTypeTag) { els.badgeTypeTag.textContent = stepDisplay.toUpperCase(); els.badgeTypeTag.style.background = "#8b5cf6"; }
-        if (els.infoText) els.infoText.innerHTML = '🎯 <b>' + stepDisplay + ':</b> <span style="color:#c4b5fd;">\"' + textSnippet + '...\"</span>';
-        [els.badgePrevBtn, els.badgeNextBtn, els.readBtn, els.scopeToggleBtn, els.badgeReadBtn, els.badgeScopeBtn].forEach(el => setDisplay(el, true));
-        [els.confirmBtn, els.testNextBtn, els.saveContentBtn, els.backToChunkBtn, els.badgeSaveBtn].forEach(el => setDisplay(el, false));
+        if (els.badgeTypeTag) { els.badgeTypeTag.textContent = "BẬC " + relDepth; els.badgeTypeTag.style.background = "#8b5cf6"; }
+        if (els.badgeName) els.badgeName.textContent = matchedCount + " đoạn (" + (currentHierarchy ? currentHierarchy.chunkTag : tag) + ")";
+        if (els.badgeSub) els.badgeSub.textContent = (lcaSel ? (lcaSel + " • ") : '') + "Bậc DOM " + relDepth + (collectedRegions.length > 0 ? (" • Đã gộp " + collectedRegions.length + " vùng") : "");
+        if (els.infoText) els.infoText.innerHTML = '🎯 <b>Bậc ' + relDepth + ':</b> Tìm thấy <b style="color:#38bdf8;">' + matchedCount + ' đoạn văn</b> trong <span style="color:#fde047;">' + (lcaSel || 'khối truyện') + '</span>' + (collectedRegions.length > 0 ? ' <b style="color:#a7f3d0;">(Đã chọn ' + collectedRegions.length + ' vùng)</b>' : '');
+
+        [els.badgePrevBtn, els.badgeNextBtn, els.readBtn, els.scopeToggleBtn, els.badgeReadBtn, els.badgeScopeBtn, els.saveContentBtn, els.badgeSaveBtn, els.addRegionBtn, els.badgeAddRegionBtn].forEach(el => setDisplay(el, true));
+        [els.confirmBtn, els.testNextBtn, els.backToChunkBtn].forEach(el => setDisplay(el, false));
+
         if (els.readBtn) els.readBtn.innerHTML = '📖 Đọc từ đây';
         if (els.scopeToggleBtn) els.scopeToggleBtn.innerHTML = '📦 Cả vùng';
         if (els.badgeReadBtn) els.badgeReadBtn.innerHTML = '📖 Đọc';
         if (els.badgeScopeBtn) { els.badgeScopeBtn.innerHTML = '📦 Cả vùng'; els.badgeScopeBtn.style.background = "linear-gradient(135deg,#0ea5e9,#0284c7)"; }
-        if (els.badgeName) els.badgeName.textContent = textSnippet ? ('\"' + textSnippet + '...\"') : stepDisplay;
-        if (els.badgeSub) els.badgeSub.textContent = stepSub + ' • Bấm "📦 Cả vùng" để ôm trọn cả bài';
+
+        const totalParas = collectedRegions.reduce((sum, r) => sum + (r.count || 0), 0) + (collectedRegions.some(r => r.lcaSelector === lcaSel) ? 0 : matchedCount);
+        if (els.saveContentBtn) els.saveContentBtn.innerHTML = '✓ Lưu vùng đọc (' + totalParas + ' đoạn)';
+        if (els.addRegionBtn) els.addRegionBtn.innerHTML = '➕ Thêm vùng (' + collectedRegions.length + ')';
+        if (els.badgeSaveBtn) { els.badgeSaveBtn.innerHTML = '✓ Lưu'; els.badgeSaveBtn.style.background = "#10b981"; }
       }
     };
 
     const applyTargetScope = (newScope) => {
       currentScope = newScope;
       if (currentScope === 'container') {
-        const container = currentContainerTarget || (currentChunkTarget ? findContentContainer(currentChunkTarget) : null) || (currentTarget ? findContentContainer(currentTarget) : null);
+        const container = (currentHierarchy && currentHierarchy.lca) || currentContainerTarget || (currentChunkTarget ? findContentContainer(currentChunkTarget) : null) || (currentTarget ? findContentContainer(currentTarget) : null);
         if (container) { currentTarget = container; currentContainerTarget = container; }
       } else {
         const chunk = currentChunkTarget || (currentTarget ? (currentTarget.tagName === 'P' ? currentTarget : currentTarget.querySelector('p')) : null);

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Award, Coins } from 'lucide-react';
+import api from '../../../../services';
 
 interface TabWalletProps {
   user: any;
@@ -7,36 +8,85 @@ interface TabWalletProps {
 }
 
 export const TabWallet: React.FC<TabWalletProps> = ({ user, d }) => {
-  const [level] = useState({
-    name: user?.vip_status === 1 ? 'Trúc Cơ Kỳ (VIP)' : 'Luyện Khí Kỳ (Mortal)',
-    exp: 720,
+  const [readingStats, setReadingStats] = useState({ words_read: 0, reading_time: 0, books_read: 0 });
+  const [depositLogs, setDepositLogs] = useState<any[]>([]);
+  const [expenseLogs, setExpenseLogs] = useState<any[]>([]);
+  const [loadingTx, setLoadingTx] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchWalletData = async () => {
+      setLoadingTx(true);
+      try {
+        const [statsRes, ordersRes] = await Promise.allSettled([
+          api.get('/api/user/stats'),
+          api.get('/api/payment/orders/my'),
+        ]);
+
+        if (isMounted && statsRes.status === 'fulfilled' && statsRes.value?.data) {
+          setReadingStats(statsRes.value.data);
+        }
+
+        if (isMounted && ordersRes.status === 'fulfilled' && ordersRes.value?.data?.orders) {
+          const orders: any[] = ordersRes.value.data.orders;
+          const deposits = orders
+            .filter(o => o.status === 'completed' && (o.amount || 0) > 0)
+            .map(o => ({
+              id: o.order_id,
+              detail: o.note || `Nạp VIP Gói ${o.plan || ''}`,
+              amount: o.amount,
+              time: o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '',
+              status: 'success'
+            }));
+          const expenses = orders
+            .filter(o => (o.amount || 0) < 0)
+            .map(o => ({
+              id: o.order_id,
+              detail: o.note || `Chi phí dịch vụ ${o.plan || ''}`,
+              amount: o.amount,
+              time: o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '',
+              status: 'success'
+            }));
+          setDepositLogs(deposits);
+          setExpenseLogs(expenses);
+        }
+      } catch (err) {
+        console.error('Lỗi nạp dữ liệu ví & giao dịch:', err);
+      } finally {
+        if (isMounted) setLoadingTx(false);
+      }
+    };
+
+    fetchWalletData();
+    return () => { isMounted = false; };
+  }, [user?.id]);
+
+  const words = readingStats.words_read || 0;
+  const timeSec = readingStats.reading_time || 0;
+  const calculatedExp = Math.min(1000, Math.floor(words / 50 + timeSec / 60));
+
+  const level = {
+    name: user?.vip_status === 1 ? 'Trúc Cơ Kỳ (VIP)' : (calculatedExp > 500 ? 'Luyện Khí Viên Mãn' : 'Luyện Khí Kỳ (Mortal)'),
+    exp: calculatedExp,
     maxExp: 1000,
     rank: user?.vip_status === 1 ? 'Chân Nhân' : 'Tán Tu',
-  });
+  };
 
-  const [badges] = useState([
-    { id: 1, title: 'Tân Thủ', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25', icon: '🌱' },
-    { id: 2, title: 'VIP Độc Giả', color: 'bg-amber-500/10 text-amber-400 border-amber-500/25', icon: '👑', active: user?.vip_status === 1 },
-    { id: 3, title: 'Mọt Sách', color: 'bg-purple-500/10 text-purple-400 border-purple-500/25', icon: '📚' }
-  ]);
+  const badges = [
+    { id: 1, title: 'Tân Thủ', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25', icon: '🌱', active: true },
+    { id: 2, title: 'VIP Độc Giả', color: user?.vip_status === 1 ? 'bg-amber-500/10 text-amber-400 border-amber-500/25' : 'bg-slate-800/20 text-slate-500 border-slate-700/20 opacity-50', icon: '👑', active: user?.vip_status === 1 },
+    { id: 3, title: 'Mọt Sách', color: (readingStats.books_read >= 3 || timeSec >= 3600) ? 'bg-purple-500/10 text-purple-400 border-purple-500/25' : 'bg-slate-800/20 text-slate-500 border-slate-700/20 opacity-50', icon: '📚', active: (readingStats.books_read >= 3 || timeSec >= 3600) }
+  ];
 
-  const [wallet] = useState({
-    coins: 125000,
-    bonus: 2500,
-    tickets: 5,
-    votes: 3,
-    gifts: 2
-  });
+  const wallet = {
+    coins: Number(user?.api_balance || user?.balance || user?.coins || 0),
+    bonus: Number(user?.bonus || 0),
+    tickets: Number(user?.tickets || 0),
+    votes: Number(user?.votes || 0),
+    gifts: Number(user?.gifts || 0),
+  };
 
   const [txTab, setTxTab] = useState<'deposit' | 'expense'>('deposit');
-  const [depositLogs] = useState([
-    { id: 101, detail: 'Nạp qua MB Bank QR', amount: 50000, time: '2026-06-09 10:23', status: 'success' },
-    { id: 102, detail: 'Nạp qua PayOS cổng tự động', amount: 100000, time: '2026-06-05 14:02', status: 'success' }
-  ]);
-  const [expenseLogs] = useState([
-    { id: 201, detail: 'Đăng ký VIP Gói Tháng', amount: -50000, time: '2026-06-09 10:25', status: 'success' },
-    { id: 202, detail: 'Mua quà tặng Donate chương', amount: -15000, time: '2026-06-01 20:11', status: 'success' }
-  ]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -173,32 +223,54 @@ export const TabWallet: React.FC<TabWalletProps> = ({ user, d }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1f1f3a]/30">
-              {txTab === 'deposit' ? (
-                depositLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-white/[0.01]">
-                    <td className="py-2.5 font-semibold text-white">{log.detail}</td>
-                    <td className="py-2.5 text-emerald-400 font-bold">+{formatCurrency(log.amount)}</td>
-                    <td className="py-2.5 text-slate-500 font-mono">{log.time}</td>
-                    <td className="py-2.5 text-right">
-                      <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded text-[9px] font-black uppercase">
-                        Thành công
-                      </span>
+              {loadingTx ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-slate-500 text-xs">
+                    Đang tải dữ liệu giao dịch...
+                  </td>
+                </tr>
+              ) : txTab === 'deposit' ? (
+                depositLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-500 text-xs italic">
+                      Chưa có lịch sử nạp xu nào cho tài khoản này.
                     </td>
                   </tr>
-                ))
+                ) : (
+                  depositLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-white/[0.01]">
+                      <td className="py-2.5 font-semibold text-white">{log.detail}</td>
+                      <td className="py-2.5 text-emerald-400 font-bold">+{formatCurrency(log.amount)}</td>
+                      <td className="py-2.5 text-slate-500 font-mono">{log.time}</td>
+                      <td className="py-2.5 text-right">
+                        <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded text-[9px] font-black uppercase">
+                          Thành công
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )
               ) : (
-                expenseLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-white/[0.01]">
-                    <td className="py-2.5 font-semibold text-white">{log.detail}</td>
-                    <td className="py-2.5 text-red-400 font-bold">{log.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(log.amount))}</td>
-                    <td className="py-2.5 text-slate-500 font-mono">{log.time}</td>
-                    <td className="py-2.5 text-right">
-                      <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded text-[9px] font-black uppercase">
-                        Thành công
-                      </span>
+                expenseLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-500 text-xs italic">
+                      Chưa có lịch sử tiêu phí nào cho tài khoản này.
                     </td>
                   </tr>
-                ))
+                ) : (
+                  expenseLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-white/[0.01]">
+                      <td className="py-2.5 font-semibold text-white">{log.detail}</td>
+                      <td className="py-2.5 text-red-400 font-bold">{log.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(log.amount))}</td>
+                      <td className="py-2.5 text-slate-500 font-mono">{log.time}</td>
+                      <td className="py-2.5 text-right">
+                        <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded text-[9px] font-black uppercase">
+                          Thành công
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )
               )}
             </tbody>
           </table>

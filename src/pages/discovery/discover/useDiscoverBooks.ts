@@ -55,9 +55,23 @@ export function useDiscoverBooks(user: any, t: any) {
     }
   }, [user]);
 
+  const [recentComments, setRecentComments] = useState<any[]>([]);
+
+  const fetchRecentComments = async () => {
+    try {
+      const res = await api.get('/api/comments/recent?limit=8');
+      if (res.data?.comments) {
+        setRecentComments(res.data.comments);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
     loadBookshelf();
+    fetchRecentComments();
   }, [loadBookshelf]);
 
   const fetchBooks = useCallback(async (overrideParams: any = {}) => {
@@ -80,13 +94,15 @@ export function useDiscoverBooks(user: any, t: any) {
       setTotalPages(res.data?.pages || 1);
       setTotal(res.data?.total || 0);
 
-      if (res.data?.books && page === 1 && !category && !source && !q) {
-        setLeaderboard([
-          { id: 1, title: 'Hắc Ám Văn Minh', author: 'Cổ Hi', trend: 'up', diff: 1 },
-          { id: 2, title: 'Hộc ẩm chúa tể', author: 'Linh Hạ Cửu Thập Độ', trend: 'up', diff: 2 },
-          { id: 3, title: '10 Lần Thôn Tương', author: 'Luân Hồi Thiên Trọng', trend: 'down', diff: 1 },
-          { id: 4, title: 'Mộ Ngôn', author: 'Nguôn', trend: 'none', diff: 0 }
-        ]);
+      if (res.data?.books && res.data.books.length > 0 && page === 1 && !category && !source && !q) {
+        const topBooks = res.data.books.slice(0, 5).map((b: any, idx: number) => ({
+          id: b.id,
+          title: b.title_vietphrase || b.title,
+          author: b.author_hanviet || b.author,
+          trend: idx === 0 ? 'up' : idx === 1 ? 'up' : idx === 2 ? 'down' : 'none',
+          diff: idx === 0 ? 1 : idx === 1 ? 2 : idx === 2 ? 1 : 0
+        }));
+        setLeaderboard(topBooks);
       }
     } catch (err: any) {
       setError(err.response?.data?.error || t.connError);
@@ -218,6 +234,7 @@ export function useDiscoverBooks(user: any, t: any) {
     compLoading,
     bookshelfIds,
     leaderboard,
+    recentComments,
     fetchBooks,
     handleToggleFav,
     handleCompare,

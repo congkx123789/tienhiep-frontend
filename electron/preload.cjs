@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electron', {
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
   isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  moveWindow: (deltaX, deltaY) => ipcRenderer.send('window-move', { deltaX, deltaY }),
   onWindowStateChange: (callback) => {
     const subscription = (event, val) => callback(val);
     ipcRenderer.on('window-state-change', subscription);
@@ -69,5 +70,10 @@ contextBridge.exposeInMainWorld('electron', {
     const subscription = () => callback();
     ipcRenderer.on('active-tab-reload', subscription);
     return () => ipcRenderer.off('active-tab-reload', subscription);
+  },
+  onOpenInNewTab: (callback) => {
+    const subscription = (event, url) => callback(url);
+    ipcRenderer.on('open-in-new-tab', subscription);
+    return () => ipcRenderer.off('open-in-new-tab', subscription);
   }
 });

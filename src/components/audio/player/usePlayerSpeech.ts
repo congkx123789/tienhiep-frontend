@@ -1,32 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../../services';
 import { AudioPlayerBook } from './AudioPlayer.types';
-import { getLocalTtsHost, isSpeechSynthesisAvailable, logTrace, ensureLocalEngineRunning, fetchAudioBlob, splitAndMergeSentences } from './ttsEngineHelper';
+import { fetchAudioBlob, splitAndMergeSentences } from './ttsEngineHelper';
+import { useSpeechSettings } from './useSpeechSettings';
 
 export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: () => void) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const [ttsEngine, setTtsEngine] = useState(() => {
-    const saved = localStorage.getItem('local_tts_engine');
-    if (saved === 'browser' && !isSpeechSynthesisAvailable()) return 'local';
-    return saved || 'local';
-  });
-
-  const [matchaApiKey, setMatchaApiKey] = useState(() => localStorage.getItem('local_tts_api_key') || '');
-  const [matchaVoice, setMatchaVoice] = useState(() => localStorage.getItem('local_tts_voice') || 'the_gioi_hoan_my');
-  const [rate, setRate] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('translationSettings') || '{}').audioSpeed || 1.5; } catch { return 1.5; }
-  });
-  const [pitch] = useState(1.0);
-  const [volume, setVolume] = useState(() => {
-    try { const v = localStorage.getItem('tts_player_volume'); return v !== null ? parseFloat(v) : 1.0; } catch { return 1.0; }
-  });
-  const volumeRef = useRef(volume);
-  volumeRef.current = volume;
-  const [voices, setVoices] = useState<any[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState('');
+  const {
+    ttsEngine, matchaApiKey, matchaVoice,
+    rate, rateRef, volume, volumeRef,
+    voices, selectedVoiceName, setSelectedVoiceName,
+    handleSaveEngine, handleSaveVoice, handleSaveApiKey,
+    handleSaveRate, handleVolumeChange
+  } = useSpeechSettings();
 
   const synthRef = useRef<any>(typeof window !== 'undefined' ? window.speechSynthesis : null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -36,8 +25,6 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
   const prefetchQueueRef = useRef(new Set<number>());
   const playSessionIdRef = useRef(0);
   const triggeredIndicesRef = useRef(new Set<number>());
-  const rateRef = useRef(rate);
-  rateRef.current = rate;
   const userPausedRef = useRef(false);
   const lastPlaybackProgressTimeRef = useRef(Date.now());
   const lastPlaybackPositionRef = useRef(0);
@@ -87,13 +74,27 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     const finalSentences = splitAndMergeSentences(rawContent);
     sentencesRef.current = finalSentences.length > 0 ? finalSentences : [rawContent.trim()];
     userPausedRef.current = false;
-    const startIdx = Math.max(0, Math.min(book.startSentenceIdx || 0, sentencesRef.current.length - 1));
+
+    let startIdx = 0;
+    const snippet = (book.startSnippet || (book as any).startParagraphSnippet || '').trim();
+    if (snippet && snippet.length >= 4) {
+      const cleanSnip = snippet.replace(/^[“"'\s«『「]+|[”"'\s»』」]+$/gu, '').slice(0, 30).toLowerCase();
+      const foundIdx = sentencesRef.current.findIndex(s => s.toLowerCase().includes(cleanSnip));
+      if (foundIdx !== -1) {
+        startIdx = foundIdx;
+      } else {
+        startIdx = Math.max(0, Math.min(book.startSentenceIdx || 0, sentencesRef.current.length - 1));
+      }
+    } else {
+      startIdx = Math.max(0, Math.min(book.startSentenceIdx || 0, sentencesRef.current.length - 1));
+    }
+
     currentSentenceIdxRef.current = startIdx;
     playSessionIdRef.current += 1;
     triggeredIndicesRef.current.clear();
     playSentence(startIdx, playSessionIdRef.current);
     return () => clearAudioAndCache();
-  }, [book?.title, (book as any)?.currentChapterTitle, (book as any)?.currentChapterContent, book?.description]);
+  }, [book?.title, (book as any)?.currentChapterTitle, (book as any)?.currentChapterContent, book?.description, book?.startSentenceIdx, book?.startSnippet]);
 
   const fetchMatchaAudio = async (idx: number, targetSessionId: number | null = null): Promise<HTMLAudioElement | null> => {
     const expectedSession = targetSessionId !== null ? targetSessionId : playSessionIdRef.current;
@@ -192,8 +193,6 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     audio.ontimeupdate = () => {
       lastPlaybackPositionRef.current = audio.currentTime;
       lastPlaybackProgressTimeRef.current = Date.now();
-      // Kích hoạt phát câu tiếp theo sớm ~60ms trước khi audio kết thúc
-      // loại bỏ hoàn toàn khoảng lặng (audio gap) giữa các chunk khi trình duyệt chuyển Audio object
       if (audio.duration && audio.duration > 0.3 && (audio.duration - audio.currentTime) <= 0.06) {
         triggerNext(idx);
       }
@@ -261,23 +260,9 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     togglePlay, stopSpeaking, seekToSentence,
     skipForward: () => seekToSentence(currentSentenceIdxRef.current + 1),
     skipBackward: () => seekToSentence(currentSentenceIdxRef.current - 1),
-    handleSaveEngine: (e: string) => { setTtsEngine(e); localStorage.setItem('local_tts_engine', e); },
-    handleSaveVoice: (v: string) => { setMatchaVoice(v); localStorage.setItem('local_tts_voice', v); },
-    handleSaveApiKey: (k: string) => { setMatchaApiKey(k); localStorage.setItem('local_tts_api_key', k); },
-    setSelectedVoiceName,
-    handleSaveRate: (r: number) => {
-      setRate(r);
-      try {
-        const stored = JSON.parse(localStorage.getItem('translationSettings') || '{}');
-        stored.audioSpeed = r;
-        localStorage.setItem('translationSettings', JSON.stringify(stored));
-      } catch {}
-    },
-    handleVolumeChange: (vol: number) => {
-      setVolume(vol); volumeRef.current = vol;
-      localStorage.setItem('tts_player_volume', String(vol));
-      if (audioRef.current) audioRef.current.volume = vol;
-    },
+    handleSaveEngine, handleSaveVoice, handleSaveApiKey,
+    setSelectedVoiceName, handleSaveRate,
+    handleVolumeChange: (vol: number) => handleVolumeChange(vol, audioRef.current),
     handleSeekBarClick: (e: React.MouseEvent<HTMLDivElement>) => {
       const r = e.currentTarget.getBoundingClientRect();
       seekToSentence(Math.floor(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (sentencesRef.current?.length || 1)));

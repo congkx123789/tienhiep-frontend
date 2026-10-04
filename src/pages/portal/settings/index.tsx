@@ -44,7 +44,7 @@ export default function Settings() {
       try {
         const parsed = JSON.parse(stored);
         setTranslationSettings(prev => ({ ...prev, ...parsed }));
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -153,7 +153,7 @@ export default function Settings() {
   return (
     <MainLayout>
       <div className="max-w-6xl mx-auto space-y-6 pb-20">
-        <SettingsHeader 
+        <SettingsHeader
           title={t.settings?.title}
           mustChangePassword={mustChangePassword}
           mustChangePassTitle={t.settings?.mustChangePassTitle}
@@ -161,7 +161,7 @@ export default function Settings() {
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <SettingsSidebar 
+          <SettingsSidebar
             user={user}
             displayName={user.display_name || user.username}
             level={{ name: user?.vip_status === 1 ? 'Trúc Cơ Kỳ (VIP)' : 'Luyện Khí Kỳ (Mortal)' }}
@@ -181,7 +181,7 @@ export default function Settings() {
             {activeTab === 'wallet' && <TabWallet user={user} d={d} />}
             {activeTab === 'stats' && <TabStats user={user} />}
             {activeTab === 'desktop' && (
-              <TabDesktop 
+              <TabDesktop
                 downloadFolder={downloadFolder}
                 setDownloadFolder={setDownloadFolder}
                 isCapacitor={isCapacitor}
@@ -190,7 +190,7 @@ export default function Settings() {
               />
             )}
             {activeTab === 'tts_models' && (
-              <TabTtsModels 
+              <TabTtsModels
                 isElectron={isElectron}
                 downloadFolder={downloadFolder}
                 isCapacitor={isCapacitor}
@@ -198,7 +198,7 @@ export default function Settings() {
                 onPingServer={handlePingServer}
                 localModels={localModels}
                 downloadProgress={downloadProgress}
-                onDownloadModel={(modelId, url) => {}}
+                onDownloadModel={(modelId, url) => { }}
                 onDeleteModel={(filename) => setDeleteModal({ open: true, filename })}
                 ttsDevice={ttsDevice}
                 onDeviceChange={setTtsDevice}
@@ -208,7 +208,7 @@ export default function Settings() {
               />
             )}
             {activeTab === 'ai_translation' && (
-              <TabAiTranslation 
+              <TabAiTranslation
                 translationSettings={translationSettings}
                 updateTranslationSetting={updateTranslationSetting}
               />
@@ -242,8 +242,8 @@ export default function Settings() {
               </div>
             )}
             <div className="flex gap-3">
-              <button 
-                onClick={() => setShowUpdateModal(false)} 
+              <button
+                onClick={() => setShowUpdateModal(false)}
                 className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-bold hover:bg-white/10 transition-colors"
               >
                 {lang === 'vi' ? 'Đóng' : 'Close'}

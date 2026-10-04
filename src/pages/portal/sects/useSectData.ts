@@ -181,6 +181,37 @@ export function useSectData(activeSubTab: string) {
     }
   };
 
+  const handleShareBook = async (bookId: any) => {
+    setActionLoading(true);
+    try {
+      const res = await api.post('/api/sects/library/add', { book_id: Number(bookId) });
+      if (res.data?.success) {
+        showSuccess(res.data.message || "Đã đóng góp sách vào Tàng Kinh Các");
+        await fetchSectLibrary();
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Không thể đóng góp sách");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveBook = async (bookId: number, title: string) => {
+    if (!window.confirm(`Bạn có chắc muốn gỡ bỏ [${title || 'sách'}] khỏi Tàng Kinh Các?`)) return;
+    setActionLoading(true);
+    try {
+      const res = await api.post('/api/sects/library/remove', { book_id: Number(bookId) });
+      if (res.data?.success) {
+        showSuccess(res.data.message || "Đã gỡ sách khỏi Tàng Kinh Các");
+        await fetchSectLibrary();
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Không thể gỡ sách");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return {
     inSect,
     mySectData,
@@ -212,6 +243,8 @@ export function useSectData(activeSubTab: string) {
     handleJoinSect,
     handleLeaveSect,
     handleContribute,
+    handleShareBook,
+    handleRemoveBook,
     fetchSectLibrary,
     fetchUserBookshelf,
     showSuccess,

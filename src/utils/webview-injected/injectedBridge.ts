@@ -74,7 +74,8 @@ export function getInjectedBridgeScript(): string {
               type: 'AUDIO_TEXT_RES',
               tabId: window.__TIENHIEP_TAB_ID__,
               title: res.title,
-              text: res.text
+              text: res.text,
+              initialParaIdx: typeof data.initialParaIdx === 'number' ? data.initialParaIdx : 0
             }, '*');
           }
         } else if (action === 'TRANSLATE_RES' || action === 'translate_res') {
@@ -88,8 +89,15 @@ export function getInjectedBridgeScript(): string {
           }
         } else if (action === 'FORCE_TRANSLATE') {
           window.__autoTranslateEnabled = true;
-          if (typeof window.__collectAndTranslateNodes === 'function') {
+          if (typeof window.__forceTranslateAll === 'function') {
+            window.__forceTranslateAll();
+          } else if (typeof window.__collectAndTranslateNodes === 'function') {
             window.__collectAndTranslateNodes(document.body || document.documentElement);
+          }
+        } else if (action === 'REVERT_ORIGINAL') {
+          window.__autoTranslateEnabled = false;
+          if (typeof window.__revertToOriginal === 'function') {
+            window.__revertToOriginal();
           }
         } else if (action === 'TOGGLE_DARK_MODE') {
           window.__tienhiepDarkMode = !!data.enabled;

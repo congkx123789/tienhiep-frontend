@@ -6,6 +6,7 @@ import { useBrowser } from '../../../contexts/BrowserContext';
 import { useUsageTracker } from '../../../hooks/useUsageTracker';
 import { useLocalBooks } from './useLocalBooks';
 import { useLocalTtsSync } from './useLocalTtsSync';
+import { useLocalTranslate } from './useLocalTranslate';
 import { LocalBookShelf } from './components/LocalBookShelf';
 import { LocalReadingView } from './components/LocalReadingView';
 import { LocalImportModal } from './components/LocalImportModal';
@@ -41,6 +42,23 @@ export default function LocalReader() {
     loadBooks
   } = useLocalBooks(lang);
 
+  React.useEffect(() => {
+    const handleLocalChap = (e: any) => {
+      const detail = e.detail;
+      if (detail && activeBook && String(detail.bookId) === String(activeBook.id)) {
+        if (typeof detail.chapterIdx === 'number' && detail.chapterIdx !== activeChapterIdx) {
+          setActiveChapterIdx(detail.chapterIdx);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    };
+    window.addEventListener('local-chapter-changed', handleLocalChap);
+    return () => window.removeEventListener('local-chapter-changed', handleLocalChap);
+  }, [activeBook, activeChapterIdx, setActiveChapterIdx]);
+
+  const { translateMode, setTranslateMode, translatedContent, isTranslating, translateProgress, updateParagraph } =
+    useLocalTranslate(activeBook, activeChapterIdx);
+
   const {
     autoScrollTts,
     handleToggleAutoScroll,
@@ -54,7 +72,8 @@ export default function LocalReader() {
     activeBook,
     activeChapterIdx,
     activeAudioObj,
-    setActiveAudioObj
+    setActiveAudioObj,
+    translatedContent
   });
 
   const handlePrevChapter = () => {
@@ -102,6 +121,11 @@ export default function LocalReader() {
           autoScrollTts={autoScrollTts}
           audioSpeed={audioSpeed}
           readingTime={readingTime}
+          translatedContent={translatedContent}
+          isTranslating={isTranslating}
+          translateMode={translateMode}
+          translateProgress={translateProgress}
+          onChangeTranslateMode={setTranslateMode}
           onBackToShelf={() => setActiveBook(null)}
           onOpenToc={() => setShowToc(true)}
           onOpenSettings={() => {}}
@@ -110,6 +134,7 @@ export default function LocalReader() {
           onPrevChapter={handlePrevChapter}
           onNextChapter={handleNextChapter}
           onParagraphDoubleClick={handleParagraphDoubleClick}
+          onSaveParagraphEdit={updateParagraph}
         />
       )}
 

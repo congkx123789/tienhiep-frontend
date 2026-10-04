@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface ReaderContentProps {
   content: string;
@@ -8,7 +8,9 @@ interface ReaderContentProps {
   lineHeight: string;
   isCurrentChapterPlaying: boolean;
   currentSpokenSentenceId: number;
+  onParagraphClick?: (e: React.MouseEvent | { clientX: number; clientY: number }, pIdx: number, text: string) => void;
   onParagraphDoubleClick?: (pIdx: number, text: string) => void;
+  onTextSelect?: (selectedText: string, pIdx: number, x: number, y: number) => void;
 }
 
 export const ReaderContent: React.FC<ReaderContentProps> = ({
@@ -19,8 +21,12 @@ export const ReaderContent: React.FC<ReaderContentProps> = ({
   lineHeight,
   isCurrentChapterPlaying,
   currentSpokenSentenceId,
-  onParagraphDoubleClick
+  onParagraphClick,
+  onParagraphDoubleClick,
+  onTextSelect
 }) => {
+  const pointerDownPos = useRef<{ x: number; y: number; time: number } | null>(null);
+
   const getFontClass = () => {
     if (fontFamily === 'serif') return 'font-serif';
     if (fontFamily === 'mono') return 'font-mono';
@@ -31,6 +37,34 @@ export const ReaderContent: React.FC<ReaderContentProps> = ({
     if (lineHeight === 'loose') return 'leading-loose';
     if (lineHeight === 'relaxed') return 'leading-relaxed';
     return 'leading-normal';
+  };
+
+  // Hỗ trợ cả ấn chuột / nhả chuột và chạm cảm ứng điện thoại
+  const handlePointerDown = (e: React.PointerEvent) => {
+    pointerDownPos.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent, pIdx: number, trimmed: string) => {
+    const sel = window.getSelection();
+    const selText = sel ? sel.toString().trim() : '';
+
+    // Nếu người dùng bôi đen văn bản, bắt tọa độ và mở đối chiếu cặp từ ngay tại chỗ
+    if (selText.length > 0 && selText.length <= 100 && sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      pointerDownPos.current = null;
+      onTextSelect?.(selText, pIdx, rect.left + rect.width / 2, rect.top);
+      return;
+    }
+
+    if (!pointerDownPos.current) return;
+    const dx = Math.abs(e.clientX - pointerDownPos.current.x);
+    const dy = Math.abs(e.clientY - pointerDownPos.current.y);
+    pointerDownPos.current = null;
+
+    if (dx > 10 || dy > 10) return;
+
+    onParagraphClick?.(e, pIdx, trimmed);
   };
 
   const renderParagraphs = () => {
@@ -56,10 +90,16 @@ export const ReaderContent: React.FC<ReaderContentProps> = ({
       return (
         <p
           key={pIdx}
-          className={`mb-6 select-text ${getFontClass()} ${getLineHeightClass()}`}
+          className={`mb-6 select-text cursor-pointer rounded-xl px-2 py-1 transition-colors duration-150 hover:bg-purple-500/10 active:bg-purple-500/20 ${getFontClass()} ${getLineHeightClass()}`}
           data-para-idx={pIdx}
-          onDoubleClick={() => onParagraphDoubleClick?.(pIdx, trimmed)}
+          onPointerDown={handlePointerDown}
+          onPointerUp={(e) => handlePointerUp(e, pIdx, trimmed)}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onParagraphDoubleClick?.(pIdx, trimmed);
+          }}
           style={{ fontSize: `${fontSize}px` }}
+          title="Click / Chạm để mở menu chọn đoạn • Double-click để phát Audio ngay"
         >
           {sList.map((st) => {
             const thisId = sCounter++;
@@ -93,3 +133,4 @@ export const ReaderContent: React.FC<ReaderContentProps> = ({
     </div>
   );
 };
+

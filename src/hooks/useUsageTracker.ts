@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import api from '../services';
 import { useAuth } from '../contexts/AuthContext';
+import { getAccountItem, setAccountItem, removeAccountItem } from '../utils/accountStorage';
 
 export function useUsageTracker(source = 'web', action = 'read') {
   const { user } = useAuth();
@@ -35,13 +36,12 @@ export function useUsageTracker(source = 'web', action = 'read') {
               activeSeconds.current = 0;
             })
             .catch(err => {
-              // If failed or offline, we buffer the log in localStorage to sync later!
-              const offlineQueue = JSON.parse(localStorage.getItem('pending_usage_logs') || '[]');
+              const offlineQueue = getAccountItem<any[]>('pending_usage_logs', []);
               offlineQueue.push({
                 ...payload,
                 timestamp: new Date().toISOString()
               });
-              localStorage.setItem('pending_usage_logs', JSON.stringify(offlineQueue));
+              setAccountItem('pending_usage_logs', offlineQueue);
               activeSeconds.current = 0;
             });
         }
@@ -51,12 +51,12 @@ export function useUsageTracker(source = 'web', action = 'read') {
     // Sync any queued offline logs when browser goes online
     const handleOnline = () => {
       if (!userRef.current) return;
-      const offlineQueue = JSON.parse(localStorage.getItem('pending_usage_logs') || '[]');
+      const offlineQueue = getAccountItem<any[]>('pending_usage_logs', []);
       if (offlineQueue.length > 0) {
         Promise.all(offlineQueue.map(log => 
           api.post('/api/user/track', log)
         )).then(() => {
-          localStorage.removeItem('pending_usage_logs');
+          removeAccountItem('pending_usage_logs');
         }).catch(err => console.error('Failed to sync offline usage logs:', err));
       }
     };

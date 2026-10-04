@@ -40,14 +40,23 @@ export function getInjectedExtractorScript(): string {
       const apexHost = host.replace(/^www\\./, '');
       let mainEl = null;
 
-      // 0. Ưu tiên cao nhất: Selector vùng đọc do người dùng chỉ định
+      // 0. Ưu tiên cao nhất: Smart Content Rule theo Bậc DOM và Đa Vùng đã học
       try {
-        const savedSel = localStorage.getItem('__tienhiep_content_selector_' + host) ||
-                         localStorage.getItem('__tienhiep_content_selector_' + apexHost);
-        if (savedSel) {
-          const el = document.querySelector(savedSel);
-          if (el && (el.innerText || "").trim().length > 35) {
-            mainEl = el;
+        const smartRuleRaw = localStorage.getItem('__tienhiep_smart_content_rule_' + host) ||
+                             localStorage.getItem('__tienhiep_smart_content_rule_' + apexHost);
+        if (smartRuleRaw) {
+          const rule = JSON.parse(smartRuleRaw);
+          if (rule && Array.isArray(rule.regions) && rule.regions.length > 0) {
+            const firstLca = document.querySelector(rule.regions[0].lcaSelector);
+            if (firstLca && (firstLca.innerText || "").trim().length > 30) mainEl = firstLca;
+          }
+        }
+        if (!mainEl) {
+          const savedSel = localStorage.getItem('__tienhiep_content_selector_' + host) ||
+                           localStorage.getItem('__tienhiep_content_selector_' + apexHost);
+          if (savedSel) {
+            const el = document.querySelector(savedSel);
+            if (el && (el.innerText || "").trim().length > 35) mainEl = el;
           }
         }
       } catch(e) {}
@@ -188,11 +197,30 @@ export function getInjectedExtractorScript(): string {
       const isNav = /^(chương trước|chương sau|trở lại|danh sách|mục lục|trang trước|trang sau|上一章|下一章|回目录)$/i;
       const hasWord = /[a-zA-Z0-9\\u4e00-\\u9fa5\\u00C0-\\u1EF9]/;
 
-      const rawLines = (clone.textContent || "").split(new RegExp('[\\\\r\\\\n]+'));
-      rawLines.forEach(line => {
-        const txt = line.trim();
-        if (txt && hasWord.test(txt) && !isNav.test(txt)) paragraphs.push(txt);
-      });
+      // 0. ƯU TIÊN TUYỆT ĐỐI: Trích xuất trực tiếp theo thứ tự các đoạn đã gán [data-tts-idx]
+      // Đảm bảo 100% đoạn thứ pIdx khi click chuột trùng khớp hoàn hảo với đoạn pIdx mà TTS đọc
+      const indexedList = Array.from(document.querySelectorAll('[data-tts-idx]'));
+      if (indexedList.length > 0) {
+        indexedList.sort((a, b) => {
+          const ia = parseInt(a.getAttribute('data-tts-idx') || '0', 10);
+          const ib = parseInt(b.getAttribute('data-tts-idx') || '0', 10);
+          return ia - ib;
+        });
+        indexedList.forEach(el => {
+          const txt = (el.innerText || el.textContent || "").trim();
+          if (txt && hasWord.test(txt) && !isNav.test(txt)) {
+            paragraphs.push(txt);
+          }
+        });
+      }
+
+      if (paragraphs.length === 0) {
+        const rawLines = (clone.textContent || "").split(new RegExp('[\\\\r\\\\n]+'));
+        rawLines.forEach(line => {
+          const txt = line.trim();
+          if (txt && hasWord.test(txt) && !isNav.test(txt)) paragraphs.push(txt);
+        });
+      }
 
       if (paragraphs.length === 0) {
         const pTags = clone.querySelectorAll("p");

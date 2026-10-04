@@ -7,6 +7,9 @@ import { useLang } from '../../../contexts/LangContext';
 import { useBrowser } from '../../../contexts/BrowserContext';
 import { useUsageTracker } from '../../../hooks/useUsageTracker';
 import { Loader } from 'lucide-react';
+import { CircularProgress } from '../../../components/common/CircularProgress';
+import Footer from '../../../components/common/Footer';
+import { ParagraphContextMenu, ParagraphMenuState } from '../local-reader/components/ParagraphContextMenu';
 import { useReaderChapter } from './useReaderChapter';
 import { useReaderTtsSync } from './useReaderTtsSync';
 import { ReaderSourcesBar } from './components/ReaderSourcesBar';
@@ -29,8 +32,11 @@ export default function Reader() {
     chapterTitle,
     chaptersList,
     content,
+    rawContent,
+    setContent,
     loading,
     translating,
+    loadingProgress,
     bookDetails
   } = useReaderChapter({
     bookId,
@@ -40,6 +46,22 @@ export default function Reader() {
     activeAudioObj,
     setActiveAudioObj
   });
+
+  React.useEffect(() => {
+    const handleChapterChanged = (e: any) => {
+      const detail = e.detail;
+      if (detail && String(detail.bookId) === String(bookId) && detail.chapterIdx) {
+        if (String(detail.chapterIdx) !== String(chapterIdx)) {
+          navigate(`/book/${bookId}/read/${detail.chapterIdx}`, { replace: true });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    };
+    window.addEventListener('global-chapter-changed', handleChapterChanged);
+    return () => window.removeEventListener('global-chapter-changed', handleChapterChanged);
+  }, [bookId, chapterIdx, navigate]);
+
+  const [paragraphMenu, setParagraphMenu] = React.useState<ParagraphMenuState | null>(null);
 
   const {
     autoScrollTts,
@@ -123,14 +145,54 @@ export default function Reader() {
     });
   };
 
+  const rawParagraphs = useMemo(() => {
+    return rawContent ? rawContent.split(/\n+/).map(p => p.trim()).filter(Boolean) : [];
+  }, [rawContent]);
+
+  const handleParagraphClick = (
+    e: React.MouseEvent | { clientX: number; clientY: number },
+    pIdx: number,
+    translatedText: string
+  ) => {
+    const rawText = rawParagraphs[pIdx] || translatedText;
+    setParagraphMenu({
+      pIdx,
+      translatedText,
+      rawText,
+      x: e.clientX,
+      y: e.clientY
+    });
+  };
+
+  const handleSaveParagraphEdit = (pIdx: number, newText: string) => {
+    const paragraphs = content.split(/\n+/);
+    if (paragraphs[pIdx] !== undefined) {
+      paragraphs[pIdx] = newText;
+      setContent(paragraphs.join('\n\n'));
+    }
+  };
+
   const readingTime = getReadingTime();
   const currChap = parseInt(chapterIdx || '1');
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0b0b14] flex flex-col items-center justify-center text-slate-500">
-        <Loader className="w-8 h-8 animate-spin text-brand-500 mb-3" />
-        <span>{t.reader?.loadingChapter || "Đang tải chương truyện..."}</span>
+      <div className="min-h-screen bg-[#0b0b14] flex flex-col items-center justify-center p-6 text-slate-300">
+        <div className="p-8 rounded-3xl bg-[#12122b]/80 border border-purple-500/20 shadow-2xl backdrop-blur-xl flex flex-col items-center max-w-sm w-full">
+          <CircularProgress
+            progress={loadingProgress}
+            size={96}
+            strokeWidth={7}
+            subtitle={translating ? "Đang dịch AI chương truyện..." : (t.reader?.loadingChapter || "Đang tải chương truyện...")}
+            detail={bookTitle ? `${bookTitle} • Chương ${currChap}` : undefined}
+            gradientStart="#818cf8"
+            gradientEnd="#c084fc"
+          />
+          <div className="mt-4 flex items-center gap-2 text-xs text-purple-300 font-medium">
+            <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+            <span>{translating ? "Đang xử lý phân đoạn câu & từ điển..." : "Đang kết nối máy chủ dữ liệu..."}</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -144,7 +206,7 @@ export default function Reader() {
       chaptersList={chaptersList}
       onSelectChapter={(chap: any) => navigate(`/book/${bookId}/read/${chap.url_idx}`)}
     >
-      <div className="space-y-8">
+      <div className="space-y-8 relative">
         <ReaderSourcesBar
           allSourcesToRender={allSourcesToRender}
           isCurrentChapterPlaying={isCurrentChapterPlaying}
@@ -163,9 +225,8 @@ export default function Reader() {
         <h2
           id="s-0"
           data-sid="0"
-          className={`text-xl md:text-2xl font-black mb-2 border-b border-slate-500/10 pb-4 text-center transition-all duration-300 ${
-            isPlayingTitle ? 'text-amber-400 bg-amber-500/15 py-1.5 px-4 rounded-xl shadow-lg ring-1 ring-amber-400/40' : ''
-          }`}
+          className={`text-xl md:text-2xl font-black mb-2 border-b border-slate-500/10 pb-4 text-center transition-all duration-300 ${isPlayingTitle ? 'text-amber-400 bg-amber-500/15 py-1.5 px-4 rounded-xl shadow-lg ring-1 ring-amber-400/40' : ''
+            }`}
         >
           {chapterTitle}
         </h2>
@@ -192,14 +253,30 @@ export default function Reader() {
           lineHeight={lineHeight}
           isCurrentChapterPlaying={isCurrentChapterPlaying}
           currentSpokenSentenceId={currentSpokenSentenceId}
+          onParagraphClick={handleParagraphClick}
           onParagraphDoubleClick={handleParagraphDoubleClick}
         />
 
         <ReaderBottomNav
           chapterIdx={currChap}
+          maxChapters={bookDetails?.chapters_max || chaptersList.length || 50}
           onPrevChapter={() => currChap > 1 && navigate(`/book/${bookId}/read/${currChap - 1}`)}
-          onNextChapter={() => currChap < 50 && navigate(`/book/${bookId}/read/${currChap + 1}`)}
+          onNextChapter={() => currChap < (bookDetails?.chapters_max || chaptersList.length || 50) && navigate(`/book/${bookId}/read/${currChap + 1}`)}
           t={t}
+        />
+
+        {/* Footer chân trang */}
+        <div className="pt-6">
+          <Footer />
+        </div>
+
+        {/* Popup menu công cụ đoạn văn: Phát TTS, So sánh song ngữ, Sửa câu, Tra cứu, Báo lỗi, Copy */}
+        <ParagraphContextMenu
+          menu={paragraphMenu}
+          translateMode="cmlm"
+          onClose={() => setParagraphMenu(null)}
+          onPlayFromHere={handleParagraphDoubleClick}
+          onSaveParagraphEdit={handleSaveParagraphEdit}
         />
       </div>
     </ReaderLayout>

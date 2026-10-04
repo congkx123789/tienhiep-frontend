@@ -4,10 +4,11 @@ import { useBrowserAudio } from './useBrowserAudio';
 import { useWebviewSync } from './useWebviewSync';
 import { BrowserHeader, BrowserViewports, BrowserModals } from './components';
 import ReaderQuickTools from '../../components/reader/ReaderQuickTools';
+import { ParagraphContextMenu } from '../../pages/reader/local-reader/components/ParagraphContextMenu';
 import { isElectron, isNativeApp } from '../../utils/electron';
 
 export const BrowserContext = createContext<any>(null);
-export const useBrowser = () => useContext(BrowserContext);
+export const useBrowser = () => useContext(BrowserContext) || {};
 
 export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const tabManager = useTabManager();
@@ -21,7 +22,8 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isBookmarksOpen, setIsBookmarksOpen,
     bookmarks, history,
     openNewTab, openInBrowser, closeTab, closeOtherTabs, closeAll,
-    addToHistory, addBookmark, removeBookmark, translateAllTabTitles
+    addToHistory, addBookmark, removeBookmark, translateAllTabTitles,
+    toggleDesktopMode, toggleDirectMode
   } = tabManager;
 
   const audioController = useBrowserAudio(tabs, setTabs);
@@ -42,12 +44,14 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     startAudioFromContent,
     addToHistory,
     stopAudio,
-    activeAudioObj
+    activeAudioObj,
+    openNewTab
   );
   const {
     autoStates,
     toastInfo, setToastInfo,
     isTranslationSettingsOpen, setIsTranslationSettingsOpen,
+    paragraphMenu, setParagraphMenu,
     pinnedTools, togglePin,
     handleTool
   } = webviewSync;
@@ -119,6 +123,7 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [activeTabId, tabs, setTabs, sendWebviewMessage]);
 
   const [isVisible, setIsVisible] = useState(false);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
 
   const handleOpenInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
     if (!isNativeApp) {
@@ -165,7 +170,9 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     stopAudio,
     sendWebviewMessage,
     isVisible,
-    setIsVisible
+    setIsVisible,
+    isNavMenuOpen,
+    setIsNavMenuOpen
   };
 
   return (
@@ -173,7 +180,7 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
       <div className="w-full min-h-screen bg-[#0b0b14] flex flex-col">
         {isNativeApp && isVisible && (
           <div
-            className="fixed inset-0 z-[100] flex flex-col w-full h-screen h-[100dvh] overflow-hidden bg-slate-950 animate-fade-in"
+            className="fixed top-14 inset-x-0 bottom-0 z-[100] flex flex-col w-full overflow-hidden bg-slate-950 animate-fade-in"
             style={isElectron ? { WebkitAppRegion: 'no-drag' } as any : {}}
           >
             <BrowserHeader
@@ -191,7 +198,12 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
               onTool={(toolId) => handleTool(toolId, activeTabId)}
               autoTranslateActive={!!autoStates[activeTabId]}
               pinnedTools={pinnedTools}
+              isDesktopMode={activeTab?.isDesktopMode}
+              onToggleDesktopMode={() => toggleDesktopMode(activeTabId)}
+              isDirectMode={activeTab?.isDirectMode}
+              onToggleDirectMode={() => toggleDirectMode(activeTabId)}
               onCloseBrowser={() => setIsVisible(false)}
+              onOpenNavMenu={() => setIsNavMenuOpen(true)}
             />
 
             <BrowserViewports
@@ -200,18 +212,23 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
               onNavigate={handleNavigate}
               onOpenBookmarks={() => setIsBookmarksOpen(true)}
               bookmarksCount={bookmarks.length}
+              onTabLoaded={(tabId) => {
+                setTabs(prev => prev.map(t => t.id === tabId ? { ...t, isLoading: false } : t));
+              }}
             />
 
             {activeTab && activeTab.url && activeTab.url !== 'about:newtab' && (
               <ReaderQuickTools
                 onToolAction={(action: string, payload?: any) => handleTool(action, activeTabId, payload)}
                 isAudioPlaying={!!activeAudioObj}
+                isAutoTranslateActive={!!autoStates[activeTabId]}
               />
             )}
+
           </div>
         )}
 
-        <div className={`w-full flex-1 flex flex-col ${isVisible ? 'invisible pointer-events-none' : ''}`}>
+        <div className="w-full flex-1 flex flex-col">
           {children}
         </div>
 

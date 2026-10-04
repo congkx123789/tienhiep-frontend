@@ -7,6 +7,7 @@ interface BottomNavProps {
   onTabChange: (tab: string) => void;
   user: any;
   isElectron: boolean;
+  isBrowserMode?: boolean;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -14,8 +15,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
   user,
-  isElectron
+  isElectron,
+  isBrowserMode = false
 }) => {
+  // Ẩn hoàn toàn khi đang ở browser/đọc mode
+  if (isBrowserMode) return null;
+
   return (
     <nav 
       className="sm:hidden fixed bottom-0 left-0 right-0 z-[100001] bg-[#1c183a]/95 backdrop-blur-md border-t border-white/8 safe-bottom select-none"

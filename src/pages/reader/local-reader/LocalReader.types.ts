@@ -14,6 +14,7 @@ export interface LocalBook {
   addedAt: number;
   lastReadChapterIdx?: number;
   lastReadAt?: number;
+  accountScope?: string;
 }
 
 export interface StorageInfo {

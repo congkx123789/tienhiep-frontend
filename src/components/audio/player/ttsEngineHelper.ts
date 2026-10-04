@@ -174,9 +174,9 @@ export async function fetchAudioBlob(
 }
 
 /**
- * Tách và gộp các câu/cụm từ ngắn (< 35 ký tự hoặc 1-4 từ) để nạp vào TTS engine.
- * Matcha-TTS cần đủ ngữ cảnh âm vị (mel context) để flow-matching ODE solver không bị hụt hơi
- * hay đọc cụt lủn. Việc gộp mềm với dấu nối '... ' giúp âm điệu nối liền và tròn vành rõ chữ.
+ * Tách và gộp câu ngắn hợp lý để nạp vào TTS engine.
+ * Tránh dùng dấu ba chấm '...' vì khiến TTS ngập ngừng, phát âm ngắc ngứ và lag.
+ * Giữ nguyên dấu câu tự nhiên và giới hạn độ dài vừa phải để TTS sinh audio tức thì.
  */
 export function splitAndMergeSentences(rawContent: string): string[] {
   if (!rawContent || !rawContent.trim()) return [];
@@ -201,13 +201,12 @@ export function splitAndMergeSentences(rawContent: string): string[] {
     } else {
       const bufWords = countWords(buffer);
       const itemWords = countWords(item);
-      // Nối mềm nếu câu đệm hoặc câu mới quá ngắn (<= 3 từ hoặc < 35 ký tự)
-      // Giúp Matcha ODE flow-matching có đủ mel acoustic context, phát âm tròn tiếng
-      const shouldMerge = (bufWords <= 3 || itemWords <= 3 || buffer.length < 35 || item.length < 25) 
-                          && (buffer.length + item.length < 135);
+      const shouldMerge = (bufWords <= 2 || itemWords <= 2 || buffer.length < 18 || item.length < 18) 
+                          && (buffer.length + item.length < 95);
       if (shouldMerge) {
-        const cleanBuf = buffer.replace(/[.!?…:;]*$/, '');
-        buffer = cleanBuf + '... ' + item;
+        const cleanBuf = buffer.trim();
+        const sep = /[.!?。！？]$/.test(cleanBuf) ? ' ' : '. ';
+        buffer = cleanBuf + sep + item;
       } else {
         merged.push(buffer);
         buffer = item;
@@ -215,11 +214,11 @@ export function splitAndMergeSentences(rawContent: string): string[] {
     }
   }
   if (buffer) {
-    // Nếu buffer cuối cùng chỉ có 1 - 2 từ ngắn và đã có câu trước, gộp ngược vào câu trước
-    if (merged.length > 0 && (countWords(buffer) <= 2 || buffer.length < 20)) {
-      const prev = merged[merged.length - 1];
-      if (prev.length + buffer.length < 150) {
-        merged[merged.length - 1] = prev.replace(/[.!?…:;]*$/, '') + '... ' + buffer;
+    if (merged.length > 0 && (countWords(buffer) <= 2 || buffer.length < 15)) {
+      const prev = merged[merged.length - 1].trim();
+      if (prev.length + buffer.length < 110) {
+        const sep = /[.!?。！？]$/.test(prev) ? ' ' : '. ';
+        merged[merged.length - 1] = prev + sep + buffer;
       } else {
         merged.push(buffer);
       }

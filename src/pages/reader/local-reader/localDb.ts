@@ -1,4 +1,5 @@
 import { LocalBook } from './LocalReader.types';
+import { getAccountScope } from '../../../utils/accountStorage';
 
 const DB_NAME = 'LocalNovelsDB';
 const STORE_NAME = 'novels_shelf';
@@ -18,14 +19,20 @@ export function getIndexedDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function getLocalBooksFromDB(): Promise<LocalBook[]> {
+export async function getLocalBooksFromDB(targetScope?: string): Promise<LocalBook[]> {
   try {
+    const scope = targetScope || getAccountScope();
     const db = await getIndexedDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        const all: LocalBook[] = request.result || [];
+        // Lọc sách offline theo tài khoản người dùng
+        const scoped = all.filter(b => !b.accountScope || b.accountScope === scope);
+        resolve(scoped);
+      };
       request.onerror = () => reject(request.error);
     });
   } catch (err) {
@@ -37,10 +44,12 @@ export async function getLocalBooksFromDB(): Promise<LocalBook[]> {
 export async function saveLocalBookToDB(book: LocalBook): Promise<boolean> {
   try {
     const db = await getIndexedDB();
+    const scope = book.accountScope || getAccountScope();
+    const bookToSave: LocalBook = { ...book, accountScope: scope };
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(book);
+      const request = store.put(bookToSave);
       request.onsuccess = () => resolve(true);
       request.onerror = () => reject(request.error);
     });

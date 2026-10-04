@@ -16,7 +16,7 @@ apiClient.interceptors.request.use(
       config.baseURL = `${BasePointManager.getBaseUrl()}${BasePointManager.getApiPrefix()}`;
     }
     if (typeof localStorage !== 'undefined') {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token') || localStorage.getItem('token');
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }

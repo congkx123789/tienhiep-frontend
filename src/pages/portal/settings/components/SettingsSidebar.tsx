@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   User, Shield, Sliders, Coins, BarChart3, Laptop, Tv, BrainCircuit,
-  Crown, MessageSquare, Terminal 
+  Crown, MessageSquare, Terminal
 } from 'lucide-react';
 import { SettingsTabId } from '../Settings.types';
 
@@ -94,102 +94,94 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
 
       {/* Sidebar Navigation */}
       <div className="bg-[#121225]/80 border border-[#1f1f3a] rounded-2xl p-3 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible no-scrollbar">
-        <button 
+        <button
           onClick={() => onSelectTab('profile')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'profile' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'profile'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <User className="w-4 h-4" /> {d.profileTab}
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('security')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'security' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'security'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <Shield className="w-4 h-4" /> {d.securityTab}
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('preferences')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'preferences' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'preferences'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <Sliders className="w-4 h-4" /> {d.prefTab}
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('wallet')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'wallet' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'wallet'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <Coins className="w-4 h-4" /> {d.walletTab}
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('stats')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'stats' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'stats'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <BarChart3 className="w-4 h-4" /> Thống kê & Lịch sử
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('desktop')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'desktop' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'desktop'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <Laptop className="w-4 h-4" /> {isElectron ? 'Cấu hình Desktop' : (isCapacitor ? 'Cấu hình Android' : 'Tải Bản Desktop')}
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('tts_models')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'tts_models' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'tts_models'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <Tv className="w-4 h-4" /> Quản lý Giọng AI
         </button>
-        <button 
+        <button
           onClick={() => onSelectTab('ai_translation')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${
-            activeTab === 'ai_translation' 
-              ? 'bg-purple-600 text-white shadow-md' 
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'ai_translation'
+              ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-          }`}
+            }`}
         >
           <BrainCircuit className="w-4 h-4" /> Cấu hình Dịch & AI
         </button>
 
         <div className="hidden lg:block w-full border-t border-white/5 my-1" />
 
-        <button 
+        <button
           onClick={() => navigate('/sects')}
           className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
         >
           <Crown className="w-4 h-4 text-amber-400" /> Tông Môn (Sects)
         </button>
-        <button 
+        <button
           onClick={() => navigate('/messages')}
           className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
         >
           <MessageSquare className="w-4 h-4 text-purple-400" /> Hộp thư đàm đạo
         </button>
-        <button 
+        <button
           onClick={() => navigate('/developer')}
           className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
         >

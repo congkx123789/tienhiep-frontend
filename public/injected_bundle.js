@@ -418,7 +418,7 @@
         '[data-tts-active="true"], [data-tts-active-para="true"] { background: rgba(254, 240, 138, 0.28) !important; border-left: 4px solid #8b5cf6 !important; padding-left: 8px !important; border-radius: 4px !important; transition: all 0.2s ease !important; } ' +
         '.tts-active-sentence, .tienhiep-active-word-highlight, #tienhiep-active-highlight { background-color: #f59e0b !important; color: #000000 !important; font-weight: 700 !important; border-radius: 4px !important; padding: 2px 4px !important; box-shadow: 0 0 14px rgba(245, 158, 11, 0.85) !important; border-bottom: 2px solid #b45309 !important; display: inline !important; }';
 
-      const norm = (str) => (str || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5\u00C0-\u1EF9]/gu, '');
+      const norm = (str) => (str || '').toLowerCase().replace(/[^a-z0-9一-龥À-ỹ]/gu, '');
       const fullNorm = norm(sentenceText);
       let targetEl = null;
 
@@ -493,7 +493,7 @@
           let wrapped = false;
           if (fullNorm.length >= 3) {
             try {
-              const headWord = (sentenceText || '').trim().replace(/^[“"'\s«『「]+/, '').slice(0, 12).toLowerCase();
+              const headWord = (sentenceText || '').trim().replace(/^[“"'s«『「]+/, '').slice(0, 12).toLowerCase();
               const tw = document.createTreeWalker(targetEl, NodeFilter.SHOW_TEXT);
               let tn = tw.nextNode();
               while (tn) {
@@ -3081,11 +3081,11 @@
         } else if (action === 'SET_TTS_PLAYING') {
           window.isTtsPlaying = !!data.playing;
           if (!data.playing && window.__TienHiepHelpers && typeof window.__TienHiepHelpers.clearAllTtsHighlights === 'function') {
-            window.__TienHiepHelpers.clearAllTtsHighlights();
+            window.__TienHiepHelpers.clearAllTtsHighlights(true);
           }
         } else if (action === 'CLEAR_TTS_HIGHLIGHTS') {
           if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.clearAllTtsHighlights === 'function') {
-            window.__TienHiepHelpers.clearAllTtsHighlights();
+            window.__TienHiepHelpers.clearAllTtsHighlights(true);
           }
         } else if (action === 'EXEC_HELPER') {
           if (data.fn && window.__TienHiepHelpers && typeof window.__TienHiepHelpers[data.fn] === 'function') {

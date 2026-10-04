@@ -73,7 +73,7 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
     setLoading(true);
     try {
       const clientId = '107953505478-0gielhlbbif11eu77rb29sq7ie7dqbmn.apps.googleusercontent.com';
-      const redirectUri = 'https://cong123779-tienhiep-api.hf.space/api/auth/google/callback';
+      const redirectUri = 'https://tienhiep.lyvuha.com/api/auth/google/callback';
       const state = encodeURIComponent('desktop|http://127.0.0.1:5051');
       const nonce = Math.random().toString(36).substring(2);
 
@@ -137,8 +137,8 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
           window.location.href = '/settings';
         }
       } else if (mode === 'register') {
-        if (!u || !p || !em) {
-          setError(t.authRequired || 'Vui lòng điền đầy đủ thông tin đăng ký.');
+        if (!u || !p) {
+          setError(t.authRequired || 'Vui lòng điền đầy đủ tên đăng nhập và mật khẩu.');
           return;
         }
         setLoading(true);
@@ -148,8 +148,9 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
           setMode('verify_reg');
         } else {
           setMessage(t.regSuccess || 'Đăng ký thành công!');
-          setMode('login');
-          setPassword('');
+          setTimeout(() => {
+            onClose();
+          }, 800);
         }
       } else if (mode === 'verify_reg') {
         if (!em || !o) {
@@ -158,6 +159,22 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
         }
         setLoading(true);
         const res = await api.post('/api/auth/verify-registration', { email: em, otp: o });
+        if (res.data?.access_token) {
+          localStorage.setItem('accessToken', res.data.access_token);
+          document.cookie = `accessToken=${res.data.access_token}; path=/; max-age=604800; SameSite=Lax`;
+          if (res.data.refresh_token) {
+            localStorage.setItem('refreshToken', res.data.refresh_token);
+          }
+          if (res.data.user) {
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+          }
+          setMessage(res.data.message || 'Xác thực tài khoản thành công!');
+          setTimeout(() => {
+            onClose();
+            window.location.reload();
+          }, 800);
+          return;
+        }
         setMessage(res.data.message || 'Xác minh thành công! Vui lòng đăng nhập.');
         setMode('login');
         setPassword('');

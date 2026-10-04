@@ -58,7 +58,7 @@ export function AuthForms({
               type="email"
               name="email"
               autoComplete="email"
-              placeholder={t.auth?.emailPlaceholder || 'Email'}
+              placeholder={mode === 'register' ? (t.auth?.emailOptionalPlaceholder || 'Email (tùy chọn - để nhận mã OTP)') : (t.auth?.emailPlaceholder || 'Email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-[#1e1e3a] border border-[#2d2d6b] rounded-xl text-white outline-none focus:border-brand-500 transition-colors placeholder:text-slate-500 text-sm sm:text-base"

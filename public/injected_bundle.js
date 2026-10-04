@@ -538,35 +538,13 @@
           });
         }
 
-        if (indexedEls.length === 0 && mainEl) {
-          const walker = document.createTreeWalker(mainEl, NodeFilter.SHOW_TEXT, null);
-          const textNodes = [];
-          let n;
-          while ((n = walker.nextNode())) {
-            const parent = n.parentElement;
-            if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE' || parent.tagName === 'A' || parent.id === '__tienhiep_tts_para_style')) continue;
-            const t = (n.nodeValue || '').trim();
-            if (t.length >= 6 && hasWord.test(t) && !isNav.test(t)) textNodes.push(n);
-          }
-          textNodes.forEach(tn => {
-            const span = document.createElement('span');
-            span.className = 'tienhiep-tts-paragraph';
-            span.setAttribute('data-tts-idx', String(idx));
-            span.style.cssText = 'display:block !important;margin:8px 0 !important;cursor:pointer !important;';
-            tn.parentNode.insertBefore(span, tn);
-            span.appendChild(tn);
-            indexedEls.push(span);
-            idx++;
-          });
-        }
       }
-
 
       let ttsStyle = document.getElementById('__tienhiep_tts_para_style');
       if (!ttsStyle) {
         ttsStyle = document.createElement('style');
         ttsStyle.id = '__tienhiep_tts_para_style';
-        ttsStyle.textContent = '[data-tts-active="true"] { background: rgba(254, 240, 138, 0.45) !important; border-left: 4px solid #7c3aed !important; padding: 4px 8px !important; border-radius: 4px !important; transition: all 0.2s ease !important; display: block !important; } .tienhiep-tts-active-span { background: rgba(254, 240, 138, 0.5) !important; border-left: 3px solid #7c3aed !important; padding: 1px 4px !important; border-radius: 3px !important; display: inline-block !important; }';
+        ttsStyle.textContent = '[data-tts-active="true"] { background: rgba(254, 240, 138, 0.45) !important; border-left: 4px solid #7c3aed !important; padding: 4px 8px !important; border-radius: 4px !important; transition: all 0.2s ease !important; } .tienhiep-tts-active-span { background: rgba(254, 240, 138, 0.5) !important; border-left: 3px solid #7c3aed !important; padding: 1px 4px !important; border-radius: 3px !important; display: inline-block !important; }';
         (document.head || document.documentElement).appendChild(ttsStyle);
       }
 
@@ -689,7 +667,8 @@
 
       return { indexed: idx, total: indexedEls.length };
     },
-
+  
+    
     showInlineNotebook: (el, paraIdx, rawZhText, translatedText) => {
       const existing = document.getElementById('__tienhiep_inline_notebook');
       if (existing) {
@@ -711,7 +690,6 @@
         const tokensToRender = currentMode === 'char' ? charTokens : cachedTokens;
         notebook.innerHTML = '';
 
-        // Hàng trên cùng
         const topBar = document.createElement('div');
         topBar.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; padding-bottom: 4px; border-bottom: 1px dashed #e2e8f0;';
 
@@ -723,7 +701,6 @@
         titleSpan.textContent = '📓 SỔ TAY TỪ:';
         leftGroup.appendChild(titleSpan);
 
-        // Nút Cụm từ / Từ đơn
         const modeGroup = document.createElement('div');
         modeGroup.style.cssText = 'display: inline-flex; background: #f1f5f9; padding: 2px; border-radius: 4px; font-size: 10px; font-weight: 600;';
 
@@ -741,7 +718,6 @@
         modeGroup.appendChild(btnChar);
         leftGroup.appendChild(modeGroup);
 
-        // Nút Phát TTS
         const btnPlay = document.createElement('button');
         btnPlay.textContent = '▶ Phát';
         btnPlay.style.cssText = 'display: inline-flex; align-items: center; gap: 2px; padding: 2px 7px; background: #7c3aed; color: #ffffff; border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap;';
@@ -752,7 +728,6 @@
         };
         leftGroup.appendChild(btnPlay);
 
-        // Nút đóng
         const btnClose = document.createElement('button');
         btnClose.textContent = '✕';
         btnClose.style.cssText = 'background: none; border: none; color: #94a3b8; font-size: 14px; font-weight: bold; cursor: pointer; padding: 0 4px; line-height: 1;';
@@ -762,7 +737,6 @@
         topBar.appendChild(btnClose);
         notebook.appendChild(topBar);
 
-        // Dải chip cuộn ngang
         const chipRow = document.createElement('div');
         chipRow.style.cssText = 'display: flex; align-items: center; gap: 4px; overflow-x: auto; padding: 2px 0; -webkit-overflow-scrolling: touch;';
 
@@ -776,7 +750,7 @@
         altPanel.style.cssText = 'display: none; margin-top: 5px; padding: 3px 6px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 4px; font-size: 11px; align-items: center; gap: 6px; overflow-x: auto;';
 
         const chipBtns = [];
-        tokensToRender.forEach((tok, idx) => {
+        tokensToRender.forEach((tok) => {
           const btn = document.createElement('button');
           btn.style.cssText = 'display: inline-flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px 5px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; flex-shrink: 0; line-height: 1.1; font-family: inherit;';
 
@@ -894,7 +868,7 @@
         if (data && Array.isArray(data.tokens) && data.tokens.length > 0) {
           cachedTokens = data.tokens.filter(t => t.zh && t.zh.trim());
         } else {
-          cachedTokens = targetZh.split('').filter(c => /[一-龥]/.test(c)).map(c => ({
+          cachedTokens = targetZh.split('').filter(c => /[\u4e00-\u9fa5]/.test(c)).map(c => ({
             zh: c,
             vi: c,
             hanviet: c,
@@ -908,7 +882,7 @@
             charTokens.push(t);
           } else {
             const chars = Array.from(t.zh);
-            const hvParts = t.hanviet ? t.hanviet.split(/s+/) : [];
+            const hvParts = t.hanviet ? t.hanviet.split(/\s+/) : [];
             chars.forEach((c, idx) => {
               charTokens.push({
                 zh: c,
@@ -1532,9 +1506,7 @@
 
     const crosshair = document.createElement("teach-crosshair");
     crosshair.id = "__teach_crosshair_target";
-    const initX = Math.max(10, Math.round(window.innerWidth / 2 - 34));
-    const initY = Math.max(80, Math.round(window.innerHeight * 0.65 - 34));
-    crosshair.style.cssText = "position:fixed !important;left:" + initX + "px !important;top:" + initY + "px !important;width:68px !important;height:68px !important;z-index:2147483646 !important;cursor:grab !important;touch-action:none !important;user-select:none !important;-webkit-user-select:none !important;display:flex !important;align-items:center !important;justify-content:center !important;border-radius:50% !important;border:3px dashed #f59e0b !important;background:rgba(245,158,11,0.25) !important;box-shadow:0 0 24px rgba(245,158,11,0.8), inset 0 0 12px rgba(245,158,11,0.3) !important;box-sizing:border-box !important;";
+    crosshair.style.cssText = "position:fixed !important;left:calc(50vw - 34px) !important;top:calc(50vh - 34px) !important;width:68px !important;height:68px !important;z-index:2147483646 !important;cursor:grab !important;touch-action:none !important;user-select:none !important;-webkit-user-select:none !important;display:flex !important;align-items:center !important;justify-content:center !important;border-radius:50% !important;border:3px dashed #f59e0b !important;background:rgba(245,158,11,0.25) !important;box-shadow:0 0 24px rgba(245,158,11,0.8), inset 0 0 12px rgba(245,158,11,0.3) !important;box-sizing:border-box !important;";
     crosshair.innerHTML = '<div id="__teach_ch_h" style="position:absolute;width:100%;height:2px;background:#f59e0b !important;top:50%;left:0;pointer-events:none;transform:translateY(-50%);"></div><div id="__teach_ch_v" style="position:absolute;height:100%;width:2px;background:#f59e0b !important;left:50%;top:0;pointer-events:none;transform:translateX(-50%);"></div><div id="__teach_ch_dot" style="width:16px;height:16px;border-radius:50%;background:#ef4444 !important;border:2px solid #ffffff !important;box-shadow:0 0 10px #ef4444 !important;pointer-events:none;z-index:2;"></div><div id="__teach_ch_lbl" style="position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:#f59e0b !important;color:#0f172a !important;font-size:11px !important;font-weight:900 !important;padding:5px 12px !important;border-radius:8px !important;white-space:nowrap !important;box-shadow:0 4px 14px rgba(0,0,0,0.85) !important;pointer-events:auto !important;cursor:grab !important;touch-action:none !important;letter-spacing:0.3px !important;border:1.5px solid #ffffff !important;user-select:none !important;-webkit-user-select:none !important;">🎯 RÊ TÂM NGẮM</div>';
     document.body.appendChild(crosshair);
   
@@ -1801,24 +1773,17 @@
         if (candidateLinks.length > 0) {
           let bestDist = Infinity;
           let bestCand = null;
-          let bestKw = null;
 
           for (const cand of candidateLinks) {
             const r = cand.getBoundingClientRect();
             const candCx = r.left + r.width / 2;
             const candCy = r.top + r.height / 2;
             const d = Math.hypot(cx - candCx, cy - candCy);
-            const text = (cand.textContent || '').trim();
-            const isKw = cand.getAttribute('rel') === 'next' || nextKwRegex.test(text);
 
-            if (cx >= r.left - 16 && cx <= r.right + 16 && cy >= r.top - 16 && cy <= r.bottom + 16) {
-              if (isKw) return cand;
+            if (cx >= r.left - 6 && cx <= r.right + 6 && cy >= r.top - 6 && cy <= r.bottom + 6) {
               if (d < bestDist) { bestDist = d; bestCand = cand; }
-            } else if (isKw && d < 75) {
-              if (!bestKw) bestKw = cand;
             }
           }
-          if (bestKw && bestDist > 25) return bestKw;
           if (bestCand) return bestCand;
         }
       }
@@ -2121,11 +2086,10 @@
       window.__TienHiepHelpers.saveNextRule(generateSmartRule(target));
       cleanup();
       banner.style.background = "linear-gradient(135deg,#10b981,#059669)";
-      banner.innerHTML = "<span>✅ Đã lưu nút Chuyển Trang vào bộ nhớ theo tên miền! Tự chuyển trang...</span>";
+      banner.innerHTML = "<span>✅ Đã lưu cấu hình nút Chuyển Trang thành công!</span>";
       setTimeout(() => {
         banner.remove();
-        if (!window.__TienHiepHelpers.triggerNavigation(target)) window.__TienHiepHelpers.checkAndTriggerAutoNext(true);
-      }, 700);
+      }, 1200);
     };
 
     const saveContentAreaRule = (target) => {
@@ -2214,9 +2178,11 @@
     let isTouchDrag = false;
     let dragOffset = { x: 34, y: 34 };
 
+    // Di chuyển crosshair khi drag - tính tâm crosshair sau offset
     const onDragMove = (clientX, clientY) => {
       if (!isDraggingCrosshair) return;
-      const effectiveY = isTouchDrag ? (clientY - 42) : clientY;
+      // Khi touch-drag: nâng crosshair lên 60px để ngón cái không che khuất tâm ngắm
+      const effectiveY = isTouchDrag ? (clientY - 60) : clientY;
       const newLeft = Math.max(0, Math.min(window.innerWidth - 68, clientX - dragOffset.x));
       const newTop = Math.max(45, Math.min(window.innerHeight - 68, effectiveY - dragOffset.y));
       crosshair.style.setProperty("left", newLeft + "px", "important");
@@ -2271,30 +2237,10 @@
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", endDrag);
 
+    // Khi mở Chế độ Chỉ định: chỉ phát hiện phần tử ngay dưới tâm ngắm ở giữa màn hình
     setTimeout(() => {
-      let autoTarget = null;
-      try {
-        const potentialNext = document.querySelector('#pb_next, .Readpage_down, [id*="next-chap"], a[rel="next"]');
-        if (potentialNext && !isSpamOrAd(potentialNext)) {
-          autoTarget = potentialNext;
-        } else {
-          const allA = Array.from(document.querySelectorAll('a, button'));
-          autoTarget = allA.find(a => !isSpamOrAd(a) && /(下一章|下一页|chương sau|tiếp theo|trang sau|next chapter)/i.test((a.textContent || '').trim()));
-        }
-      } catch(e) {}
-
-      if (autoTarget) {
-        const rect = autoTarget.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          const targetX = Math.max(0, Math.min(window.innerWidth - 68, rect.left + rect.width / 2 - 34));
-          const targetY = Math.max(45, Math.min(window.innerHeight - 68, rect.top + rect.height / 2 - 34));
-          crosshair.style.setProperty("left", targetX + "px", "important");
-          crosshair.style.setProperty("top", targetY + "px", "important");
-          handleTargetCandidate(autoTarget, rect.left + rect.width / 2, rect.top + rect.height / 2);
-          return;
-        }
-      }
-      detectUnderCrosshair(initX + 34, initY + 34);
+      const chRect = crosshair.getBoundingClientRect();
+      detectUnderCrosshair(chRect.left + 34, chRect.top + 34);
     }, 150);
 
     let tapStartX = 0, tapStartY = 0, tapStartTime = 0;
@@ -2332,12 +2278,9 @@
         }
       }
 
+      // Khi tap vào trang: chỉ cập nhật target/highlight, crosshair KHÔNG nhảy vị trí
       if (target && target !== document.body && target !== document.documentElement) {
         const rect = target.getBoundingClientRect();
-        const targetX = Math.max(0, Math.min(window.innerWidth - 68, rect.left + rect.width / 2 - 34));
-        const targetY = Math.max(45, Math.min(window.innerHeight - 68, rect.top + rect.height / 2 - 34));
-        crosshair.style.setProperty("left", targetX + "px", "important");
-        crosshair.style.setProperty("top", targetY + "px", "important");
         handleTargetCandidate(target, rect.left + rect.width / 2, rect.top + rect.height / 2);
       }
     };

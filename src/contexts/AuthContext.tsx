@@ -181,6 +181,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (response.data?.error) {
       throw new Error(response.data.error);
     }
+    if (response.data?.access_token) {
+      await onAuthSuccess(
+        response.data.access_token,
+        response.data.refresh_token,
+        response.data.user
+      );
+    }
     return response.data;
   };
 

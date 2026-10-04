@@ -85,7 +85,7 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
           className="flex items-center gap-2 shrink-0 hover:opacity-90 active:scale-95 transition-all"
           style={isElectron ? { WebkitAppRegion: 'no-drag' } : {}}
         >
-          <img src="/favicon.png" className="w-9 h-9 object-contain rounded-lg shadow-md border border-white/10" alt="Tiên Hiệp AI Logo" />
+          <img src={`${(import.meta as any).env?.BASE_URL || '/'}favicon.png`} className="w-9 h-9 object-contain rounded-lg shadow-md border border-white/10" alt="Tiên Hiệp AI Logo" />
           <span className="text-lg font-extrabold text-white leading-tight tracking-wider hidden lg:inline">
             {t.title}
           </span>

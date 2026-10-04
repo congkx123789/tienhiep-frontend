@@ -12,11 +12,10 @@ export function getTeachActionsScript(): string {
       window.__TienHiepHelpers.saveNextRule(generateSmartRule(target));
       cleanup();
       banner.style.background = "linear-gradient(135deg,#10b981,#059669)";
-      banner.innerHTML = "<span>✅ Đã lưu nút Chuyển Trang vào bộ nhớ theo tên miền! Tự chuyển trang...</span>";
+      banner.innerHTML = "<span>✅ Đã lưu cấu hình nút Chuyển Trang thành công!</span>";
       setTimeout(() => {
         banner.remove();
-        if (!window.__TienHiepHelpers.triggerNavigation(target)) window.__TienHiepHelpers.checkAndTriggerAutoNext(true);
-      }, 700);
+      }, 1200);
     };
 
     const saveContentAreaRule = (target) => {

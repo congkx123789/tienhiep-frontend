@@ -29,7 +29,7 @@ export const DiscoverHero: React.FC<DiscoverHeroProps> = ({
     <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden mb-6 min-h-[220px] sm:min-h-[360px] bg-[#0b0b14] border border-[#1f1f3a]/80 shadow-2xl flex flex-col justify-end">
       <div 
         className="absolute inset-0 bg-cover bg-center transition-all duration-700" 
-        style={{ backgroundImage: `url('hero_banner.png')` }}
+        style={{ backgroundImage: `url('${(import.meta as any).env?.BASE_URL || '/'}hero_banner.png')` }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-[#0b0b14] via-[#0b0b14]/75 to-transparent" />
       

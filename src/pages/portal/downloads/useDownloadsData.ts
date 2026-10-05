@@ -22,10 +22,10 @@ const INITIAL_RELEASES: ReleasesState = {
     release_notes: 'Bản cài đặt Windows Setup EXE mới nhất chính thức'
   },
   android_apk: {
-    version: 'latest',
-    download_url: '/downloads/app-tienhiep.apk',
-    file_size: '54 MB',
-    release_notes: 'Bản APK Android chính thức tối ưu WebView, đọc truyện mượt mà, hỗ trợ dịch nhanh và tải chương ngoại tuyến.'
+    version: '1.0.18',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/app-tienhiep-latest.apk',
+    file_size: '66 MB',
+    release_notes: 'Bản APK Android chính thức v1.0.18 tối ưu WebView, đọc truyện mượt mà, hỗ trợ dịch nhanh và tải chương ngoại tuyến.'
   },
   ios_ipa: {
     version: 'latest',

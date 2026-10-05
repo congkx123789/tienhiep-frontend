@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Coins } from 'lucide-react';
+import { Award, Coins, Crown } from 'lucide-react';
 import api from '../../../../services';
+import { useVipGate } from '../../../../contexts/VipGateContext';
 
 interface TabWalletProps {
   user: any;
@@ -8,6 +9,7 @@ interface TabWalletProps {
 }
 
 export const TabWallet: React.FC<TabWalletProps> = ({ user, d }) => {
+  const { openVipModal } = useVipGate();
   const [readingStats, setReadingStats] = useState({ words_read: 0, reading_time: 0, books_read: 0 });
   const [depositLogs, setDepositLogs] = useState<any[]>([]);
   const [expenseLogs, setExpenseLogs] = useState<any[]>([]);
@@ -141,10 +143,18 @@ export const TabWallet: React.FC<TabWalletProps> = ({ user, d }) => {
 
       {/* Ví Tiền & Vật Phẩm */}
       <div className="bg-[#121225]/80 border border-[#1f1f3a] rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="border-b border-[#1f1f3a]/60 pb-3">
+        <div className="flex justify-between items-center border-b border-[#1f1f3a]/60 pb-3">
           <h3 className="text-base font-extrabold text-white flex items-center gap-2">
             <Coins className="w-5 h-5 text-purple-400" /> {d.walletBalance}
           </h3>
+          <button
+            type="button"
+            onClick={openVipModal}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 text-[#0b0b14] font-black text-xs shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Crown className="w-3.5 h-3.5 fill-current" />
+            <span>Nạp VIP / Số Dư</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

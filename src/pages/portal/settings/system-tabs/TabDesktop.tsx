@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Laptop, RefreshCw } from 'lucide-react';
 import { isElectron, getElectronAPI } from '../../../../utils/electron';
 
@@ -17,6 +18,7 @@ export const TabDesktop: React.FC<TabDesktopProps> = ({
   onManualCheckUpdates,
   manualChecking,
 }) => {
+  const navigate = useNavigate();
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [systemInfoLoading, setSystemInfoLoading] = useState(false);
 
@@ -188,7 +190,7 @@ export const TabDesktop: React.FC<TabDesktopProps> = ({
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               <button 
                 type="button"
-                onClick={() => { window.location.href = '/downloads'; }}
+                onClick={() => navigate('/downloads')}
                 className="bg-purple-600 hover:bg-purple-500 text-white font-extrabold px-8 py-3 rounded-xl text-xs transition-colors shadow-lg shadow-purple-600/25 cursor-pointer"
               >
                 Tải Về Bản Desktop Cho Windows (.exe)

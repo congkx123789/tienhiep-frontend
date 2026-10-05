@@ -97,23 +97,26 @@ export async function executeTranslate(texts: string[], mode: string = '4', user
   if (!candidateServers.includes(SERVER_CONFIG.REMOTE_HOST)) candidateServers.push(SERVER_CONFIG.REMOTE_HOST);
 
   for (const srv of candidateServers) {
-    try {
-      const res = await fetch(`${srv}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-VIP-Key': userVipKey || 'VIP2026' },
-        body: JSON.stringify({ texts, mode: String(mode || '4'), vip_key: userVipKey || 'VIP2026' }),
-        signal: AbortSignal.timeout(6000)
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.translations && json.translations.length === texts.length) {
-          activeWorkingServer = srv;
-          try { localStorage.setItem('best_tienhiep_server', srv); } catch(e) {}
-          return json.translations;
+    const endpoints = ['/api/translate', '/translate'];
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(`${srv}${ep}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-VIP-Key': userVipKey || 'VIP2026' },
+          body: JSON.stringify({ texts, mode: String(mode || '4'), vip_key: userVipKey || 'VIP2026' }),
+          signal: AbortSignal.timeout(6000)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.translations && json.translations.length === texts.length) {
+            activeWorkingServer = srv;
+            try { localStorage.setItem('best_tienhiep_server', srv); } catch(e) {}
+            return json.translations;
+          }
         }
+      } catch (err) {
+        console.warn(`[Translate Engine] Failed on ${srv}${ep}:`, err);
       }
-    } catch (err) {
-      console.warn(`[Translate Engine] Failed on ${srv}:`, err);
     }
   }
 

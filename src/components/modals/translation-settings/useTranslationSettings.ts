@@ -20,9 +20,6 @@ export function useTranslationSettings(isOpen: boolean) {
       if (stored) {
         try {
           let parsed = JSON.parse(stored);
-          if (parsed.serverUrl && (parsed.serverUrl.includes('hf.space') || parsed.serverUrl.includes('lyvuha.com'))) {
-            parsed.serverUrl = '';
-          }
           if (!parsed.mode || parsed.mode === 'vietphrase') {
             parsed.mode = '4';
           }

@@ -16,7 +16,14 @@ async function pingServer(url: string, timeoutMs: number = HEALTH_TIMEOUT): Prom
       method: 'GET',
       signal: AbortSignal.timeout(timeoutMs),
     });
-    return res.ok;
+    if (res.ok) return true;
+  } catch {}
+  try {
+    const res2 = await fetch(`${url}/api/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return res2.ok;
   } catch {
     return false;
   }
@@ -65,7 +72,8 @@ export async function getBestServer(): Promise<string> {
   const candidates = getCandidateServers(isCapacitorNative);
 
   for (const srv of candidates) {
-    if (await pingServer(srv, 1500)) {
+    const timeout = srv.includes('hf.space') ? 3500 : 1500;
+    if (await pingServer(srv, timeout)) {
       try {
         localStorage.setItem(CACHE_KEY, srv);
         localStorage.setItem(`${CACHE_KEY}_expiry`, String(Date.now() + CACHE_DURATION));

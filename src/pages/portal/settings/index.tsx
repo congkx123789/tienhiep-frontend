@@ -89,8 +89,8 @@ export default function Settings() {
   const handlePingServer = async () => {
     setPingStats(prev => ({ ...prev, isPinging: true }));
     try {
-      const res = await api.get('/health', { timeout: 2000 });
-      if (res.data?.status === 'ok') {
+      const res = await api.get('/health', { timeout: 3500 });
+      if (res.data?.status === 'ok' || res.data?.status === 'healthy') {
         setPingStats(prev => ({ ...prev, trans: 'Online (2ms)', tts: 'Online (5ms)' }));
       }
     } catch {

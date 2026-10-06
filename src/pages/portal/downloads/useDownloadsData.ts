@@ -18,8 +18,8 @@ const INITIAL_RELEASES: ReleasesState = {
   desktop_windows: {
     version: '1.0.18',
     download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-Setup-latest.exe',
-    file_size: '189 MB',
-    release_notes: 'Bản cài đặt Windows Setup EXE mới nhất chính thức'
+    file_size: '93 MB',
+    release_notes: 'Bản cài đặt Windows Setup EXE siêu tinh gọn 93MB với phản hồi 0ms'
   },
   android_apk: {
     version: '1.0.18',

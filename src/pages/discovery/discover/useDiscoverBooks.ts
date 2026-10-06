@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../../services';
 import { StatsState, LeaderboardItem } from './Discover.types';
@@ -29,6 +29,7 @@ export function useDiscoverBooks(user: any, t: any) {
   const [compLoading, setCompLoading] = useState(false);
   const [bookshelfIds, setBookshelfIds] = useState<Set<number>>(new Set());
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchStats = async () => {
     try {
@@ -75,6 +76,12 @@ export function useDiscoverBooks(user: any, t: any) {
   }, [loadBookshelf]);
 
   const fetchBooks = useCallback(async (overrideParams: any = {}) => {
+    // 🛡️ Lớp 1: Hủy bỏ request tìm kiếm đang chạy dở trước đó để chống race-condition & spam
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     setError('');
     try {
@@ -89,7 +96,10 @@ export function useDiscoverBooks(user: any, t: any) {
         page,
         per_page: 30
       };
-      const res = await api.get('/api/books', { params });
+      const res = await api.get('/api/books', {
+        params,
+        signal: abortControllerRef.current.signal
+      });
       setBooks(res.data?.books || []);
       setTotalPages(res.data?.pages || 1);
       setTotal(res.data?.total || 0);
@@ -105,6 +115,9 @@ export function useDiscoverBooks(user: any, t: any) {
         setLeaderboard(topBooks);
       }
     } catch (err: any) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        return;
+      }
       setError(err.response?.data?.error || t.connError);
     } finally {
       setLoading(false);

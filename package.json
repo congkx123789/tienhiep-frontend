@@ -15,6 +15,7 @@
     "test:functional": "npx tsx src/tests/functional/run_all_tests.ts",
     "test:bot": "playwright test",
     "test:e2e": "playwright test",
+    "test:perf": "playwright test e2e/performance_budget.spec.ts",
     "monkey": "node ../scripts/run_chaos_monkey.js 1000",
     "monkey:1000": "node ../scripts/run_chaos_monkey.js 1000",
     "monkey:5000": "node ../scripts/run_chaos_monkey.js 5000",

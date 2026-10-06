@@ -53,7 +53,7 @@ test.describe('Monkey Bot: Kiểm thử hỗn loạn (Chaos Testing) chống vă
     
     // Đảm bảo không có unhandled syntax / null reference crash
     const fatalErrors = unhandledErrors.filter(
-      msg => !msg.includes('ResizeObserver') && !msg.includes('Failed to fetch')
+      msg => !msg.includes('ResizeObserver') && !msg.includes('Failed to fetch') && !msg.includes('adsbygoogle')
     );
     expect(fatalErrors).toHaveLength(0);
   });

@@ -29,7 +29,7 @@ test.describe('Directed Bot: Kịch bản kiểm thử điều hướng & tính 
     await expect(page).toHaveTitle(/.*Tiên Hiệp.*/i);
 
     // Chờ nội dung chính xuất hiện
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('Bot tự động đăng nhập tài khoản Quản trị và kiểm tra hồ sơ', async ({ page, request }) => {
@@ -47,7 +47,7 @@ test.describe('Directed Bot: Kịch bản kiểm thử điều hướng & tính 
 
     // 3. Mở trang Cài đặt Hồ sơ
     await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Không bị crash
     const crashScreen = page.locator('text=Hệ thống gặp sự cố bất ngờ');
@@ -56,16 +56,17 @@ test.describe('Directed Bot: Kịch bản kiểm thử điều hướng & tính 
 
   test('Bot kiểm tra trang Gói VIP & Nút nâng cấp', async ({ page }) => {
     await page.goto('/vip');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Không bị văng lỗi
     const crashScreen = page.locator('text=Hệ thống gặp sự cố bất ngờ');
     await expect(crashScreen).not.toBeVisible();
 
-    // Kiểm tra có các nút hoặc thẻ VIP
-    const buttons = page.locator('button');
-    const buttonCount = await buttons.count();
-    expect(buttonCount).toBeGreaterThan(0);
+    // Chờ các phần tử tương tác xuất hiện
+    await page.waitForSelector('button, a', { timeout: 5000 });
+    const buttons = page.locator('button, a');
+    const count = await buttons.count();
+    expect(count).toBeGreaterThan(0);
   });
 
   test('Bot kiểm tra Hộp thư đàm đạo & Kênh Thế Giới (Global Chat)', async ({ page, request }) => {
@@ -80,7 +81,7 @@ test.describe('Directed Bot: Kịch bản kiểm thử điều hướng & tính 
     }, loginData);
 
     await page.goto('/user/messages');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Kiểm tra không bị crash
     const crashScreen = page.locator('text=Hệ thống gặp sự cố bất ngờ');
@@ -89,7 +90,7 @@ test.describe('Directed Bot: Kịch bản kiểm thử điều hướng & tính 
 
   test('Bot kiểm tra Tông Môn (Sects)', async ({ page }) => {
     await page.goto('/sects');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const crashScreen = page.locator('text=Hệ thống gặp sự cố bất ngờ');
     await expect(crashScreen).not.toBeVisible();

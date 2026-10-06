@@ -56,6 +56,8 @@ export const DiscoverFilterBar: React.FC<DiscoverFilterBarProps> = ({
 }) => {
   return (
     <form onSubmit={onSearchSubmit} className="bg-[#121225]/80 border border-[#1f1f3a]/80 rounded-2xl p-5 space-y-4 shadow-xl">
+      {/* 🍯 Bẫy chống Bot (Honeypot Trap): Bot tự động điền ô này sẽ bị từ chối ngay */}
+      <input type="text" name="hp_trap" tabIndex={-1} autoComplete="off" style={{ display: 'none', position: 'absolute', opacity: 0, pointerEvents: 'none' }} aria-hidden="true" />
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />

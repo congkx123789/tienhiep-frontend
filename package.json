@@ -102,11 +102,22 @@
       ],
       "extraResources": [
         {
-          "from": "../TTS_ONNX_Deploy",
-          "to": "bin",
+          "from": "../backend_go/bin",
+          "to": "backend_go/bin",
           "filter": [
-            "*.onnx",
-            "windows_cpu.zip"
+            "server.exe"
+          ]
+        },
+        {
+          "from": "../backend_go/engines",
+          "to": "backend_go/engines",
+          "filter": [
+            "**/models/*.onnx",
+            "**/models/*.bin",
+            "**/models_onnx/int8/*.onnx",
+            "**/models_onnx/*.onnx",
+            "**/models_onnx/*.json",
+            "**/vocab/*"
           ]
         }
       ]
@@ -133,11 +144,25 @@
       ],
       "extraResources": [
         {
-          "from": "../TTS_ONNX_Deploy",
-          "to": "bin",
+          "from": "../backend_go/bin",
+          "to": "backend_go/bin",
           "filter": [
-            "*.onnx",
-            "linux_cpu.zip"
+            "server"
+          ]
+        },
+        {
+          "from": "../backend_go/engines",
+          "to": "backend_go/engines",
+          "filter": [
+            "**/bin/*",
+            "**/models/*.onnx",
+            "**/models/*.bin",
+            "**/models_onnx/int8/*.onnx",
+            "**/models_onnx/*.onnx",
+            "**/models_onnx/*.json",
+            "**/lib/*.so*",
+            "**/libs/*.so*",
+            "**/vocab/*"
           ]
         }
       ]

@@ -12,14 +12,14 @@ const INITIAL_RELEASES: ReleasesState = {
   desktop_linux: {
     version: '1.0.18',
     download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-latest.AppImage',
-    file_size: '127 MB',
-    release_notes: 'Phiên bản Linux AppImage siêu nhẹ 127MB, phản hồi 0ms và Go daemon'
+    file_size: '324 MB',
+    release_notes: 'Bản Linux AppImage Full Offline tích hợp Go Server, CMLM AI, HanLP và TTS CPU'
   },
   desktop_windows: {
     version: '1.0.18',
     download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-Setup-latest.exe',
-    file_size: '93 MB',
-    release_notes: 'Bản cài đặt Windows Setup EXE siêu tinh gọn 93MB với phản hồi 0ms'
+    file_size: '258 MB',
+    release_notes: 'Bản cài đặt Windows Setup EXE Full Offline tích hợp Go Server, CMLM AI, HanLP và TTS CPU'
   },
   android_apk: {
     version: '1.0.18',

@@ -380,12 +380,23 @@ async function startBackend() {
     env
   };
   await killBackendOnPort(8001);
-  const goServerBin = process.platform === "win32" ? import_path3.default.join(__dirname, "../../backend_go/bin/server.exe") : import_path3.default.join(__dirname, "../../backend_go/bin/server");
-  if (import_fs3.default.existsSync(goServerBin)) {
-    command = goServerBin;
-    args = [];
-    spawnOptions.cwd = import_path3.default.dirname(import_path3.default.dirname(goServerBin));
-    writeAppLog(`[Backend Daemon] Kh\u1EDFi ch\u1EA1y Go Backend Server: ${command}`);
+  const isWin = process.platform === "win32";
+  const binName = isWin ? "server.exe" : "server";
+  const resourcesPath = process.resourcesPath || "";
+  const possibleGoBins = [
+    import_path3.default.join(resourcesPath, "backend_go/bin", binName),
+    import_path3.default.join(resourcesPath, "bin", binName),
+    import_path3.default.join(__dirname, "../../backend_go/bin", binName),
+    import_path3.default.join(import_electron3.app.getAppPath(), "../backend_go/bin", binName)
+  ];
+  for (const p of possibleGoBins) {
+    if (import_fs3.default.existsSync(p)) {
+      command = p;
+      args = [];
+      spawnOptions.cwd = import_path3.default.dirname(import_path3.default.dirname(p));
+      writeAppLog(`[Backend Daemon] Kh\u1EDFi ch\u1EA1y Go Backend Server: ${command}`);
+      break;
+    }
   }
   if (!command) {
     const binaryName = process.platform === "win32" ? "App_Doc_Truyen_Engine.exe" : "App_Doc_Truyen_Engine";

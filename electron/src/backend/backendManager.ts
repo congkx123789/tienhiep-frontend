@@ -89,16 +89,26 @@ export async function startBackend(): Promise<boolean> {
 
   await killBackendOnPort(8001);
 
-  // Ưu tiên Go Server Engine
-  const goServerBin = process.platform === 'win32'
-    ? path.join(__dirname, '../../backend_go/bin/server.exe')
-    : path.join(__dirname, '../../backend_go/bin/server');
+  // Ưu tiên Go Server Engine (Resources Path khi đóng gói hoặc Dev Path)
+  const isWin = process.platform === 'win32';
+  const binName = isWin ? 'server.exe' : 'server';
+  const resourcesPath = (process as any).resourcesPath || '';
 
-  if (fs.existsSync(goServerBin)) {
-    command = goServerBin;
-    args = [];
-    spawnOptions.cwd = path.dirname(path.dirname(goServerBin));
-    writeAppLog(`[Backend Daemon] Khởi chạy Go Backend Server: ${command}`);
+  const possibleGoBins = [
+    path.join(resourcesPath, 'backend_go/bin', binName),
+    path.join(resourcesPath, 'bin', binName),
+    path.join(__dirname, '../../backend_go/bin', binName),
+    path.join(app.getAppPath(), '../backend_go/bin', binName),
+  ];
+
+  for (const p of possibleGoBins) {
+    if (fs.existsSync(p)) {
+      command = p;
+      args = [];
+      spawnOptions.cwd = path.dirname(path.dirname(p));
+      writeAppLog(`[Backend Daemon] Khởi chạy Go Backend Server: ${command}`);
+      break;
+    }
   }
 
   if (!command) {

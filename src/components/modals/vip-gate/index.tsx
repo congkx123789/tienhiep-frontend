@@ -124,13 +124,15 @@ export default function VipGateModal() {
               toolId={toolId}
               onBackToGate={toolId ? () => setStep('gate') : undefined}
               onInitiatePayment={() => {
-                handleInitiatePayment(() => {
+                handleInitiatePayment((createdData) => {
                   setStep('payment');
-                  startPolling(
-                    paymentData?.order_id || '',
-                    () => setStep('success'),
-                    () => setStep('plans')
-                  );
+                  if (createdData?.order_id) {
+                    startPolling(
+                      createdData.order_id,
+                      () => setStep('success'),
+                      () => setStep('plans')
+                    );
+                  }
                 });
               }}
             />

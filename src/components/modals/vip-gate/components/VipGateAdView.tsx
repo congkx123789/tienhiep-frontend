@@ -89,10 +89,29 @@ export const VipGateAdView: React.FC<VipGateAdViewProps> = ({
               />
             </div>
 
-            <div className="p-3 bg-[#111122] rounded-lg border border-dashed border-white/10 text-center">
+            <div className="p-3.5 bg-gradient-to-br from-[#101026] via-[#151532] to-[#1a1a3a] rounded-xl border border-indigo-500/30 text-center space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-white/5 pb-2">
+                <span className="flex items-center gap-1.5 font-bold text-amber-400">
+                  <Sparkles className="w-3.5 h-3.5" /> Đối Tác Tài Trợ Tiên Hiệp AI
+                </span>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-extrabold uppercase">
+                  {adFinished ? 'Hoàn tất' : `Đang phát (${adTimer}s)`}
+                </span>
+              </div>
+              <div className="py-2 flex flex-col items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-500 flex items-center justify-center text-white mb-2 shadow-lg shadow-indigo-500/30 animate-pulse">
+                  <Tv className="w-5 h-5" />
+                </div>
+                <h5 className="text-xs font-bold text-white">Tiên Hiệp AI Neural Studio & Cloud Translation</h5>
+                <p className="text-[11px] text-slate-300 max-w-sm mt-0.5 leading-relaxed">
+                  Công nghệ chuyển ngữ tiên hiệp & tổng hợp giọng đọc C++ siêu tốc 18x thời gian thực.
+                </p>
+              </div>
               <GoogleAd slot="reward-interstitial-slot" className="!my-0" />
-              <p className="text-[10px] text-slate-500 mt-1 italic">
-                Cảm ơn bạn đã xem quảng cáo tài trợ duy trì máy chủ Tiên Hiệp AI
+              <p className="text-[10px] text-slate-400 italic">
+                {adFinished
+                  ? '🎉 Bạn đã xem đủ thời lượng tài trợ! Bấm nút bên dưới để nhận 30 phút VIP miễn phí.'
+                  : `Đang phát thông điệp tài trợ... Còn ${adTimer} giây nữa để mở khóa.`}
               </p>
             </div>
 

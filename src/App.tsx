@@ -7,6 +7,7 @@ import { BrowserProvider } from './contexts/BrowserContext';
 import { VipGateProvider } from './contexts/VipGateContext';
 import { isElectron } from './utils/electron';
 import { ErrorBoundary, VipGateModal } from './components';
+import FreeEventBanner from './components/common/FreeEventBanner';
 import { APP_ROUTES } from './config/routes';
 
 const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform();
@@ -50,6 +51,7 @@ export default function App() {
             <ReaderSettingsProvider>
               <BrowserProvider>
                 <Router>
+                  <FreeEventBanner />
                   <VipGateModal />
                   <Suspense fallback={<PageLoader />}>
                     <Routes>

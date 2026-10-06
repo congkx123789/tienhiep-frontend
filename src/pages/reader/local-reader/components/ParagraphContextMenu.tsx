@@ -224,9 +224,9 @@ export const ParagraphContextMenu: React.FC<ParagraphContextMenuProps> = ({
             </span>
             <span className="text-slate-400 border-l border-slate-200 pl-2">Đổi nghĩa:</span>
             <div className="flex items-center gap-1">
-              <button type="button" className="px-1.5 py-0.5 rounded bg-purple-100/70 text-purple-800 font-semibold border border-purple-200">
+              <span className="px-1.5 py-0.5 rounded bg-purple-100/70 text-purple-800 font-semibold border border-purple-200">
                 "{selectedToken.vi}"
-              </button>
+              </span>
               {selectedToken.alternatives && selectedToken.alternatives.filter(alt => alt && alt !== selectedToken.vi).slice(0, 4).map((alt, i) => (
                 <button
                   key={i}

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { AuthUser } from './Auth.types';
 
 export function useOAuthDeepLink(onAuthSuccess: (token: string, refreshToken?: string, user?: AuthUser) => Promise<void>) {
-  const handleOAuthUrl = (url: string) => {
+  const handleOAuthUrl = async (url: string) => {
     try {
       console.log("[AuthContext] Received OAuth Callback URL:", url);
       const parsedUrl = new URL(url);
@@ -16,13 +16,16 @@ export function useOAuthDeepLink(onAuthSuccess: (token: string, refreshToken?: s
       }
       
       if (token) {
-        onAuthSuccess(token, refreshToken, parsedUser);
+        await onAuthSuccess(token, refreshToken, parsedUser);
         console.log("[AuthContext] Deep link OAuth login successful!");
+
+        if (typeof window !== 'undefined') {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
         
         if (parsedUser && parsedUser.require_password_change === 1) {
           window.location.href = '/settings';
-        } else {
-          window.location.reload();
         }
       }
     } catch (err) {
@@ -37,6 +40,15 @@ export function useOAuthDeepLink(onAuthSuccess: (token: string, refreshToken?: s
         handleOAuthUrl(url);
       });
       return () => unsubscribe();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      const p = new URLSearchParams(window.location.search);
+      if (p.has('token')) {
+        handleOAuthUrl(window.location.href);
+      }
     }
   }, []);
 

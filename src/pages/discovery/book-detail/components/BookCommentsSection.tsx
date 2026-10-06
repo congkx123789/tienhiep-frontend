@@ -23,6 +23,10 @@ export function BookCommentsSection({
   handleAddComment,
   handleLikeComment,
 }: BookCommentsSectionProps) {
+  const avgRating = comments.length > 0
+    ? (comments.reduce((acc, c) => acc + (c.rating || 5), 0) / comments.length).toFixed(1)
+    : null;
+
   return (
     <div className="bg-[#121225]/60 border border-[#1f1f3a] rounded-3xl p-6 space-y-6">
       <div className="flex justify-between items-center border-b border-[#1f1f3a]/60 pb-4">
@@ -30,8 +34,14 @@ export function BookCommentsSection({
           <MessageSquare className="w-4.5 h-4.5 text-purple-400" /> Bình luận & Đánh giá ({comments.length})
         </h3>
         <div className="flex items-center gap-1.5">
-          <span className="text-amber-400 font-bold text-sm">⭐ 4.8</span>
-          <span className="text-slate-500 text-[11px]">(145 bình chọn)</span>
+          {avgRating ? (
+            <>
+              <span className="text-amber-400 font-bold text-sm">⭐ {avgRating}</span>
+              <span className="text-slate-500 text-[11px]">({comments.length} nhận xét)</span>
+            </>
+          ) : (
+            <span className="text-slate-500 text-[11px]">Chưa có đánh giá</span>
+          )}
         </div>
       </div>
 
@@ -79,39 +89,45 @@ export function BookCommentsSection({
 
       {/* Comments List */}
       <div className="space-y-4">
-        {comments.map((comment) => (
-          <div key={comment.id} className="border-b border-[#1f1f3a]/40 pb-4 last:border-b-0 last:pb-0 flex gap-3.5">
-            <img
-              src={comment.avatar}
-              alt={comment.user}
-              className="w-9 h-9 rounded-full object-cover border border-[#2d2d55] bg-[#0f0f1a] shrink-0"
-            />
-            <div className="flex-1 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-100">{comment.user}</span>
-                  <div className="flex text-amber-400 text-[10px]">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <span key={i}>{i < comment.rating ? '★' : '☆'}</span>
-                    ))}
+        {comments.length > 0 ? (
+          comments.map((comment) => (
+            <div key={comment.id} className="border-b border-[#1f1f3a]/40 pb-4 last:border-b-0 last:pb-0 flex gap-3.5">
+              <img
+                src={comment.avatar}
+                alt={comment.user}
+                className="w-9 h-9 rounded-full object-cover border border-[#2d2d55] bg-[#0f0f1a] shrink-0"
+              />
+              <div className="flex-1 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-100">{comment.user}</span>
+                    <div className="flex text-amber-400 text-[10px]">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <span key={i}>{i < comment.rating ? '★' : '☆'}</span>
+                      ))}
+                    </div>
                   </div>
+                  <span className="text-[10px] text-slate-500">{comment.time}</span>
                 </div>
-                <span className="text-[10px] text-slate-500">{comment.time}</span>
-              </div>
-              <p className="text-slate-300 text-xs leading-relaxed">{comment.text}</p>
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  onClick={() => handleLikeComment(comment.id)}
-                  className={`inline-flex items-center gap-1 text-[10px] font-semibold transition-colors ${
-                    likedComments.has(comment.id) ? 'text-purple-400' : 'text-slate-500 hover:text-slate-400'
-                  }`}
-                >
-                  <ThumbsUp className="w-3 h-3" /> Hữu ích ({comment.likes})
-                </button>
+                <p className="text-slate-300 text-xs leading-relaxed">{comment.text}</p>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={() => handleLikeComment(comment.id)}
+                    className={`inline-flex items-center gap-1 text-[10px] font-semibold transition-colors ${
+                      likedComments.has(comment.id) ? 'text-purple-400' : 'text-slate-500 hover:text-slate-400'
+                    }`}
+                  >
+                    <ThumbsUp className="w-3 h-3" /> Hữu ích ({comment.likes})
+                  </button>
+                </div>
               </div>
             </div>
+          ))
+        ) : (
+          <div className="text-center py-6 text-slate-500 text-xs">
+            Chưa có bình luận nào cho tác phẩm này. Hãy là người đầu tiên để lại nhận xét!
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../layouts/main';
 import { useAuth } from '../../contexts/AuthContext';
 import { useVipGate } from '../../contexts/VipGateContext';
@@ -8,8 +9,9 @@ import {
 } from 'lucide-react';
 
 export default function VipPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { openVipModal, requestToolAccess, isToolUnlocked, getToolRemainingMinutes } = useVipGate();
+  const { openVipModal, openToolGate, isToolUnlocked, getToolRemainingMinutes, systemEvent, quotaInfo } = useVipGate();
 
   // Danh sách các công cụ tiêu biểu trong hệ thống
   const tools = [
@@ -19,6 +21,7 @@ export default function VipPage() {
       desc: 'Sử dụng Gemini 1.5 Flash gợi ý cốt truyện theo tính cách nhân vật',
       icon: Sparkles,
       color: 'from-amber-500 to-yellow-400',
+      route: '/',
     },
     {
       id: 'ai_translate',
@@ -26,6 +29,7 @@ export default function VipPage() {
       desc: 'Mô hình dịch AI thông minh, câu văn mượt mà chuẩn văn phong tiên hiệp',
       icon: BookOpen,
       color: 'from-purple-500 to-indigo-500',
+      route: '/embed',
     },
     {
       id: 'tts_premium',
@@ -33,6 +37,7 @@ export default function VipPage() {
       desc: 'Giọng đọc AI cảm xúc, đọc liên tục hàng nghìn chương không gián đoạn',
       icon: Volume2,
       color: 'from-emerald-500 to-teal-400',
+      route: '/embed',
     },
     {
       id: 'batch_download',
@@ -40,19 +45,16 @@ export default function VipPage() {
       desc: 'Tự động cào và đóng gói ebook trọn bộ chỉ trong vài giây',
       icon: Download,
       color: 'from-blue-500 to-cyan-400',
+      route: '/downloads',
     },
   ];
 
-  const handleTestTool = (tool) => {
-    requestToolAccess({
-      toolId: tool.id,
-      toolName: tool.name,
-      description: tool.desc,
-      durationMinutes: 30,
-      onSuccess: () => {
-        alert(`🎉 Công cụ [${tool.name}] đã được kích hoạt thành công! Bạn có thể sử dụng ngay bây giờ.`);
-      },
-    });
+  const handleUseTool = (tool: typeof tools[0]) => {
+    navigate(tool.route);
+  };
+
+  const handleTestGate = (tool: typeof tools[0]) => {
+    openToolGate(tool.id, tool.name, tool.desc, 30);
   };
 
   return (
@@ -85,12 +87,24 @@ export default function VipPage() {
                   <span>Nâng Cấp VIP Ngay (Từ 50k)</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                <div className="text-xs text-slate-400 flex items-center gap-1.5 px-3 py-2 bg-white/5 rounded-2xl border border-white/5">
-                  <Shield className="w-4 h-4 text-emerald-400" />
-                  <span>Trạng thái: </span>
-                  <strong className={user?.vip_status === 1 ? 'text-amber-400' : 'text-slate-300'}>
-                    {user?.vip_status === 1 ? '👑 VIP Thành Viên' : 'Người Dùng Tiêu Chuẩn'}
-                  </strong>
+                <div className="text-xs text-slate-400 flex flex-wrap items-center gap-2 px-3 py-2 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="w-4 h-4 text-emerald-400" />
+                    <span>Trạng thái: </span>
+                    <strong className={user?.vip_status === 1 ? 'text-amber-400' : 'text-slate-300'}>
+                      {user?.vip_status === 1 ? '👑 VIP Thành Viên' : 'Người Dùng Tiêu Chuẩn'}
+                    </strong>
+                  </div>
+                  {systemEvent.isFreeEventActive && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      🎉 Free Toàn Bộ ({systemEvent.eventName || 'Sự Kiện'})
+                    </span>
+                  )}
+                  {!systemEvent.isFreeEventActive && user?.vip_status !== 1 && quotaInfo && (
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                      Dùng thử hôm nay: {Math.max(0, Math.ceil(quotaInfo.remainingSeconds / 60))} phút
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -143,10 +157,16 @@ export default function VipPage() {
                 Bạn có thể bấm vào bất kỳ công cụ nào dưới đây để kiểm tra thử logic mở khóa chồng lên (Overlay Gate)
               </p>
             </div>
-            <div className="text-xs text-slate-400 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+            <button
+              type="button"
+              onClick={() => openToolGate('ad_trial', 'Mở Khóa Qua Quảng Cáo', 'Xem video ngắn 15s để nhận 30 phút trải nghiệm VIP', 30)}
+              className="text-xs text-slate-300 bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-300 px-3 py-1.5 rounded-xl border border-white/10 hover:border-emerald-500/30 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+            >
               <span>Đã hỗ trợ: </span>
-              <strong className="text-emerald-400">Xem quảng cáo 15s để mở khóa 30 phút</strong>
-            </div>
+              <strong className="text-emerald-400 flex items-center gap-1">
+                <Tv className="w-3.5 h-3.5" /> Xem quảng cáo 15s để mở khóa 30 phút
+              </strong>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -191,24 +211,35 @@ export default function VipPage() {
                     <span className="text-[11px] text-slate-500">
                       {unlocked ? 'Sẵn sàng sử dụng' : 'Hỗ trợ VIP & Xem QC'}
                     </span>
-                    <button
-                      onClick={() => handleTestTool(t)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        unlocked
-                          ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40'
-                          : 'bg-gradient-to-r from-amber-500 to-amber-600 text-[#0b0b14] hover:brightness-110 shadow-md shadow-amber-500/20'
-                      }`}
-                    >
+                    <div className="flex items-center gap-2">
                       {unlocked ? (
                         <>
-                          <PlayCircle className="w-4 h-4" /> Dùng Ngay
+                          <button
+                            type="button"
+                            onClick={() => handleUseTool(t)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-emerald-500 text-[#0b0b14] hover:bg-emerald-400 shadow-md shadow-emerald-500/20 active:scale-95"
+                          >
+                            <PlayCircle className="w-4 h-4" /> Dùng Ngay
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTestGate(t)}
+                            title="Thử nghiệm Overlay Gate mở khóa bằng quảng cáo"
+                            className="px-2.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer active:scale-95"
+                          >
+                            <Shield className="w-3.5 h-3.5" /> Test Gate
+                          </button>
                         </>
                       ) : (
-                        <>
+                        <button
+                          type="button"
+                          onClick={() => handleTestGate(t)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-gradient-to-r from-amber-500 to-amber-600 text-[#0b0b14] hover:brightness-110 shadow-md shadow-amber-500/20 active:scale-95"
+                        >
                           <PlayCircle className="w-4 h-4" /> Test Mở Khóa Tool
-                        </>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </div>
                 </div>
               );

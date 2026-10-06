@@ -232,7 +232,7 @@ export default function AiUpgradeModal({ isOpen, onClose, onSelectBook }) {
                               src={b.cover}
                               alt="cover"
                               className="w-[45px] h-[60px] object-cover rounded-lg border border-[#2d2d55] shadow-md bg-[#0f0f1a]"
-                              onError={(e) => { (e.target as HTMLElement)?.remove?.(); }}
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                             />
                           ) : (
                             <div className="w-[45px] h-[60px] rounded-lg border border-[#2d2d55] bg-[#0f0f1a] flex items-center justify-center text-slate-500">

@@ -34,7 +34,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const onAuthSuccess = async (accessToken?: string, refreshToken?: string, newUser?: AuthUser | null) => {
     await saveAuthTokens(accessToken, refreshToken, newUser);
-    if (newUser) setUser(newUser);
+    if (newUser) {
+      setUser(newUser);
+    } else if (accessToken) {
+      try {
+        const res = await api.get('/api/auth/me', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (res.data?.logged_in && res.data.user) {
+          setUser(res.data.user);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+        }
+      } catch (e) {
+        console.error("Failed to fetch user in onAuthSuccess:", e);
+      }
+    }
     fetchOrCreateApiKey().catch(() => {});
   };
 

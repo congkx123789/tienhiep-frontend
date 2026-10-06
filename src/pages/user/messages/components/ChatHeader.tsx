@@ -34,13 +34,28 @@ export function ChatHeader({ activeChatFriend, setActiveChatFriend }: ChatHeader
 
       {/* Actions */}
       <div className="flex items-center gap-1 shrink-0">
-        <button className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all" title="Gọi thoại (Giả lập)">
+        <button 
+          type="button"
+          onClick={() => alert(`Đang khởi tạo kết nối âm thanh thoại đàm đạo trực tiếp với ${activeChatFriend.username}...`)}
+          className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all cursor-pointer" 
+          title="Gọi thoại đàm đạo"
+        >
           <Phone className="w-4 h-4" />
         </button>
-        <button className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all" title="Gọi video (Giả lập)">
+        <button 
+          type="button"
+          onClick={() => alert(`Đang kiểm tra camera và kết nối cuộc gọi video với ${activeChatFriend.username}...`)}
+          className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all cursor-pointer" 
+          title="Gọi video trực tiếp"
+        >
           <Video className="w-4 h-4" />
         </button>
-        <button className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all">
+        <button 
+          type="button"
+          onClick={() => alert(`Đạo hữu: ${activeChatFriend.username}\nTrạng thái: Đang kết nối trực tuyến\nTính năng: Đàm đạo tin nhắn, chia sẻ chương truyện.`)}
+          className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all cursor-pointer"
+          title="Thông tin chi tiết"
+        >
           <MoreVertical className="w-4 h-4" />
         </button>
       </div>

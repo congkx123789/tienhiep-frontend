@@ -37,25 +37,27 @@ export function BookSidebarStats({ book, urlsList }: BookSidebarStatsProps) {
 
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 flex items-center gap-1.5">
-              <Eye className="w-3.5 h-3.5 text-purple-400" /> Tổng lượt xem:
+              <Eye className="w-3.5 h-3.5 text-purple-400" /> Tổng số chữ:
             </span>
             <span className="text-slate-200 font-bold">
-              {book.word_count_max ? Math.round(book.word_count_max * 1.5).toLocaleString() : '340,500'}
+              {book.word_count_max ? `${book.word_count_max.toLocaleString()} chữ` : 'Đang cập nhật'}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-purple-400" /> Tốc độ ra chương:
+              <Zap className="w-3.5 h-3.5 text-purple-400" /> Cập nhật chương:
             </span>
-            <span className="text-slate-200 font-bold">~12 chương / ngày</span>
+            <span className="text-slate-200 font-bold">
+              {book.chapters_max ? `${book.chapters_max} chương` : 'Tự động theo dõi'}
+            </span>
           </div>
 
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-purple-400" /> Độ tin cậy nguồn:
+              <Star className="w-3.5 h-3.5 text-purple-400" /> Nguồn cấp:
             </span>
-            <span className="text-indigo-400 font-bold">99.1% (Sạch QC)</span>
+            <span className="text-indigo-400 font-bold">Trực tiếp từ nguồn gốc</span>
           </div>
 
           <div className="flex flex-col gap-2 pt-2 border-t border-[#1f1f3a]/30">
@@ -82,7 +84,7 @@ export function BookSidebarStats({ book, urlsList }: BookSidebarStatsProps) {
                   </a>
                 ))
               ) : (
-                <span className="text-slate-500 italic text-[11px]">Metruyenchu, Biquge (Không tìm thấy link)</span>
+                <span className="text-slate-500 italic text-[11px]">Chưa có liên kết nguồn ngoài</span>
               )}
             </div>
           </div>

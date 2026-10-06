@@ -29,7 +29,10 @@ export const BookCardHeader: React.FC<BookCardHeaderProps> = ({
           src={book.cover} 
           alt="cover" 
           className="w-[60px] h-[82px] object-cover rounded-lg border border-[#2d2d55] shadow-md shrink-0 bg-[#0f0f1a] cursor-pointer hover:opacity-90 transition-opacity"
-          onError={(e) => { (e.target as HTMLElement).remove(); }}
+          onError={(e) => { 
+            // Fallback an toàn, tránh xóa DOM làm biến mất giao diện
+            (e.currentTarget as HTMLImageElement).style.display = 'none'; 
+          }}
           onClick={() => onRead && onRead(book)}
         />
       ) : (

@@ -962,6 +962,16 @@ if (!gotTheLock) {
   });
   import_electron9.app.whenReady().then(() => {
     writeAppLog("--- KH\u1EDEI \u0110\u1ED8NG TI\xCAN HI\u1EC6P AI ELECTRON (TYPESCRIPT) ---");
+    import_electron9.session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const headers = { ...details.requestHeaders };
+      if (details.resourceType === "image") {
+        delete headers["Referer"];
+        delete headers["referer"];
+        delete headers["Origin"];
+        delete headers["origin"];
+      }
+      callback({ cancel: false, requestHeaders: headers });
+    });
     import_electron9.app.on("web-contents-created", (_event, contents) => {
       contents.setWindowOpenHandler((details) => {
         const targetUrl = details.url;

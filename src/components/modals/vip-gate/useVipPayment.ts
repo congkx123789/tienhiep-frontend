@@ -63,7 +63,12 @@ export function useVipPayment(
     });
   };
 
-  const handleInitiatePayment = async (onSuccess: () => void) => {
+  const handleInitiatePayment = async (onSuccess: (data: PaymentData) => void) => {
+    if (!user) {
+      window.dispatchEvent(new CustomEvent('open-auth-modal'));
+      alert('Vui lòng đăng nhập hoặc tạo tài khoản trước khi nạp VIP để hệ thống kích hoạt tự động vào tài khoản của bạn!');
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.post('/api/payment/create', {
@@ -73,7 +78,7 @@ export function useVipPayment(
       setPaymentData(res.data);
       setPolling(true);
       setQrError(false);
-      onSuccess();
+      onSuccess(res.data);
     } catch (e: any) {
       alert(e.response?.data?.error || 'Không khởi tạo được thanh toán. Vui lòng thử lại.');
     } finally {

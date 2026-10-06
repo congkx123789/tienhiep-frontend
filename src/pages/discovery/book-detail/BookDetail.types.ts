@@ -20,6 +20,7 @@ export interface BookInfo {
   categories_english?: string;
   urls?: string;
   word_count_max?: number;
+  chapters_max?: number;
   parsed_sources?: { source: string; url: string }[];
 }
 

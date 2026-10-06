@@ -29,19 +29,28 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
       setMessage('');
 
       // Initialize Google sign in button if available (Web only)
-      if ((window as any).google && !(window as any).electron) {
-        (window as any).google.accounts.id.initialize({
-          client_id: '107953505478-0gielhlbbif11eu77rb29sq7ie7dqbmn.apps.googleusercontent.com',
-          callback: handleGoogleSignInCallback,
-        });
-        const btnContainer = document.getElementById('google-signin-btn');
-        if (btnContainer) {
-          (window as any).google.accounts.id.renderButton(
-            btnContainer,
-            { theme: 'filled_blue', size: 'large', width: 290 }
-          );
+      const initGoogle = () => {
+        if ((window as any).google?.accounts?.id && !(window as any).electron) {
+          try {
+            (window as any).google.accounts.id.initialize({
+              client_id: '107953505478-0gielhlbbif11eu77rb29sq7ie7dqbmn.apps.googleusercontent.com',
+              callback: handleGoogleSignInCallback,
+            });
+            const btnContainer = document.getElementById('google-signin-btn');
+            if (btnContainer) {
+              (window as any).google.accounts.id.renderButton(
+                btnContainer,
+                { theme: 'filled_blue', size: 'large', width: 290 }
+              );
+            }
+          } catch (e) {
+            console.warn('[Google GSI] Init warning:', e);
+          }
         }
-      }
+      };
+      initGoogle();
+      const timer = setTimeout(initGoogle, 600);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -74,14 +83,17 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
     try {
       const clientId = '107953505478-0gielhlbbif11eu77rb29sq7ie7dqbmn.apps.googleusercontent.com';
       const redirectUri = 'https://tienhiep.lyvuha.com/api/auth/google/callback';
-      const state = encodeURIComponent('desktop|http://127.0.0.1:5051');
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tienhiep.lyvuha.com';
+      const isElectron = Boolean((window as any).electron);
+      const statePrefix = isElectron ? 'desktop' : 'web';
+      const state = encodeURIComponent(`${statePrefix}|${origin}`);
       const nonce = Math.random().toString(36).substring(2);
 
       const loginUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token&scope=email%20profile&nonce=${nonce}&prompt=select_account&state=${state}`;
 
-      const isNative = (window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform();
+      const isNative = (window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform();
 
-      if ((window as any).electron && (window as any).electron.openExternal) {
+      if (isElectron && (window as any).electron.openExternal) {
         (window as any).electron.openExternal(loginUrl);
       } else if (isNative) {
         try {
@@ -91,11 +103,10 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
           window.open(loginUrl, '_system');
         }
       } else {
-        window.open(loginUrl, '_blank');
+        window.location.href = loginUrl;
       }
     } catch {
       setError('Không thể mở liên kết đăng nhập. Vui lòng thử lại.');
-    } finally {
       setLoading(false);
     }
   };

@@ -61,8 +61,18 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     writeAppLog('--- KHỞI ĐỘNG TIÊN HIỆP AI ELECTRON (TYPESCRIPT) ---');
-    // Bỏ logic Clean Ad theo yêu cầu người dùng, giữ nguyên vẹn 100% tài nguyên trang web
-    // setupAdBlockerForSession(session.defaultSession);
+    
+    // Tự động bỏ Referer/Origin cho các tài nguyên ảnh để chống bị chặn 403 Forbidden trên Windows/Linux
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const headers = { ...details.requestHeaders };
+      if (details.resourceType === 'image') {
+        delete headers['Referer'];
+        delete headers['referer'];
+        delete headers['Origin'];
+        delete headers['origin'];
+      }
+      callback({ cancel: false, requestHeaders: headers });
+    });
 
     app.on('web-contents-created', (_event, contents) => {
       contents.setWindowOpenHandler((details) => {

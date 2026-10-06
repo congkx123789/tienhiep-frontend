@@ -109,7 +109,7 @@ export function ReadingHistoryList({
                       src={b.cover}
                       alt="cover"
                       className="w-[48px] h-[66px] object-cover rounded-xl border border-[#1f1f3a] shrink-0"
-                      onError={(e) => (e.target as HTMLElement).remove()}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     />
                   ) : (
                     <div className="w-[48px] h-[66px] rounded-xl bg-[#0b0b14] border border-[#1f1f3a] flex items-center justify-center text-slate-600 shrink-0">

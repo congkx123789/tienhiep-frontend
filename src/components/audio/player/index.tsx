@@ -125,7 +125,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             src={(book as any).cover}
             alt="cover"
             className={`w-9 h-12 object-cover rounded-lg border border-white/10 shadow-sm shrink-0 bg-[#07080e] ${speech.isPlaying ? 'animate-pulse' : ''}`}
-            onError={(e: any) => { e.target.remove(); }}
+            onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
           />
         ) : (
           <div className={`w-9 h-12 rounded-lg border border-white/10 bg-[#07080e] flex items-center justify-center text-slate-500 shrink-0 ${speech.isPlaying ? 'ring-1.5 ring-purple-500/40' : ''}`}>

@@ -1,4 +1,4 @@
-import { runFunctionalTests } from './functional';
+import { runFunctionalTests, runButtonAndActionTests, runAuthGoogleAndRbacTests } from './functional';
 import { runApiContractTests, runContractCrawler } from './contracts';
 
 async function main() {
@@ -8,12 +8,30 @@ async function main() {
 
   let totalFailed = 0;
 
-  // 1. Chạy Functional Tests
+  // 1. Chạy Functional Tests Core
   try {
     const fnResult = await runFunctionalTests();
     totalFailed += fnResult.failed;
   } catch (err: any) {
     console.error('❌ Lỗi ngoại lệ trong Functional Tests:', err.message);
+    totalFailed++;
+  }
+
+  // 2. Chạy kiểm thử toàn bộ các nút bấm và Action API
+  try {
+    const btnResult = await runButtonAndActionTests();
+    totalFailed += btnResult.failed;
+  } catch (err: any) {
+    console.error('❌ Lỗi ngoại lệ trong Button & Action Tests:', err.message);
+    totalFailed++;
+  }
+
+  // 3. Chạy kiểm thử Google Auth & Phân quyền RBAC
+  try {
+    const authResult = await runAuthGoogleAndRbacTests();
+    totalFailed += authResult.failed;
+  } catch (err: any) {
+    console.error('❌ Lỗi ngoại lệ trong Auth & RBAC Tests:', err.message);
     totalFailed++;
   }
 

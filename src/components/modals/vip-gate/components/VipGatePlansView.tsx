@@ -1,6 +1,7 @@
 import React from 'react';
-import { Crown, Zap, Check, ArrowRight, RefreshCw } from 'lucide-react';
+import { Crown, Zap, Check, ArrowRight, RefreshCw, LogIn } from 'lucide-react';
 import { PLANS, GateTab } from '../VipGate.types';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 interface VipGatePlansViewProps {
   tab: GateTab;
@@ -23,6 +24,7 @@ export const VipGatePlansView: React.FC<VipGatePlansViewProps> = ({
   onBackToGate,
   onInitiatePayment,
 }) => {
+  const { user } = useAuth();
   return (
     <div className="space-y-4">
       {/* Tabs VIP / Nạp */}
@@ -109,10 +111,18 @@ export const VipGatePlansView: React.FC<VipGatePlansViewProps> = ({
           type="button"
           onClick={onInitiatePayment}
           disabled={loading}
-          className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 text-[#0b0b14] font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all disabled:opacity-50"
+          className={`flex-1 py-3 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 cursor-pointer ${
+            !user 
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white shadow-purple-500/25 animate-pulse'
+              : 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 text-[#0b0b14] shadow-amber-500/25'
+          }`}
         >
           {loading ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
+          ) : !user ? (
+            <>
+              <LogIn className="w-4 h-4" /> Đăng Nhập Để Nạp VIP
+            </>
           ) : (
             <>
               Tiếp Tục Chuyển Khoản <ArrowRight className="w-4 h-4" />

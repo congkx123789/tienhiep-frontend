@@ -1,4 +1,4 @@
-import { FormEvent } from 'react';
+import { FormEvent, useRef } from 'react';
 import { Send, Image, Paperclip } from 'lucide-react';
 
 interface ChatInputFormProps {
@@ -14,13 +14,55 @@ export function ChatInputForm({
   sendingMessage,
   handleSendMessage,
 }: ChatInputFormProps) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setTypedMessage(typedMessage ? `${typedMessage} [Hình ảnh: ${file.name}] ` : `[Hình ảnh: ${file.name}] `);
+    }
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setTypedMessage(typedMessage ? `${typedMessage} [Tệp tin: ${file.name}] ` : `[Tệp tin: ${file.name}] `);
+    }
+  };
+
   return (
     <form onSubmit={handleSendMessage} className="p-3 border-t border-[#1f1f3a] bg-[#0b0b14]/50 flex items-center gap-2 shrink-0">
+      <input 
+        type="file" 
+        ref={imageInputRef} 
+        onChange={handleImageSelected} 
+        accept="image/*" 
+        className="hidden" 
+      />
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileSelected} 
+        accept=".txt,.epub,.pdf,.doc,.docx" 
+        className="hidden" 
+      />
+
       <div className="flex items-center gap-1">
-        <button type="button" className="p-2 hover:bg-white/5 rounded-xl text-slate-500 hover:text-slate-300 transition-colors" title="Đính kèm ảnh">
+        <button 
+          type="button" 
+          onClick={() => imageInputRef.current?.click()}
+          className="p-2 hover:bg-white/5 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer" 
+          title="Đính kèm ảnh"
+        >
           <Image className="w-4 h-4" />
         </button>
-        <button type="button" className="p-2 hover:bg-white/5 rounded-xl text-slate-500 hover:text-slate-300 transition-colors" title="Đính kèm tệp">
+        <button 
+          type="button" 
+          onClick={() => fileInputRef.current?.click()}
+          className="p-2 hover:bg-white/5 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer" 
+          title="Đính kèm tệp chương truyện"
+        >
           <Paperclip className="w-4 h-4" />
         </button>
       </div>

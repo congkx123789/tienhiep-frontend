@@ -75,6 +75,16 @@ export function ChatMessageBubble({ msg, isMe, lang }: ChatMessageBubbleProps) {
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
       <div className="max-w-[70%] sm:max-w-[60%] space-y-1">
+        {!isMe && msg.sender_name && (
+          <div className="flex items-center gap-1.5 px-1">
+            <span className="text-[10px] font-black text-purple-400">@{msg.sender_name}</span>
+            {msg.vip_status === 1 && (
+              <span className="text-[8px] px-1.5 py-0.2 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black rounded-full uppercase shadow-sm">
+                VIP
+              </span>
+            )}
+          </div>
+        )}
         <div
           className={`p-3 rounded-2xl shadow-md ${
             isMe

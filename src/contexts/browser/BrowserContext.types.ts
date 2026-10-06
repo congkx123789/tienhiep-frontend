@@ -12,6 +12,7 @@ export interface BrowserTab {
   lastAccessed?: number;
   historyStack?: string[];
   historyIndex?: number;
+  refreshKey?: number;
   isDesktopMode?: boolean;
   isDirectMode?: boolean;
 }

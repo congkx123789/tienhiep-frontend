@@ -130,6 +130,7 @@ const TabViewportItem = React.memo<TabViewportItemProps>(({
           ) : isDesktop ? (
             <iframe
               id={`global-wv-${tab.id}`}
+              key={`iframe-${tab.id}-${tab.refreshKey || 0}`}
               src={iframeSrc}
               className="w-full h-full flex-1 border-none bg-white"
               style={{ display: 'block' }}
@@ -146,6 +147,7 @@ const TabViewportItem = React.memo<TabViewportItemProps>(({
                 </div>
                 <iframe
                   id={`global-wv-${tab.id}`}
+                  key={`iframe-${tab.id}-${tab.refreshKey || 0}`}
                   src={iframeSrc}
                   className="w-full h-full flex-1 border-none bg-white"
                   style={{ display: 'block' }}
@@ -167,6 +169,7 @@ const TabViewportItem = React.memo<TabViewportItemProps>(({
     prev.bookmarksCount === next.bookmarksCount &&
     prev.tab.id === next.tab.id &&
     prev.tab.url === next.tab.url &&
+    prev.tab.refreshKey === next.tab.refreshKey &&
     prev.tab.isLoading === next.tab.isLoading &&
     prev.tab.isDesktopMode === next.tab.isDesktopMode &&
     prev.tab.isDirectMode === next.tab.isDirectMode

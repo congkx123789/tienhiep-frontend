@@ -48,7 +48,7 @@ export function useWebviewSync(
       }
       if (!senderTabId) senderTabId = activeTabId;
 
-      if (type === 'NAVIGATE_REQ' && url) {
+      if ((type === 'NAVIGATE_REQ' || type === 'INTERNAL_LINK_CLICKED') && url) {
         if (typeof url !== 'string' || !url.startsWith('http')) return;
         if ((e.data.newTab || e.data.isNewTab) && openNewTab) {
           openNewTab(false, url);
@@ -244,17 +244,7 @@ export function useWebviewSync(
       else { ensureInjected(); sendWebviewMessage(tabId, { action: 'EXTRACT_TEXT' }); }
     } else if (toolId === 'reload' || toolId === 'f5') {
       sendWebviewMessage(tabId, { action: 'RELOAD_PAGE' });
-      const wv = document.getElementById('global-wv-' + tabId) as any;
-      if (wv) {
-        try {
-          if (wv.tagName?.toLowerCase() === 'iframe' && wv.contentWindow) wv.contentWindow.location.reload();
-          else if (wv.reload) wv.reload();
-        } catch (e) {
-          const s = wv.src;
-          wv.src = 'about:blank';
-          setTimeout(() => { wv.src = s; }, 50);
-        }
-      }
+      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, refreshKey: (t.refreshKey || 0) + 1, isLoading: true } : t));
     } else if (toolId === 'teachNext' || toolId === 'teach_next') {
       ensureInjected(); sendWebviewMessage(tabId, { action: 'TEACH_NEXT' });
     } else if (toolId === 'nextChapter' || toolId === 'next') sendWebviewMessage(tabId, { action: 'TRIGGER_NEXT', delay: payload?.delay ?? 0 });

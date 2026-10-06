@@ -62,17 +62,13 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleReload = useCallback(() => {
     if (!activeTabId) return;
-    const wv = document.getElementById('global-wv-' + activeTabId) as any;
-    if (wv) {
-      if (wv.tagName?.toLowerCase() === 'iframe') {
-        const src = wv.src;
-        wv.src = 'about:blank';
-        setTimeout(() => { wv.src = src; }, 50);
-      } else if (wv.reload) {
-        wv.reload();
-      }
-    }
-  }, [activeTabId]);
+    setTabs(prev => prev.map(t => t.id === activeTabId ? {
+      ...t,
+      refreshKey: (t.refreshKey || 0) + 1,
+      isLoading: true
+    } : t));
+    sendWebviewMessage(activeTabId, { action: 'RELOAD_PAGE' });
+  }, [activeTabId, setTabs, sendWebviewMessage]);
 
   const handleNavigateBack = useCallback(() => {
     if (!activeTabId) return;

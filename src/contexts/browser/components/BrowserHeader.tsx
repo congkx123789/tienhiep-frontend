@@ -138,7 +138,8 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
         <button
           type="button"
           onClick={onNavigateBack}
-          className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+          disabled={!activeTab?.canGoBack}
+          className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
           title="Quay lại trang trước trong tab"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -146,7 +147,8 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
         <button
           type="button"
           onClick={onNavigateForward}
-          className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+          disabled={!activeTab?.canGoForward}
+          className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
           title="Tiến lên trang sau trong tab"
         >
           <ChevronRight className="w-4 h-4" />

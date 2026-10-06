@@ -132,18 +132,27 @@ export function useTabManager() {
     } else {
       setTabs(prev => prev.map(t => {
         if (t.id !== activeTabId) return t;
-        const stack = t.historyStack ? [...t.historyStack.slice(0, (t.historyIndex ?? 0) + 1), cleanUrl] : [t.url, cleanUrl];
-        const newIdx = stack.length - 1;
+        let stack = t.historyStack && t.historyStack.length > 0 ? [...t.historyStack] : [t.url || cleanUrl];
+        let idx = typeof t.historyIndex === 'number' ? t.historyIndex : stack.length - 1;
+
+        // Tránh nhân bản nếu URL mới trùng khớp với URL hiện tại ở đỉnh con trỏ
+        if (cleanUrl !== t.url && stack[idx] !== cleanUrl) {
+          // THUẬT TOÁN CẮT TƯƠNG LAI (Chrome-like History Truncation)
+          stack = stack.slice(0, idx + 1);
+          stack.push(cleanUrl);
+          idx = stack.length - 1;
+        }
+
         return {
           ...t,
           url: cleanUrl,
           initialUrl: cleanUrl,
-          title: 'Đang tải...',
+          title: cleanUrl === t.url ? t.title : 'Đang tải...',
           isLoading: true,
           historyStack: stack,
-          historyIndex: newIdx,
-          canGoBack: newIdx > 0,
-          canGoForward: false
+          historyIndex: idx,
+          canGoBack: idx > 0,
+          canGoForward: idx < stack.length - 1
         };
       }));
     }

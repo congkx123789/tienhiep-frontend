@@ -28,14 +28,22 @@ function registerLinuxDevProtocol(): void {
   if (process.platform !== 'linux' || app.isPackaged) return;
   try {
     const destDir = path.join(os.homedir(), '.local/share/applications');
+    const rootDir = path.resolve(app.getAppPath(), '..');
+    const scriptPath = path.join(rootDir, 'scripts/chay_app_desktop.sh');
     const iconPath = path.join(path.resolve(app.getAppPath()), 'public/icon.png');
     (app as any).desktopName = 'tienhiepai.desktop';
-    const desktopContent = `[Desktop Entry]\nName=Tiên Hiệp AI Dev\nExec="${process.execPath}" "${path.resolve(app.getAppPath())}" %u\nIcon=${iconPath}\nType=Application\nTerminal=false\nMimeType=x-scheme-handler/tienhiepai;\n`;
+    const execCmd = fs.existsSync(scriptPath) ? scriptPath : `"${process.execPath}" "${path.resolve(app.getAppPath())}"`;
+    const desktopContent = `[Desktop Entry]\nName=Tiên Hiệp AI\nGenericName=Tiên Hiệp AI Reader\nExec=${execCmd} %u\nIcon=${iconPath}\nType=Application\nTerminal=false\nMimeType=x-scheme-handler/tienhiepai;\nStartupWMClass=tien-hiep-ai\n`;
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-    ['tienhiepai.desktop', 'TienHiepAI.desktop', 'tienhiepai-dev.desktop'].forEach((file) => {
-      const filePath = path.join(destDir, file);
-      fs.writeFileSync(filePath, desktopContent, 'utf-8');
-      exec(`chmod +x "${filePath}"`);
+    const targetFile = path.join(destDir, 'tienhiepai.desktop');
+    fs.writeFileSync(targetFile, desktopContent, 'utf-8');
+    exec(`chmod +x "${targetFile}"`);
+    // Dọn dẹp shortcut cũ bị trùng
+    ['TienHiepAI.desktop', 'tienhiepai-dev.desktop'].forEach((oldFile) => {
+      const oldPath = path.join(destDir, oldFile);
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch (_) {}
+      }
     });
     exec(`update-desktop-database ${destDir}`);
     exec(`xdg-mime default tienhiepai.desktop x-scheme-handler/tienhiepai`);
@@ -61,8 +69,8 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     writeAppLog('--- KHỞI ĐỘNG TIÊN HIỆP AI ELECTRON (TYPESCRIPT) ---');
-    
-    // Tự động bỏ Referer/Origin cho các tài nguyên ảnh để chống bị chặn 403 Forbidden trên Windows/Linux
+
+    // 1. Gỡ bỏ Referer/Origin cho ảnh để tránh bị chặn 403 Forbidden
     session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
       const headers = { ...details.requestHeaders };
       if (details.resourceType === 'image') {
@@ -72,6 +80,28 @@ if (!gotTheLock) {
         delete headers['origin'];
       }
       callback({ cancel: false, requestHeaders: headers });
+    });
+
+    // 2. Gỡ bỏ X-Frame-Options và CSP frame-ancestors để cho phép nhúng mọi website
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      delete responseHeaders['x-frame-options'];
+      delete responseHeaders['X-Frame-Options'];
+      delete responseHeaders['cross-origin-embedder-policy'];
+      delete responseHeaders['Cross-Origin-Embedder-Policy'];
+      delete responseHeaders['cross-origin-opener-policy'];
+      delete responseHeaders['Cross-Origin-Opener-Policy'];
+      if (responseHeaders['content-security-policy']) {
+        responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map((csp) =>
+          csp.replace(/frame-ancestors[^;]+;?/gi, '')
+        );
+      }
+      if (responseHeaders['Content-Security-Policy']) {
+        responseHeaders['Content-Security-Policy'] = responseHeaders['Content-Security-Policy'].map((csp) =>
+          csp.replace(/frame-ancestors[^;]+;?/gi, '')
+        );
+      }
+      callback({ cancel: false, responseHeaders });
     });
 
     app.on('web-contents-created', (_event, contents) => {

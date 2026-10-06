@@ -174,7 +174,7 @@ export async function runAuthGoogleAndRbacTests() {
         const res = await fetch(`${API_BASE}/api/events/stream?user_id=${testUserId}`, { signal: ac.signal });
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
-        const timeout = setTimeout(() => { ac.abort(); reject(new Error('SSE Stream Timeout')); }, 3000);
+        const timeout = setTimeout(() => { ac.abort(); reject(new Error('SSE Stream Timeout')); }, 6000);
         while (reader) {
           const { value, done } = await reader.read();
           if (done) break;

@@ -10,6 +10,7 @@ import {
   runFormFactorUXTests,
 } from './functional';
 import { runApiContractTests, runContractCrawler } from './contracts';
+import { runBrowserNavigationTests } from './browser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,7 +112,16 @@ async function main() {
       totalFailed++;
     }
 
-    // 5. Chạy Crawler quét toàn bộ 35 Endpoints
+    // 6. Chạy Kiểm thử Trình duyệt Chrome-like Navigation (Layer 1)
+    try {
+      const browserResult = runBrowserNavigationTests();
+      totalFailed += browserResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Browser Navigation Tests:', err.message);
+      totalFailed++;
+    }
+
+    // 7. Chạy Crawler quét toàn bộ 35 Endpoints
     try {
       const crawlerSuccess = await runContractCrawler();
       if (!crawlerSuccess) totalFailed++;

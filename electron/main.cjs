@@ -983,6 +983,26 @@ if (!gotTheLock) {
       }
       callback({ cancel: false, requestHeaders: headers });
     });
+    import_electron9.session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      delete responseHeaders["x-frame-options"];
+      delete responseHeaders["X-Frame-Options"];
+      delete responseHeaders["cross-origin-embedder-policy"];
+      delete responseHeaders["Cross-Origin-Embedder-Policy"];
+      delete responseHeaders["cross-origin-opener-policy"];
+      delete responseHeaders["Cross-Origin-Opener-Policy"];
+      if (responseHeaders["content-security-policy"]) {
+        responseHeaders["content-security-policy"] = responseHeaders["content-security-policy"].map(
+          (csp) => csp.replace(/frame-ancestors[^;]+;?/gi, "")
+        );
+      }
+      if (responseHeaders["Content-Security-Policy"]) {
+        responseHeaders["Content-Security-Policy"] = responseHeaders["Content-Security-Policy"].map(
+          (csp) => csp.replace(/frame-ancestors[^;]+;?/gi, "")
+        );
+      }
+      callback({ cancel: false, responseHeaders });
+    });
     import_electron9.app.on("web-contents-created", (_event, contents) => {
       contents.setWindowOpenHandler((details) => {
         const targetUrl = details.url;

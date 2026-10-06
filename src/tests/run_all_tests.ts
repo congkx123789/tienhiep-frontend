@@ -2,7 +2,13 @@ import { spawn } from 'child_process';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { runFunctionalTests, runButtonAndActionTests, runAuthGoogleAndRbacTests } from './functional';
+import {
+  runFunctionalTests,
+  runButtonAndActionTests,
+  runAuthGoogleAndRbacTests,
+  runCrossPlatformMockingTests,
+  runFormFactorUXTests,
+} from './functional';
 import { runApiContractTests, runContractCrawler } from './contracts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,6 +81,24 @@ async function main() {
       totalFailed += authResult.failed;
     } catch (err: any) {
       console.error('❌ Lỗi ngoại lệ trong Auth & RBAC Tests:', err.message);
+      totalFailed++;
+    }
+
+    // 4. Chạy Cross-Platform Mocking Tests
+    try {
+      const crossResult = await runCrossPlatformMockingTests();
+      totalFailed += crossResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Cross-Platform Mocking Tests:', err.message);
+      totalFailed++;
+    }
+
+    // 5. Chạy Form Factor & Physical Device UX Tests
+    try {
+      const uxResult = await runFormFactorUXTests();
+      totalFailed += uxResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Form Factor UX Tests:', err.message);
       totalFailed++;
     }
 

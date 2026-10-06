@@ -43,3 +43,5 @@ dist_old_*
 *.asar
 .git_token
 .env*
+playwright-report/
+test-results/

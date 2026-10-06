@@ -35,7 +35,24 @@ export async function getBestServer(): Promise<string> {
     typeof window !== 'undefined' &&
     Boolean((window as any).Capacitor?.isNativePlatform?.());
 
-  // 1. Luôn ưu tiên Local Engine (127.0.0.1:5051) nếu đang chạy local (Electron, Browser local dev, hoặc adb reverse)
+  const isElectron =
+    typeof window !== 'undefined' &&
+    Boolean((window as any).electron);
+
+  // 1. Electron Desktop: Luôn dùng 100% Local Go Daemon 127.0.0.1:5051
+  if (isElectron) {
+    return SERVER_CONFIG.LOCAL_HOST;
+  }
+
+  // 2. Kiểm tra nếu người dùng cấu hình server nội bộ LAN trong Cài đặt
+  try {
+    const custom = JSON.parse(localStorage.getItem('translationSettings') || '{}')?.serverUrl;
+    if (custom && custom !== SERVER_CONFIG.REMOTE_HOST && (await pingServer(custom, 1000))) {
+      return custom;
+    }
+  } catch {}
+
+  // 3. Luôn ưu tiên Local Engine (127.0.0.1:5051) nếu đang chạy local
   if (await pingServer(SERVER_CONFIG.LOCAL_HOST, 800)) {
     return SERVER_CONFIG.LOCAL_HOST;
   }
@@ -48,7 +65,7 @@ export async function getBestServer(): Promise<string> {
   }
 
   // Web Mode nếu có cùng origin phục vụ API:
-  if (!(window as any).electron && !isCapacitorNative && typeof window !== 'undefined') {
+  if (!isCapacitorNative && typeof window !== 'undefined') {
     if (window.location.port !== '3000' && window.location.port !== '3532' && window.location.port !== '5173') {
       return window.location.origin;
     }

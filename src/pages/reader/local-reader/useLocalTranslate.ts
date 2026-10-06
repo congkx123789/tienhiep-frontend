@@ -40,17 +40,17 @@ async function translateChunk(
     const res = await api.post(
       '/api/translate',
       { texts: paragraphs, mode },
-      { headers: { 'X-VIP-Key': 'LYVUHA_ADMIN_2026' }, signal, timeout: 15000 }
+      { headers: { 'X-VIP-Key': 'LYVUHA_ADMIN_2026' }, signal, timeout: 2500 }
     );
     if (res.data?.translations && Array.isArray(res.data.translations)) {
       return res.data.translations;
     }
   } catch (err: any) {
     if (err.name === 'CanceledError' || err.name === 'AbortError') throw err;
-    console.warn('[LocalTranslate] API failed, fallback offline:', err.message);
+    console.warn('[LocalTranslate] API unreachable, fallback offline local:', err.message);
   }
 
-  // Offline fallback — localTranslator
+  // Offline fallback — localTranslator (100% Local Trie)
   await localTranslator.loadDictionaries();
   return localTranslator.translateBatch(paragraphs, mode);
 }

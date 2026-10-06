@@ -121,3 +121,14 @@ body.global-dragging * {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
 }
+
+/* ── Phản hồi cảm ứng xúc giác tức thì (Tactile Touch Feedback - 0ms) ── */
+button:not(:disabled), [role="button"]:not([aria-disabled="true"]) {
+  transition: transform 75ms ease, filter 75ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.96);
+  filter: brightness(0.92);
+}

@@ -166,14 +166,16 @@ export function useBookDetail() {
       return;
     }
     if (!bookId) return;
+    const prevFav = isFav;
+    setIsFav(!prevFav); // ⚡ Optimistic Update 0ms: Cập nhật giao diện tức thì
     try {
-      if (isFav) {
+      if (prevFav) {
         await userFeatureService.removeFromBookshelf(parseInt(bookId));
       } else {
         await userFeatureService.addToBookshelf({ book_id: parseInt(bookId) });
       }
-      setIsFav(!isFav);
     } catch {
+      setIsFav(prevFav); // Hoàn tác nếu lỗi
       alert(lang === 'vi' ? 'Lỗi cập nhật tủ sách.' : lang === 'en' ? 'Error updating bookshelf.' : '更新书架时出错。');
     }
   };

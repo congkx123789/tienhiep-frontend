@@ -27,7 +27,13 @@ export function useDiscoverBooks(user: any, t: any) {
   const [comparingBookId, setComparingBookId] = useState<number | null>(null);
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [compLoading, setCompLoading] = useState(false);
-  const [bookshelfIds, setBookshelfIds] = useState<Set<number>>(new Set());
+  const [bookshelfIds, setBookshelfIds] = useState<Set<number>>(() => {
+    try {
+      const cached = localStorage.getItem('cached_bookshelf_ids');
+      if (cached) return new Set(JSON.parse(cached));
+    } catch {}
+    return new Set();
+  });
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -50,7 +56,13 @@ export function useDiscoverBooks(user: any, t: any) {
     }
     try {
       const res = await api.get('/api/bookshelf');
-      setBookshelfIds(new Set(res.data?.map((b: any) => b.book_id)));
+      if (res.data && Array.isArray(res.data)) {
+        const ids = new Set<number>(res.data.map((b: any) => b.book_id));
+        setBookshelfIds(ids);
+        try {
+          localStorage.setItem('cached_bookshelf_ids', JSON.stringify(Array.from(ids)));
+        } catch {}
+      }
     } catch (e) {
       console.error(e);
     }
@@ -170,15 +182,31 @@ export function useDiscoverBooks(user: any, t: any) {
     }
     const inShelf = bookshelfIds.has(bookId);
     const url = inShelf ? '/api/bookshelf/remove' : '/api/bookshelf/add';
+
+    // ⚡ Optimistic Update (0ms): Cập nhật trạng thái nút lập tức để phản hồi tức thì
+    setBookshelfIds(prev => {
+      const next = new Set(prev);
+      if (inShelf) next.delete(bookId);
+      else next.add(bookId);
+      try {
+        localStorage.setItem('cached_bookshelf_ids', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+
     try {
       await api.post(url, { book_id: bookId });
-      setBookshelfIds(prev => {
-        const next = new Set(prev);
-        if (inShelf) next.delete(bookId);
-        else next.add(bookId);
-        return next;
-      });
     } catch (e: any) {
+      // Hoàn tác (Rollback) nếu mạng lỗi
+      setBookshelfIds(prev => {
+        const rollback = new Set(prev);
+        if (inShelf) rollback.add(bookId);
+        else rollback.delete(bookId);
+        try {
+          localStorage.setItem('cached_bookshelf_ids', JSON.stringify(Array.from(rollback)));
+        } catch {}
+        return rollback;
+      });
       alert(e.response?.data?.error || 'Lỗi xử lý tủ sách.');
     }
   };

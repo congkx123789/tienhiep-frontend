@@ -88,6 +88,12 @@ export function useSectData(activeSubTab: string) {
   }, [loadSectInfo]);
 
   const viewSectDetail = async (sectId: number) => {
+    // ⚡ Optimistic View (0ms): Mở modal ngay lập tức với dữ liệu sẵn có
+    const localSect = sectsList.find(s => s.id === sectId);
+    if (localSect) {
+      setSelectedSectDetail(localSect);
+      setShowSectDetailModal(true);
+    }
     setActionLoading(true);
     try {
       const res = await api.get(`/api/sects/${sectId}`);
@@ -97,7 +103,7 @@ export function useSectData(activeSubTab: string) {
         setShowSectDetailModal(true);
       }
     } catch {
-      showError("Không thể tải thông tin tông môn chi tiết");
+      if (!localSect) showError("Không thể tải thông tin tông môn chi tiết");
     } finally {
       setActionLoading(false);
     }

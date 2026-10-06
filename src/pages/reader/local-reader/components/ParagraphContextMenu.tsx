@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Play, X, RefreshCw } from 'lucide-react';
+import { Play, X, RefreshCw, Flag } from 'lucide-react';
+import { TranslationReportModal } from '../../../../components/modals/report-modal';
 
 export interface ParagraphMenuState {
   pIdx: number;
@@ -47,6 +48,7 @@ export const ParagraphContextMenu: React.FC<ParagraphContextMenuProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [wordMode, setWordMode] = useState<'phrase' | 'char'>('phrase');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const hasChinese = useMemo(() => {
     if (!menu?.rawText) return false;
@@ -151,6 +153,14 @@ export const ParagraphContextMenu: React.FC<ParagraphContextMenuProps> = ({
           <Play className="w-2.5 h-2.5 fill-current" />
           <span>Phát</span>
         </button>
+        <button
+          onClick={() => setIsReportModalOpen(true)}
+          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer"
+          title="Báo lỗi câu dịch này cho đội ngũ AI"
+        >
+          <Flag className="w-2.5 h-2.5" />
+          <span>Báo lỗi</span>
+        </button>
 
         {(hasChinese || tokens.length > 0) && (
           <>
@@ -249,6 +259,13 @@ export const ParagraphContextMenu: React.FC<ParagraphContextMenuProps> = ({
           </button>
         </div>
       )}
+
+      <TranslationReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        originalText={menu.rawText}
+        currentTranslation={menu.translatedText}
+      />
     </div>
   );
 };

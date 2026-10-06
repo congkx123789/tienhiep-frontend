@@ -16,6 +16,7 @@ import { TabStats } from './tabs/TabStats';
 import { TabDesktop } from './system-tabs/TabDesktop';
 import { TabTtsModels } from './system-tabs/TabTtsModels';
 import { TabAiTranslation } from './system-tabs/TabAiTranslation';
+import { TabReportDrive } from './system-tabs/TabReportDrive';
 import { DownloadIcon } from '../../../components';
 import { Sparkles, AlertTriangle } from 'lucide-react';
 
@@ -212,6 +213,9 @@ export default function Settings() {
                 translationSettings={translationSettings}
                 updateTranslationSetting={updateTranslationSetting}
               />
+            )}
+            {activeTab === 'reports_drive' && (
+              <TabReportDrive />
             )}
           </div>
         </div>

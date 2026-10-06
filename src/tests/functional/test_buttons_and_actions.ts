@@ -137,6 +137,46 @@ export async function runButtonAndActionTests() {
         });
         return res.status === 200 && res.data?.success === true && Array.isArray(res.data?.logs);
       }
+    },
+    {
+      name: 'Nút Báo Lỗi Dịch Thuật Context-Aware (/api/reports/translation)',
+      test: async () => {
+        const res = await axios.post(`${API_BASE}/api/reports/translation`, {
+          book_id: 1,
+          chapter_id: 1,
+          original_text: '天地玄黄',
+          current_translation: 'Trời đất đen vàng',
+          suggested_fix: 'Trời đất huyền hoàng vi diệu',
+          engine_used: 'cmlm_v1'
+        });
+        return res.status === 200 && res.data?.status === 'success' && typeof res.data?.id === 'number';
+      }
+    },
+    {
+      name: 'Nút Phản Hồi & Báo Lỗi Hệ Thống (/api/reports/system)',
+      test: async () => {
+        const res = await axios.post(`${API_BASE}/api/reports/system`, {
+          department: 'frontend_ui',
+          severity: 'medium',
+          title: 'Kiểm thử phản hồi',
+          description: 'Mô tả chi tiết lỗi phát hiện bởi automated test'
+        });
+        return res.status === 200 && res.data?.status === 'success';
+      }
+    },
+    {
+      name: 'Ổ Đĩa Báo Cáo Nội Bộ: Xuất File Excel Trực Tiếp (/api/admin/reports/export)',
+      test: async () => {
+        const res = await axios.get(`${API_BASE}/api/admin/reports/export?type=all&admin_key=LYVUHA_ADMIN_2026`, {
+          responseType: 'arraybuffer'
+        });
+        // Check Content-Type and ZIP/Excel PK signature (0x50, 0x4B)
+        const contentType = String(res.headers['content-type'] || '');
+        const isExcel = contentType.includes('spreadsheetml');
+        const buf = new Uint8Array(res.data);
+        const hasPkMagic = buf.length > 100 && buf[0] === 0x50 && buf[1] === 0x4B;
+        return res.status === 200 && isExcel && hasPkMagic;
+      }
     }
   ];
 

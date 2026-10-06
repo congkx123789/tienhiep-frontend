@@ -17,7 +17,8 @@ export type SettingsTabId =
   | 'stats'
   | 'desktop'
   | 'tts_models'
-  | 'ai_translation';
+  | 'ai_translation'
+  | 'reports_drive';
 
 export interface TabItem {
   id: SettingsTabId;

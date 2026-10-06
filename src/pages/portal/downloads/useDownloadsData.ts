@@ -4,19 +4,19 @@ import { ReleasesState, ReleaseItem } from './Downloads.types';
 
 const INITIAL_RELEASES: ReleasesState = {
   extension: {
-    version: '1.0.0',
-    download_url: '/downloads/tts_extension.zip',
-    file_size: '20.5 MB',
-    release_notes: 'Tiện ích Chrome Extension Trợ lý Dịch & Đọc Truyện AI'
+    version: '1.0.18',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/tts_extension-latest.zip',
+    file_size: '8.5 MB',
+    release_notes: 'Tiện ích Chrome Extension Trợ lý Dịch & Đọc Truyện AI siêu tinh gọn 8.5MB'
   },
   desktop_linux: {
-    version: 'latest',
+    version: '1.0.18',
     download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-latest.AppImage',
-    file_size: '223 MB',
-    release_notes: 'Phiên bản AppImage mới nhất dành cho Linux'
+    file_size: '127 MB',
+    release_notes: 'Phiên bản Linux AppImage siêu nhẹ 127MB, phản hồi 0ms và Go daemon'
   },
   desktop_windows: {
-    version: 'latest',
+    version: '1.0.18',
     download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-Setup-latest.exe',
     file_size: '189 MB',
     release_notes: 'Bản cài đặt Windows Setup EXE mới nhất chính thức'
@@ -24,12 +24,12 @@ const INITIAL_RELEASES: ReleasesState = {
   android_apk: {
     version: '1.0.18',
     download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/app-tienhiep-latest.apk',
-    file_size: '66 MB',
-    release_notes: 'Bản APK Android chính thức v1.0.18 tối ưu WebView, đọc truyện mượt mà, hỗ trợ dịch nhanh và tải chương ngoại tuyến.'
+    file_size: '26 MB',
+    release_notes: 'Bản APK Android tối ưu 26MB, cảm ứng vật lý và tủ sách offline 0ms'
   },
   ios_ipa: {
-    version: 'latest',
-    download_url: '/downloads/TienHiepAI.ipa',
+    version: '1.0.18',
+    download_url: 'https://huggingface.co/datasets/Cong123779/tienhiep-releases/resolve/main/TienHiepAI-latest.ipa',
     file_size: '22 MB',
     release_notes: 'Bản cài đặt IPA cho iPhone / iPad - Hỗ trợ cài qua AltStore, Sideloadly, TrollStore, Scarlet.'
   }

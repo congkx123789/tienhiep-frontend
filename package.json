@@ -91,6 +91,8 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/downloads/**/*",
+      "!dist/**/*.map",
       "electron/**/*"
     ],
     "win": {

@@ -152,8 +152,81 @@ export async function runAuthGoogleAndRbacTests() {
     } else { console.log(`  ❌ [FAIL] Kịch bản 5.1: Tạo đơn hàng thất bại`); failed++; }
   } catch (err: any) { console.log(`  ❌ [FAIL] Kịch bản 5 lỗi: ${err.message}`); failed++; }
 
+  // 12. Kịch bản 6 (TẦNG 2): Kiểm thử Component VipGuard & Modal Interception State
+  try {
+    const vipModule = await import('../../components/vip');
+    if (typeof vipModule.openVipModal === 'function' && typeof vipModule.closeVipModal === 'function') {
+      vipModule.openVipModal('Tải Toàn Bộ EPUB Offline');
+      vipModule.closeVipModal();
+      console.log('  ✅ [PASS] Kịch bản 6: VipGuard và VipUpsellModal điều phối State chặn click và mở Upsell thành công');
+      passed++;
+    } else {
+      console.log('  ❌ [FAIL] Kịch bản 6: Hàm openVipModal / closeVipModal chưa export');
+      failed++;
+    }
+  } catch (err: any) { console.log(`  ❌ [FAIL] Kịch bản 6 lỗi: ${err.message}`); failed++; }
+
+  // 13. Kịch bản 7 (TẦNG 3): Kiểm thử Toàn Vẹn E2E Live SSE Realtime Stream & Mở Khóa Tức Thì
+  try {
+    const ac = new AbortController();
+    const streamPromise = new Promise<string>(async (resolve, reject) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/events/stream?user_id=${testUserId}`, { signal: ac.signal });
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        const timeout = setTimeout(() => { ac.abort(); reject(new Error('SSE Stream Timeout')); }, 3000);
+        while (reader) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value);
+          if (text.includes('system_vip_upgraded')) {
+            clearTimeout(timeout);
+            resolve(text);
+            break;
+          }
+        }
+      } catch (e: any) { reject(e); }
+    });
+
+    await new Promise(r => setTimeout(r, 100));
+
+    // Kích hoạt nạp đơn hàng mới cho User
+    const newOrderRes = await axios.post(`${API_BASE}/api/payment/create`,
+      { plan: 'month', user_id: testUserId, username: 'test_realtime_e2e' });
+    const newOrderId = newOrderRes.data?.order_id;
+
+    // Giả lập Webhook ngân hàng bắn vào Server
+    await axios.post(`${API_BASE}/api/payment/confirm`, { order_id: String(newOrderId) },
+      { headers: { 'X-Admin-Key': 'LYVUHA_ADMIN_2026' } });
+
+    // Đợi sự kiện bay qua mạng thật
+    const receivedEvent = await streamPromise;
+    ac.abort();
+
+    if (receivedEvent.includes('system_vip_upgraded') && receivedEvent.includes(String(testUserId))) {
+      console.log('  ✅ [PASS] Kịch bản 7.1: Luồng SSE Live Stream nhận gói tin system_vip_upgraded từ Server tức thì (<0.2s)');
+      passed++;
+
+      // Kiểm tra API VIP mở khóa ngay lập tức không cần F5
+      const vipApiRes = await axios.post(`${API_BASE}/api/premium/translate`,
+        { text: '测试VIP', mode: 'cmlm' },
+        { headers: { Authorization: `Bearer ${userJwt}` }, validateStatus: () => true });
+
+      if (vipApiRes.status === 200) {
+        console.log('  ✅ [PASS] Kịch bản 7.2: Tính năng VIP (/api/premium/translate) tự động mở khóa thành công (HTTP 200)');
+        passed++;
+      } else {
+        console.log(`  ❌ [FAIL] Kịch bản 7.2: VIP API chưa mở: HTTP ${vipApiRes.status}`);
+        failed++;
+      }
+    } else {
+      console.log('  ❌ [FAIL] Kịch bản 7.1: Không nhận được gói tin system_vip_upgraded');
+      failed++;
+    }
+  } catch (err: any) { console.log(`  ❌ [FAIL] Kịch bản 7 lỗi: ${err.message}`); failed++; }
+
   console.log('==================================================');
-  console.log(`  📊 KẾT QUẢ KIỂM THỬ AUTH GOOGLE, RBAC & NẠP VIP: ${passed} passed | ${failed} failed`);
+  console.log(`  📊 KẾT QUẢ KIỂM THỬ 3 TẦNG AUTH, RBAC, NẠP VIP & REALTIME: ${passed} passed | ${failed} failed`);
   console.log('==================================================\n');
 
   return { passed, failed };

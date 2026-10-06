@@ -34,8 +34,8 @@ cmd = f"curl -s -X POST '{url}' -H 'X-API-KEY: {appetize_token}' -F 'file=@{apk_
 try:
     output = subprocess.check_output(cmd, shell=True).decode()
     data = json.loads(output)
-    public_key = data.get("publicKey")
-    app_url = data.get("publicURL") or f"https://appetize.io/app/{public_key}"
+    public_key = data.get("publicKey") or (data.get("appURL", "").split("/")[-1] if data.get("appURL") else "")
+    app_url = data.get("publicURL") or data.get("appURL") or f"https://appetize.io/app/{public_key}"
     
     print(f"🎉 Appetize.io upload successful!")
     print(f"👉 Play your Android App online here: {app_url}")

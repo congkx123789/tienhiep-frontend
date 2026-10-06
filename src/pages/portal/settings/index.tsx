@@ -16,7 +16,7 @@ import { TabStats } from './tabs/TabStats';
 import { TabDesktop } from './system-tabs/TabDesktop';
 import { TabTtsModels } from './system-tabs/TabTtsModels';
 import { TabAiTranslation } from './system-tabs/TabAiTranslation';
-import { TabReportDrive } from './system-tabs/TabReportDrive';
+import { FeedbackReportModal } from '../../../components/modals/report-modal';
 import { DownloadIcon } from '../../../components';
 import { Sparkles, AlertTriangle } from 'lucide-react';
 
@@ -27,6 +27,7 @@ export default function Settings() {
   const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform();
 
   const [activeTab, setActiveTab] = useState<SettingsTabId>('profile');
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   const [translationSettings, setTranslationSettings] = useState<TranslationSettings>({
     engineType: 'browser',
@@ -168,6 +169,7 @@ export default function Settings() {
             level={{ name: user?.vip_status === 1 ? 'Trúc Cơ Kỳ (VIP)' : 'Luyện Khí Kỳ (Mortal)' }}
             activeTab={activeTab}
             onSelectTab={setActiveTab}
+            onOpenFeedback={() => setIsFeedbackModalOpen(true)}
             d={d}
             t={t}
             isElectron={isElectron}
@@ -214,12 +216,14 @@ export default function Settings() {
                 updateTranslationSetting={updateTranslationSetting}
               />
             )}
-            {activeTab === 'reports_drive' && (
-              <TabReportDrive />
-            )}
           </div>
         </div>
       </div>
+
+      <FeedbackReportModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+      />
 
       {showUpdateModal && manualUpdateInfo && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[9999] animate-fadeIn">

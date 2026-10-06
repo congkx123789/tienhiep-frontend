@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Shield, Sliders, Coins, BarChart3, Laptop, Tv, BrainCircuit,
-  Crown, MessageSquare, Terminal, FileSpreadsheet
+  Crown, MessageSquare, Terminal, MessageSquarePlus
 } from 'lucide-react';
 import { SettingsTabId } from '../Settings.types';
 
@@ -12,6 +12,7 @@ interface SettingsSidebarProps {
   level: { name: string };
   activeTab: SettingsTabId;
   onSelectTab: (tab: SettingsTabId) => void;
+  onOpenFeedback?: () => void;
   d: Record<string, string>;
   t: any;
   isElectron: boolean;
@@ -25,6 +26,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   level,
   activeTab,
   onSelectTab,
+  onOpenFeedback,
   d,
   t,
   isElectron,
@@ -167,13 +169,10 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
           <BrainCircuit className="w-4 h-4" /> Cấu hình Dịch & AI
         </button>
         <button
-          onClick={() => onSelectTab('reports_drive')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'reports_drive'
-              ? 'bg-purple-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-            }`}
+          onClick={onOpenFeedback}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
         >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Ổ Đĩa Báo Cáo & Excel
+          <MessageSquarePlus className="w-4 h-4 text-emerald-400" /> Báo lỗi & Góp ý
         </button>
 
         <div className="hidden lg:block w-full border-t border-white/5 my-1" />

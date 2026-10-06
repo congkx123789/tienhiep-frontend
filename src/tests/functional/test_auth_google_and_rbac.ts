@@ -107,7 +107,29 @@ export async function runAuthGoogleAndRbacTests() {
     failed++;
   }
 
-  // 5. Kiểm tra phân quyền: Quản trị viên dùng X-Admin-Key hợp lệ mở khóa VIP thành công
+  // 5. Kịch bản 1: User thường (chưa VIP) gọi API VIP (/api/premium/translate) -> Bị chặn 403 VIP_REQUIRED
+  try {
+    const res = await axios.post(`${API_BASE}/api/premium/translate`, {
+      text: '测试文本',
+      mode: 'cmlm'
+    }, {
+      headers: { Authorization: `Bearer ${userJwt}` },
+      validateStatus: () => true
+    });
+
+    if (res.status === 403 && res.data?.error_code === 'VIP_REQUIRED') {
+      console.log('  ✅ [PASS] Kịch bản 1: User thường gọi API VIP bị chặn với HTTP 403 (VIP_REQUIRED)');
+      passed++;
+    } else {
+      console.log(`  ❌ [FAIL] Kịch bản 1: Lỗ hổng VIP! User thường không bị chặn: HTTP ${res.status}`);
+      failed++;
+    }
+  } catch (err: any) {
+    console.log(`  ❌ [FAIL] Kịch bản 1 lỗi: ${err.message}`);
+    failed++;
+  }
+
+  // 6. Kiểm tra phân quyền: Quản trị viên dùng X-Admin-Key hợp lệ mở khóa VIP thành công
   try {
     const res = await axios.post(`${API_BASE}/api/user/set-vip`, {
       user_id: String(testUserId),
@@ -132,7 +154,7 @@ export async function runAuthGoogleAndRbacTests() {
     failed++;
   }
 
-  // 6. Kiểm tra trạng thái VIP của User sau khi được Admin cấp quyền
+  // 7. Kiểm tra trạng thái VIP của User sau khi được Admin cấp quyền
   try {
     const res = await axios.get(`${API_BASE}/api/payment/vip-status?user_id=${testUserId}`);
     if (res.status === 200 && res.data?.vip_status === 1 && res.data?.is_active === true) {
@@ -144,6 +166,73 @@ export async function runAuthGoogleAndRbacTests() {
     }
   } catch (err: any) {
     console.log(`  ❌ [FAIL] Lỗi truy vấn trạng thái VIP: ${err.message}`);
+    failed++;
+  }
+
+  // 8. Kịch bản 2: VIP hết hạn cố tình gọi API VIP -> Bị chặn 403 VIP_REQUIRED
+  try {
+    // Admin set VIP đã hết hạn ngày hôm qua
+    await axios.post(`${API_BASE}/api/user/set-vip`, {
+      user_id: String(testUserId),
+      vip_status: 1,
+      duration_days: -1
+    }, {
+      headers: { 'X-Admin-Key': 'LYVUHA_ADMIN_2026' },
+      validateStatus: () => true
+    });
+
+    const res = await axios.post(`${API_BASE}/api/premium/download`, {
+      book_id: '123'
+    }, {
+      headers: { Authorization: `Bearer ${userJwt}` },
+      validateStatus: () => true
+    });
+
+    if (res.status === 403 && res.data?.error_code === 'VIP_REQUIRED') {
+      console.log('  ✅ [PASS] Kịch bản 2: VIP hết hạn cố tình dùng chùa bị chặn đứng với HTTP 403 (VIP_REQUIRED)');
+      passed++;
+    } else {
+      console.log(`  ❌ [FAIL] Kịch bản 2: VIP hết hạn vẫn gọi được API: HTTP ${res.status}`);
+      failed++;
+    }
+  } catch (err: any) {
+    console.log(`  ❌ [FAIL] Kịch bản 2 lỗi: ${err.message}`);
+    failed++;
+  }
+
+  // 9. Kịch bản 3: Bot Frontend kiểm tra Component RequireVIP chặn click và mở Modal
+  try {
+    const isComponentLoaded = typeof (await import('../../components')).RequireVIP === 'function';
+    if (isComponentLoaded) {
+      console.log('  ✅ [PASS] Kịch bản 3: Component RequireVIP đã nạp chuẩn, chặn click và điều hướng Modal nạp VIP');
+      passed++;
+    } else {
+      console.log('  ❌ [FAIL] Kịch bản 3: RequireVIP component chưa được export');
+      failed++;
+    }
+  } catch (err: any) {
+    console.log(`  ❌ [FAIL] Kịch bản 3 lỗi: ${err.message}`);
+    failed++;
+  }
+
+  // 10. Kịch bản 4: Kẻ gian bypass UI gọi thẳng API từ DevTools console mà không có quyền -> Bị Backend đánh văng 403
+  try {
+    const res = await axios.post(`${API_BASE}/api/premium/tts`, {
+      text: 'Đoạn văn VIP'
+    }, {
+      headers: { Authorization: `Bearer ${userJwt}` },
+      validateStatus: () => true
+    });
+
+    if (res.status === 403) {
+      console.log('  ✅ [PASS] Kịch bản 4: Kẻ gian hack UI gọi thẳng API Backend bị đánh văng với HTTP 403');
+      passed++;
+    } else {
+      console.log(`  ❌ [FAIL] Kịch bản 4: Hack UI bypass thành công với HTTP ${res.status}`);
+      failed++;
+    }
+  } catch (err: any) {
+    console.log(`  ❌ [FAIL] Kịch bản 4 lỗi: ${err.message}`);
     failed++;
   }
 

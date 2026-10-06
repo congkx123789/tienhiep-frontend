@@ -37,3 +37,5 @@ export { default as DownloadIcon } from './common/DownloadIcon';
 export { default as GoogleAd } from './common/GoogleAd';
 export { default as SocialDrawer } from './common/social-drawer';
 export { default as ErrorBoundary } from './common/ErrorBoundary';
+export * from './vip';
+export { default as RequireVIP } from './vip/RequireVIP';

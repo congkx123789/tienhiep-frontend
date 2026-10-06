@@ -6,12 +6,17 @@ import { ReaderSettingsProvider } from './contexts/ReaderSettingsContext';
 import { BrowserProvider } from './contexts/BrowserContext';
 import { VipGateProvider } from './contexts/VipGateContext';
 import { isElectron } from './utils/electron';
-import { ErrorBoundary, VipGateModal, GlobalConfirmModal } from './components';
+import { ErrorBoundary, VipGateModal, GlobalConfirmModal, VipUpsellModal, useVipListener } from './components';
 import FreeEventBanner from './components/common/FreeEventBanner';
 import { APP_ROUTES } from './config/routes';
 
 const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform();
 const Router = (isElectron || isCapacitor) ? HashRouter : BrowserRouter;
+
+function VipRealtimeListener() {
+  useVipListener();
+  return <VipUpsellModal />;
+}
 
 // ── Lazy load all pages directly from domain compound modules ──────────────
 const Discover     = lazy(() => import('./pages/discovery/discover'));
@@ -54,6 +59,7 @@ export default function App() {
                 <Router>
                   <FreeEventBanner />
                   <VipGateModal />
+                  <VipRealtimeListener />
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path={APP_ROUTES.HOME}                    element={<Discover />} />

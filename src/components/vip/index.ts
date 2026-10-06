@@ -1,2 +1,5 @@
 export * from './RequireVIP';
-export { default as RequireVIP } from './RequireVIP';
+export * from './VipGuard';
+export * from './VipUpsellModal';
+export * from './useVipModalStore';
+export * from './useVipListener';

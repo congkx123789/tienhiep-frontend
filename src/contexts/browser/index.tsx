@@ -211,6 +211,10 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
               onTabLoaded={(tabId) => {
                 setTabs(prev => prev.map(t => t.id === tabId ? { ...t, isLoading: false } : t));
               }}
+              onToggleDirectMode={() => toggleDirectMode(activeTabId)}
+              onReloadTab={(tabId) => {
+                setTabs(prev => prev.map(t => t.id === tabId ? { ...t, refreshKey: (t.refreshKey || 0) + 1, isLoading: true } : t));
+              }}
             />
 
             {activeTab && activeTab.url && activeTab.url !== 'about:newtab' && (

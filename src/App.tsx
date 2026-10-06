@@ -6,7 +6,7 @@ import { ReaderSettingsProvider } from './contexts/ReaderSettingsContext';
 import { BrowserProvider } from './contexts/BrowserContext';
 import { VipGateProvider } from './contexts/VipGateContext';
 import { isElectron } from './utils/electron';
-import { ErrorBoundary, VipGateModal } from './components';
+import { ErrorBoundary, VipGateModal, GlobalConfirmModal } from './components';
 import FreeEventBanner from './components/common/FreeEventBanner';
 import { APP_ROUTES } from './config/routes';
 
@@ -45,6 +45,7 @@ const PageLoader = () => (
 export default function App() {
   return (
     <ErrorBoundary>
+      <GlobalConfirmModal />
       <LangProvider>
         <AuthProvider>
           <VipGateProvider>

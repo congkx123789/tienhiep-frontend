@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Send, MessageSquarePlus, CheckCircle2, AlertTriangle, Bug } from 'lucide-react';
+import { submitReportWithFallback } from '../../../services/reportFallbackService';
 
 interface FeedbackReportModalProps {
   isOpen: boolean;
@@ -34,25 +35,15 @@ export const FeedbackReportModal: React.FC<FeedbackReportModalProps> = ({
     setSuccessMessage(null);
 
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/reports/system', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          department,
-          severity,
-          title: title.trim(),
-          description: description.trim(),
-          attachments: '[]',
-        }),
+      const result = await submitReportWithFallback({
+        type: department,
+        severity,
+        title: title.trim(),
+        description: description.trim(),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.status === 'success') {
-        setSuccessMessage(data.message || 'Phản hồi đã được chuyển thành công tới bộ phận kỹ thuật!');
+      if (result.success) {
+        setSuccessMessage(result.message);
         setTimeout(() => {
           onClose();
           setTitle('');
@@ -60,10 +51,10 @@ export const FeedbackReportModal: React.FC<FeedbackReportModalProps> = ({
           setSuccessMessage(null);
         }, 1800);
       } else {
-        setErrorMessage(data.error || 'Có lỗi xảy ra khi gửi phản hồi. Vui lòng thử lại!');
+        setErrorMessage(result.message || 'Có lỗi xảy ra khi gửi phản hồi. Vui lòng thử lại!');
       }
-    } catch {
-      setErrorMessage('Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng!');
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Có lỗi xảy ra khi gửi phản hồi. Vui lòng thử lại!');
     } finally {
       setIsSubmitting(false);
     }

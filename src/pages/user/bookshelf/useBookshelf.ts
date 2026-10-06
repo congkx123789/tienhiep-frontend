@@ -4,6 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useLang } from '../../../contexts/LangContext';
 import { useBrowser } from '../../../contexts/BrowserContext';
 import { userFeatureService, bookService } from '../../../services';
+import { appConfirm } from '../../../services/dialogService';
 import { BookshelfBook, ComparisonData } from './Bookshelf.types';
 
 export function useBookshelf() {
@@ -73,13 +74,18 @@ export function useBookshelf() {
   };
 
   const handleBulkDelete = async () => {
-    const confirmed = window.confirm(
-      lang === 'vi'
-        ? `Bạn có chắc chắn muốn xóa ${selectedBookIds.size} truyện đã chọn khỏi tủ sách cá nhân không?`
-        : lang === 'en'
-          ? `Are you sure you want to remove ${selectedBookIds.size} selected novels from bookshelf?`
-          : `您确定要从书架中移出选中的 ${selectedBookIds.size} 部小说吗？`
-    );
+    const message = lang === 'vi'
+      ? `Bạn có chắc chắn muốn xóa ${selectedBookIds.size} truyện đã chọn khỏi tủ sách cá nhân không?`
+      : lang === 'en'
+        ? `Are you sure you want to remove ${selectedBookIds.size} selected novels from bookshelf?`
+        : `您确定要从书架中移出选中的 ${selectedBookIds.size} 部小说吗？`;
+
+    const confirmed = await appConfirm({
+      title: lang === 'vi' ? 'Xác Nhận Xóa Hàng Loạt' : 'Confirm Bulk Delete',
+      message,
+      confirmText: lang === 'vi' ? 'Xóa Ngay' : 'Delete',
+      type: 'danger',
+    });
     if (!confirmed) return;
     setLoading(true);
     try {
@@ -97,13 +103,18 @@ export function useBookshelf() {
   };
 
   const handleToggleFav = async (bookId: number | string) => {
-    const confirmed = window.confirm(
-      lang === 'vi'
-        ? 'Bạn có chắc chắn muốn xóa truyện này khỏi tủ sách cá nhân không?'
-        : lang === 'en'
-          ? 'Are you sure you want to remove this novel from your personal bookshelf?'
-          : '您确定要从个人书架中移出这部小说吗？'
-    );
+    const message = lang === 'vi'
+      ? 'Bạn có chắc chắn muốn xóa truyện này khỏi tủ sách cá nhân không? Thao tác này không thể hoàn tác.'
+      : lang === 'en'
+        ? 'Are you sure you want to remove this novel from your personal bookshelf?'
+        : '您确定要从个人书架中移出这部小说吗？';
+
+    const confirmed = await appConfirm({
+      title: lang === 'vi' ? 'Xác Nhận Xóa Truyện' : 'Remove Novel',
+      message,
+      confirmText: lang === 'vi' ? 'Đồng Ý Xóa' : 'Remove',
+      type: 'danger',
+    });
     if (!confirmed) return;
     try {
       await userFeatureService.removeFromBookshelf(bookId);

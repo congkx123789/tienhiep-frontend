@@ -1,0 +1,1 @@
+export { GlobalConfirmModal } from './GlobalConfirmModal';

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LocalBook, StorageInfo } from './LocalReader.types';
 import { getLocalBooksFromDB, saveLocalBookToDB, deleteLocalBookFromDB } from './localDb';
+import { appConfirm } from '../../../services/dialogService';
 
 export function useLocalBooks(lang: string) {
   const [localBooks, setLocalBooks] = useState<LocalBook[]>([]);
@@ -53,7 +54,13 @@ export function useLocalBooks(lang: string) {
   };
 
   const handleDeleteBook = async (bookId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cuốn sách này khỏi thiết bị?")) return;
+    const ok = await appConfirm({
+      title: 'Xóa Sách Thiết Bị',
+      message: 'Bạn có chắc chắn muốn xóa cuốn sách này khỏi thiết bị?',
+      confirmText: 'Xóa Ngay',
+      type: 'danger',
+    });
+    if (!ok) return;
     await deleteLocalBookFromDB(bookId);
     setLocalBooks(prev => prev.filter(b => b.id !== bookId));
     if (activeBook?.id === bookId) setActiveBook(null);
@@ -78,7 +85,13 @@ export function useLocalBooks(lang: string) {
 
   const handleDeleteSelected = async () => {
     if (selectedBookIds.size === 0) return;
-    if (!window.confirm(`Xác nhận xóa ${selectedBookIds.size} cuốn sách đã chọn?`)) return;
+    const ok = await appConfirm({
+      title: 'Xác Nhận Xóa Nhiều Sách',
+      message: `Xác nhận xóa ${selectedBookIds.size} cuốn sách đã chọn khỏi thiết bị?`,
+      confirmText: 'Xóa Toàn Bộ',
+      type: 'danger',
+    });
+    if (!ok) return;
     for (const id of selectedBookIds) {
       await deleteLocalBookFromDB(id);
     }
@@ -93,7 +106,14 @@ export function useLocalBooks(lang: string) {
       : lang === 'en' 
       ? "⚠️ WARNING: This will DELETE ALL offline novels saved on this device and CANNOT be recovered. Are you sure you want to delete?" 
       : "⚠️ CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ truyện offline lưu trong thiết bị và không thể khôi phục. Bạn có chắc chắn muốn xóa không?";
-    if (!window.confirm(confirmMsg)) return;
+
+    const ok = await appConfirm({
+      title: 'Xóa Toàn Bộ Dữ Liệu Offline',
+      message: confirmMsg,
+      confirmText: 'Xóa Tất Cả',
+      type: 'danger',
+    });
+    if (!ok) return;
 
     for (const b of localBooks) {
       await deleteLocalBookFromDB(b.id);

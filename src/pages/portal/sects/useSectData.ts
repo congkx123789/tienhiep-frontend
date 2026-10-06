@@ -92,7 +92,8 @@ export function useSectData(activeSubTab: string) {
     try {
       const res = await api.get(`/api/sects/${sectId}`);
       if (res.data) {
-        setSelectedSectDetail(res.data);
+        const detail = res.data?.sect ? { ...res.data.sect, ...res.data } : res.data;
+        setSelectedSectDetail(detail);
         setShowSectDetailModal(true);
       }
     } catch {
@@ -105,6 +106,11 @@ export function useSectData(activeSubTab: string) {
   const handleCreateSect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createName.trim()) return;
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+    if (!token) {
+      showError("Vui lòng đăng nhập tài khoản trước khi Khai Tông Lập Phái!");
+      return;
+    }
     setActionLoading(true);
     try {
       const res = await api.post('/api/sects/create', {
@@ -126,9 +132,19 @@ export function useSectData(activeSubTab: string) {
   };
 
   const handleJoinSect = async (sectId: number) => {
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+    if (!token) {
+      showError("Vui lòng đăng nhập để gửi đơn bái kiến gia nhập Tông môn!");
+      return;
+    }
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
     setActionLoading(true);
     try {
-      const res = await api.post('/api/sects/join', { sect_id: sectId });
+      const res = await api.post('/api/sects/join', { 
+        sect_id: sectId,
+        user_id: user?.id 
+      });
       if (res.data?.success) {
         showSuccess(res.data.message);
         setPendingRequests(prev => [...prev, sectId]);

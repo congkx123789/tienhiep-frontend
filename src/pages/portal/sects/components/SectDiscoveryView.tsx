@@ -204,20 +204,24 @@ export const SectDiscoveryView: React.FC<SectDiscoveryViewProps> = ({
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#131324] border border-purple-500/30 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/10 pb-3">
-              <h3 className="text-base font-extrabold text-white">{selectedSectDetail.name}</h3>
+              <h3 className="text-base font-extrabold text-white">
+                {selectedSectDetail.name || selectedSectDetail.sect?.name}
+              </h3>
               <button onClick={() => setShowSectDetailModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-300 italic">"{selectedSectDetail.slogan}"</p>
+            <p className="text-xs text-slate-300 italic">
+              "{selectedSectDetail.slogan || selectedSectDetail.sect?.slogan || 'Nhất kiếm định càn khôn'}"
+            </p>
             <div className="text-xs space-y-2 text-slate-400">
-              <p>Tông chủ: <strong className="text-white">{selectedSectDetail.leader_name}</strong></p>
-              <p>Thành viên: <strong className="text-white">{selectedSectDetail.members_count}</strong></p>
-              <p>Điểm công đức: <strong className="text-amber-300">{selectedSectDetail.total_contributions?.toLocaleString()} Linh Thạch</strong></p>
+              <p>Tông chủ: <strong className="text-white">{selectedSectDetail.leader_name || selectedSectDetail.sect?.leader_name || 'Đang cập nhật'}</strong></p>
+              <p>Thành viên: <strong className="text-white">{selectedSectDetail.member_count ?? selectedSectDetail.members_count ?? selectedSectDetail.sect?.member_count ?? 1} môn đồ</strong></p>
+              <p>Điểm công đức: <strong className="text-amber-300">{(selectedSectDetail.contribution ?? selectedSectDetail.sect?.contribution ?? selectedSectDetail.total_contributions ?? 0).toLocaleString()} Linh Thạch</strong></p>
             </div>
             <button
-              onClick={() => onJoinSect(selectedSectDetail.id)}
-              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all"
+              onClick={() => onJoinSect(selectedSectDetail.id || selectedSectDetail.sect?.id)}
+              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all active:scale-98"
             >
               Gửi Đơn Gia Nhập
             </button>

@@ -1,58 +1,102 @@
+import { spawn } from 'child_process';
+import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { runFunctionalTests, runButtonAndActionTests, runAuthGoogleAndRbacTests } from './functional';
 import { runApiContractTests, runContractCrawler } from './contracts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function checkServerAlive(): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const req = http.get('http://127.0.0.1:5051/health', (res) => resolve(res.statusCode === 200));
+    req.on('error', () => resolve(false));
+    req.setTimeout(500, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function ensureBackend(): Promise<() => void> {
+  if (await checkServerAlive()) {
+    return () => {}; // Server đã chạy sẵn
+  }
+
+  const serverBin = path.resolve(__dirname, '../../../backend_go/server');
+  const serverProc = spawn(serverBin, ['-port', '5051'], {
+    cwd: path.resolve(__dirname, '../../../backend_go'),
+    stdio: 'ignore',
+  });
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    if (await checkServerAlive()) break;
+  }
+
+  return () => {
+    try {
+      serverProc.kill('SIGTERM');
+    } catch {}
+  };
+}
 
 async function main() {
   console.log('╔═══════════════════════════════════════════════════════════════╗');
   console.log('║ 🛡️ TIÊN HIỆP AI — BỘ KIỂM THỬ TOÀN DIỆN CHỨC NĂNG & API     ║');
   console.log('╚═══════════════════════════════════════════════════════════════╝');
 
+  const cleanup = await ensureBackend();
   let totalFailed = 0;
 
-  // 1. Chạy Functional Tests Core
   try {
-    const fnResult = await runFunctionalTests();
-    totalFailed += fnResult.failed;
-  } catch (err: any) {
-    console.error('❌ Lỗi ngoại lệ trong Functional Tests:', err.message);
-    totalFailed++;
-  }
-
-  // 2. Chạy kiểm thử toàn bộ các nút bấm và Action API
-  try {
-    const btnResult = await runButtonAndActionTests();
-    totalFailed += btnResult.failed;
-  } catch (err: any) {
-    console.error('❌ Lỗi ngoại lệ trong Button & Action Tests:', err.message);
-    totalFailed++;
-  }
-
-  // 3. Chạy kiểm thử Google Auth & Phân quyền RBAC
-  try {
-    const authResult = await runAuthGoogleAndRbacTests();
-    totalFailed += authResult.failed;
-  } catch (err: any) {
-    console.error('❌ Lỗi ngoại lệ trong Auth & RBAC Tests:', err.message);
-    totalFailed++;
-  }
-
-  // 2. Chạy API Contract Tests
-  try {
-    const apiResult = await runApiContractTests();
-    totalFailed += apiResult.failed;
-  } catch (err: any) {
-    console.error('❌ Lỗi ngoại lệ trong API Contract Tests:', err.message);
-    totalFailed++;
-  }
-
-  // 3. Chạy Crawler quét toàn bộ 35 Endpoints
-  try {
-    const crawlerSuccess = await runContractCrawler();
-    if (!crawlerSuccess) {
+    // 1. Chạy Functional Tests Core
+    try {
+      const fnResult = await runFunctionalTests();
+      totalFailed += fnResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Functional Tests:', err.message);
       totalFailed++;
     }
-  } catch (err: any) {
-    console.error('❌ Lỗi ngoại lệ trong Contract Crawler:', err.message);
-    totalFailed++;
+
+    // 2. Chạy kiểm thử toàn bộ các nút bấm và Action API
+    try {
+      const btnResult = await runButtonAndActionTests();
+      totalFailed += btnResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Button & Action Tests:', err.message);
+      totalFailed++;
+    }
+
+    // 3. Chạy kiểm thử Google Auth & Phân quyền RBAC
+    try {
+      const authResult = await runAuthGoogleAndRbacTests();
+      totalFailed += authResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Auth & RBAC Tests:', err.message);
+      totalFailed++;
+    }
+
+    // 4. Chạy API Contract Tests
+    try {
+      const apiResult = await runApiContractTests();
+      totalFailed += apiResult.failed;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong API Contract Tests:', err.message);
+      totalFailed++;
+    }
+
+    // 5. Chạy Crawler quét toàn bộ 35 Endpoints
+    try {
+      const crawlerSuccess = await runContractCrawler();
+      if (!crawlerSuccess) totalFailed++;
+    } catch (err: any) {
+      console.error('❌ Lỗi ngoại lệ trong Contract Crawler:', err.message);
+      totalFailed++;
+    }
+  } finally {
+    cleanup();
   }
 
   if (totalFailed > 0) {

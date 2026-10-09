@@ -24,6 +24,34 @@
     return instance;
 }
 
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+        NSArray<NSString *> *candidates = @[
+            [bundlePath stringByAppendingPathComponent:@"public"],
+            [bundlePath stringByAppendingPathComponent:@"public/models/translation"],
+            [bundlePath stringByAppendingPathComponent:@"public/models"],
+            bundlePath
+        ];
+        BOOL initialized = NO;
+        for (NSString *cand in candidates) {
+            NSString *probe1 = [cand stringByAppendingPathComponent:@"models/translation/vietphrase_dict.bin"];
+            NSString *probe2 = [cand stringByAppendingPathComponent:@"vietphrase_dict.bin"];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:probe1] ||
+                [[NSFileManager defaultManager] fileExistsAtPath:probe2]) {
+                NativeCore_Init([cand UTF8String]);
+                initialized = YES;
+                break;
+            }
+        }
+        if (!initialized) {
+            NativeCore_Init([bundlePath UTF8String]);
+        }
+    }
+    return self;
+}
+
 - (BOOL)isReady {
     return NativeCore_IsReady() == 1;
 }
@@ -35,6 +63,10 @@
 
 - (NSString *)translateText:(NSString *)text mode:(NSInteger)mode {
     if (!text || text.length == 0) return @"";
+    if (NativeCore_IsReady() == 0) {
+        NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+        [self initCoreWithBaseDir:[bundlePath stringByAppendingPathComponent:@"public"]];
+    }
     const char *cInput = [text UTF8String];
     const char *cResult = NativeCore_Translate(cInput, (int)mode);
     if (!cResult) return text;

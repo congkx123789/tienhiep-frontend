@@ -1,20 +1,23 @@
 /**
- * ═════════════════════════════════════════════════════════════════════════════
- *  localTranslator.ts — BỘ ĐIỀU PHỐI DỊCH THUẬT NATIVE CORE & SERVER (CROSS-PLATFORM)
- * ═════════════════════════════════════════════════════════════════════════════
- *  - 100% In-Process Native C++ Plugin / Wasm In-RAM khi chạy offline.
- *  - Tự động fallback sang Máy Chủ API (/api/translate) theo Server URL người dùng.
- *  - Hỗ trợ đầy đủ Mode 0-7, Vietphrase, Hán Việt và Raw.
- * ═════════════════════════════════════════════════════════════════════════════
+ * localTranslator.ts — BỘ ĐIỀU PHỐI DỊCH THUẬT NATIVE CORE & SERVER (CROSS-PLATFORM)
+ * 100% In-Process Native C++ Plugin / Wasm In-RAM khi offline.
+ * Tự động fallback sang Server API (/api/translate) theo cấu hình người dùng.
+ * Hỗ trợ đầy đủ Mode 0 (Hán Việt), Mode 7 (Vietphrase), Mode 1-4 và Raw.
  */
-
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { initNativeCoreWasm, isNativeCoreWasmReady, wasmTranslate } from '../core/wasm';
 import BasePointManager from '../core/platform/basePoint';
 
+export function parseModeNumber(mode: string | number): number {
+  const l = String(mode).trim().toLowerCase();
+  if (l === '0' || l === 'hanviet') return 0;
+  if (l === '7' || l === 'vietphrase' || l === 'fast') return 7;
+  const n = parseInt(l, 10);
+  return isNaN(n) ? 4 : n;
+}
+
 function getCandidateHosts(): string[] {
-  let settingsUrl = '';
-  let manualUrl = '';
+  let settingsUrl = '', manualUrl = '';
   if (typeof localStorage !== 'undefined') {
     try {
       const s = JSON.parse(localStorage.getItem('translationSettings') || '{}');
@@ -25,10 +28,8 @@ function getCandidateHosts(): string[] {
       if (m) manualUrl = m.trim().replace(/\/+$/, '');
     } catch { }
   }
-
   return Array.from(new Set([
-    settingsUrl,
-    manualUrl,
+    settingsUrl, manualUrl,
     BasePointManager.getBaseUrl(),
     'http://127.0.0.1:5051',
     'http://localhost:5051',
@@ -123,7 +124,17 @@ class LocalTranslatorEngine {
 
   constructor() {
     if (typeof window !== 'undefined') {
+      this.initNative().catch(() => {});
       this.loadDictionaries().catch(() => {});
+    }
+  }
+
+  async initNative(): Promise<void> {
+    const cap = (typeof window !== 'undefined' && (window as any).Capacitor);
+    if (cap?.Plugins?.NativeCore?.initCore) {
+      try {
+        await cap.Plugins.NativeCore.initCore();
+      } catch (_) {}
     }
   }
 
@@ -147,16 +158,14 @@ class LocalTranslatorEngine {
     if (mode === 'raw' || mode === 'none' || mode === 'original') return text;
 
     const trimmed = text.trim();
-    const cacheKey = `${mode}:${trimmed}`;
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
-    }
+    const modeNum = parseModeNumber(mode);
+    const cacheKey = `${modeNum}:${trimmed}`;
+    if (this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
 
     // 1. Thử Native C++ Plugin trên iOS/Android
     const cap = (typeof window !== 'undefined' && (window as any).Capacitor);
     if (cap?.Plugins?.NativeCore?.translate) {
       try {
-        const modeNum = parseInt(mode, 10) || 4;
         const res = await cap.Plugins.NativeCore.translate({ text: trimmed, mode: modeNum });
         if (res?.result && res.result !== trimmed) {
           this.lastUsedEngine = 'Native C++ Plugin (XCFramework)';
@@ -167,9 +176,7 @@ class LocalTranslatorEngine {
     }
 
     // 2. Thử WASM In-RAM
-    if (!isNativeCoreWasmReady()) {
-      await this.loadDictionaries();
-    }
+    if (!isNativeCoreWasmReady()) await this.loadDictionaries();
     const translated = wasmTranslate(trimmed);
     if (translated && translated !== trimmed) {
       this.lastUsedEngine = 'Native Wasm In-RAM';
@@ -177,8 +184,8 @@ class LocalTranslatorEngine {
       return translated;
     }
 
-    // 3. Fallback sang Máy Chủ API (/api/translate) theo cấu hình người dùng
-    const serverRes = await fetchServerTranslation(trimmed, mode);
+    // 3. Fallback sang Server API theo URL người dùng
+    const serverRes = await fetchServerTranslation(trimmed, String(modeNum));
     if (serverRes.result) {
       this.lastUsedEngine = `Máy Chủ (${serverRes.host})`;
       this.saveCache(cacheKey, serverRes.result);
@@ -194,7 +201,7 @@ class LocalTranslatorEngine {
 
     const cap = (typeof window !== 'undefined' && (window as any).Capacitor);
     const hasNative = Boolean(cap?.Plugins?.NativeCore?.translate);
-    const modeNum = parseInt(mode, 10) || 4;
+    const modeNum = parseModeNumber(mode);
 
     const results: string[] = new Array(sentences.length);
     const unhitIndices: number[] = [];
@@ -202,12 +209,9 @@ class LocalTranslatorEngine {
 
     for (let i = 0; i < sentences.length; i++) {
       const s = sentences[i];
-      if (!s || !s.trim()) {
-        results[i] = s;
-        continue;
-      }
+      if (!s || !s.trim()) { results[i] = s; continue; }
       const trimmed = s.trim();
-      const cacheKey = `${mode}:${trimmed}`;
+      const cacheKey = `${modeNum}:${trimmed}`;
       if (this.cache.has(cacheKey)) {
         results[i] = this.cache.get(cacheKey)!;
       } else {
@@ -218,57 +222,51 @@ class LocalTranslatorEngine {
 
     if (unhitTexts.length === 0) return results;
 
-    // 1. Thử dịch các câu chưa cache qua Native Core hoặc Wasm
+    // Dịch các câu chưa cache qua Native Core hoặc Wasm
     for (let k = 0; k < unhitIndices.length; k++) {
-      const idx = unhitIndices[k];
-      const text = unhitTexts[k];
+      const idx = unhitIndices[k], text = unhitTexts[k];
       let res = '';
-
       if (hasNative) {
         try {
-          const nativeRes = await cap.Plugins.NativeCore.translate({ text, mode: modeNum });
-          if (nativeRes?.result && nativeRes.result !== text) res = nativeRes.result;
+          const nr = await cap.Plugins.NativeCore.translate({ text, mode: modeNum });
+          if (nr?.result && nr.result !== text) res = nr.result;
         } catch (_) {}
       }
-
       if (!res && isNativeCoreWasmReady()) {
-        const wTrans = wasmTranslate(text);
-        if (wTrans && wTrans !== text) res = wTrans;
+        const wr = wasmTranslate(text);
+        if (wr && wr !== text) res = wr;
       }
-
       if (res) {
-        this.saveCache(`${mode}:${text}`, res);
+        this.saveCache(`${modeNum}:${text}`, res);
         results[idx] = res;
       }
     }
 
-    // 2. Với các câu Native/Wasm chưa xử lý, gửi batch lên server API
+    // Với câu chưa xử lý, gửi batch lên server API
     const remainingIndices = unhitIndices.filter(idx => !results[idx]);
     if (remainingIndices.length > 0) {
       const remTexts = remainingIndices.map(idx => sentences[idx].trim());
-      const serverTranslations = await fetchServerTranslationBatch(remTexts, mode);
-      if (serverTranslations.length === remTexts.length) {
+      const sTrans = await fetchServerTranslationBatch(remTexts, String(modeNum));
+      if (sTrans.length === remTexts.length) {
         for (let m = 0; m < remainingIndices.length; m++) {
           const idx = remainingIndices[m];
-          const trans = serverTranslations[m];
-          this.saveCache(`${mode}:${sentences[idx].trim()}`, trans);
-          results[idx] = trans;
+          this.saveCache(`${modeNum}:${sentences[idx].trim()}`, sTrans[m]);
+          results[idx] = sTrans[m];
         }
       }
     }
 
-    // 3. Điền fallback cuối cùng
     for (let n = 0; n < sentences.length; n++) {
       if (!results[n]) results[n] = sentences[n];
     }
-
     return results;
   }
 
   translateSentence(text: string, mode: string = '4'): string {
     if (!text || !text.trim() || mode === 'raw') return text || '';
     const trimmed = text.trim();
-    const cacheKey = `${mode}:${trimmed}`;
+    const modeNum = parseModeNumber(mode);
+    const cacheKey = `${modeNum}:${trimmed}`;
     if (this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
     if (isNativeCoreWasmReady()) {
       const w = wasmTranslate(trimmed);

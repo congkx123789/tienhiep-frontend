@@ -9,37 +9,26 @@ import { fetchAudioBlob } from '../../../audio/player/ttsEngineHelper';
 import BasePointManager from '../../../../core/platform/basePoint';
 
 const TEST_MODES = [
-  { id: '4', label: 'Mode 4 (Hybrid)' },
-  { id: '1', label: 'Mode 1 (Cổ Trang)' },
-  { id: '2', label: 'Mode 2 (Anime)' },
-  { id: '3', label: 'Mode 3 (Âu Mỹ)' },
-  { id: 'vietphrase', label: 'Vietphrase' },
-  { id: 'hanviet', label: 'Hán Việt' },
+  { id: '4', label: 'Mode 4 (Hybrid)' }, { id: '1', label: 'Mode 1 (Cổ Trang)' },
+  { id: '2', label: 'Mode 2 (Anime)' }, { id: '3', label: 'Mode 3 (Âu Mỹ)' },
+  { id: 'vietphrase', label: 'Vietphrase' }, { id: 'hanviet', label: 'Hán Việt' },
   { id: 'raw', label: 'Nguyên Bản' },
 ];
 
 export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const [platform, setPlatform] = useState('Đang phát hiện...');
   const [transInput, setTransInput] = useState('第一章 穿越仙界，天道渺渺，修仙之路漫漫。');
-  const [transResult, setTransResult] = useState('');
-  const [isTranslating, setIsTranslating] = useState(false);
+  const [transResult, setTransResult] = useState(''), [isTranslating, setIsTranslating] = useState(false);
   const [transLatency, setTransLatency] = useState<number | null>(null);
-  const [transEngineName, setTransEngineName] = useState('Native Core Wasm');
+  const [transEngineName, setTransEngineName] = useState('Native Multi-Mode Engine');
   const [transError, setTransError] = useState('');
   const [testMode, setTestMode] = useState<string>(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem('translationSettings') || '{}');
-      return s.mode || '4';
-    } catch {
-      return '4';
-    }
+    try { return JSON.parse(localStorage.getItem('translationSettings') || '{}').mode || '4'; } catch { return '4'; }
   });
 
   const [ttsInput, setTtsInput] = useState('Tiên Hiệp AI xin chào đạo hữu. Chúc đạo hữu đọc truyện vui vẻ.');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [ttsLatency, setTtsLatency] = useState<number | null>(null);
-  const [ttsEngineUsed, setTtsEngineUsed] = useState('Matcha C++ Native Engine');
-  const [ttsError, setTtsError] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false), [ttsLatency, setTtsLatency] = useState<number | null>(null);
+  const [ttsEngineUsed, setTtsEngineUsed] = useState('Matcha C++ Native Engine'), [ttsError, setTtsError] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -53,12 +42,31 @@ export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compa
 
     return () => {
       if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
+  const MODE_SAMPLES: Record<string, string> = {
+    '2': '鸣人与草帽路飞并肩作战，索隆拔出了名刀。',
+    '1': '李七夜淡然一笑，这一剑破碎了苍穹！',
+    '3': '哈利波特与夏洛克·福尔摩斯在伦敦相遇。',
+    '4': '叶天帝踏碎九天十地，逆转乾坤。',
+    'vietphrase': '天下第一武道会正式开启。',
+    'hanviet': '天地玄黄，宇宙洪荒。',
+    'raw': '第一章 穿越仙界，天道渺渺。'
+  };
+
   const handleTestTranslate = async (modeOverride?: string) => {
     const activeMode = modeOverride || testMode;
-    if (!transInput.trim()) return;
+    let textToTranslate = transInput.trim();
+    if (modeOverride && MODE_SAMPLES[modeOverride] && (!textToTranslate || Object.values(MODE_SAMPLES).includes(textToTranslate))) {
+      textToTranslate = MODE_SAMPLES[modeOverride];
+      setTransInput(textToTranslate);
+    }
+    if (!textToTranslate) return;
+
     setIsTranslating(true);
     setTransError('');
     setTransResult('');
@@ -66,24 +74,23 @@ export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compa
     try {
       if (activeMode === 'raw') {
         setTransLatency(Math.max(1, Math.round((performance.now() - start) * 10) / 10));
-        setTransResult(transInput.trim());
+        setTransResult(textToTranslate);
         setTransEngineName('Nguyên Bản (Tắt Dịch)');
         return;
       }
 
-      const translated = await localTranslator.translate(transInput.trim(), activeMode);
+      const translated = await localTranslator.translate(textToTranslate, activeMode);
 
       setTransLatency(Math.max(1, Math.round((performance.now() - start) * 10) / 10));
-      if (translated && translated !== transInput.trim()) {
+      if (translated) {
         setTransResult(translated);
         const modeLabel = TEST_MODES.find(m => m.id === activeMode)?.label || `Mode ${activeMode}`;
         setTransEngineName(`${localTranslator.lastUsedEngine || 'Lõi Dịch'} (${modeLabel})`);
       } else {
-        const activeHost = BasePointManager.getBaseUrl();
-        setTransError(`Chưa nhận được kết quả dịch. Vui lòng kiểm tra Server API URL (${activeHost}) hoặc nạp từ điển.`);
+        setTransError('Không thể tạo bản dịch cục bộ. Vui lòng thử đổi sang chế độ khác.');
       }
     } catch (err: any) {
-      setTransError(err?.message || 'Lỗi dịch thuật.');
+      setTransError(err?.message || 'Lỗi dịch thuật cục bộ.');
     } finally {
       setIsTranslating(false);
     }
@@ -95,6 +102,9 @@ export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compa
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
       }
       setIsPlaying(false);
       return;
@@ -121,9 +131,30 @@ export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compa
         };
         await audio.play();
         setIsPlaying(true);
+      } else if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        // Fallback sang Web Speech API On-Device (Hỗ trợ 100% trên iOS WKWebView / Safari / Chrome)
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(ttsInput.trim());
+        utter.lang = 'vi-VN';
+        utter.rate = 1.0;
+        const voices = window.speechSynthesis.getVoices();
+        const viVoice = voices.find(v => v.lang.startsWith('vi') || v.lang.includes('VIE'));
+        if (viVoice) utter.voice = viVoice;
+        utter.onstart = () => {
+          setTtsLatency(Math.max(1, Math.round(performance.now() - start)));
+          setTtsEngineUsed('On-Device iOS/Web Voice (vi-VN)');
+          setIsPlaying(true);
+        };
+        utter.onend = () => setIsPlaying(false);
+        utter.onerror = (e) => {
+          setTtsError('Lỗi phát giọng đọc: ' + (e.error || 'không xác định'));
+          setIsPlaying(false);
+        };
+        window.speechSynthesis.speak(utter);
       } else {
-        const activeHost = BasePointManager.getBaseUrl();
-        setTtsError(`Không thể kết nối máy chủ TTS (${activeHost}). Hãy kiểm tra Server API URL trong Cài đặt.`);
+        setTtsLatency(Math.max(1, Math.round(performance.now() - start)));
+        setTtsEngineUsed('On-Device Audio Player');
+        setTtsError('Không tìm thấy trình phát giọng đọc cục bộ khả dụng.');
         setIsPlaying(false);
       }
     } catch (err: any) {

@@ -7,6 +7,7 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { initNativeCoreWasm, isNativeCoreWasmReady, wasmTranslate } from '../core/wasm';
 import BasePointManager from '../core/platform/basePoint';
+import { modeTranslator } from './modeTranslator';
 
 export function parseModeNumber(mode: string | number): number {
   const l = String(mode).trim().toLowerCase();
@@ -37,32 +38,23 @@ function getCandidateHosts(): string[] {
 }
 
 async function fetchServerTranslation(text: string, mode: string): Promise<{ result: string; host: string }> {
-  const hosts = getCandidateHosts();
-  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
-
+  const hosts = getCandidateHosts(), isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
   for (const host of hosts) {
     try {
       const res = await fetch(`${host}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, mode }),
-        signal: AbortSignal.timeout(3500),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, mode }), signal: AbortSignal.timeout(3500),
       });
       if (res.ok) {
-        const json = await res.json();
-        const trans = json.translation || (Array.isArray(json.translations) ? json.translations[0] : '');
+        const json = await res.json(), trans = json.translation || (Array.isArray(json.translations) ? json.translations[0] : '');
         if (trans && trans !== text) return { result: trans, host };
       }
     } catch (_) { }
-
     if (isNative) {
       try {
         const capRes = await CapacitorHttp.post({
-          url: `${host}/api/translate`,
-          headers: { 'Content-Type': 'application/json' },
-          data: { text, mode },
-          connectTimeout: 3500,
-          readTimeout: 5000,
+          url: `${host}/api/translate`, headers: { 'Content-Type': 'application/json' },
+          data: { text, mode }, connectTimeout: 3500, readTimeout: 5000,
         });
         if (capRes.status === 200 && capRes.data) {
           const resData = typeof capRes.data === 'string' ? JSON.parse(capRes.data) : capRes.data;
@@ -76,39 +68,27 @@ async function fetchServerTranslation(text: string, mode: string): Promise<{ res
 }
 
 async function fetchServerTranslationBatch(texts: string[], mode: string): Promise<string[]> {
-  const hosts = getCandidateHosts();
-  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
-
+  const hosts = getCandidateHosts(), isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
   for (const host of hosts) {
     try {
       const res = await fetch(`${host}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts, mode }),
-        signal: AbortSignal.timeout(6000),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts, mode }), signal: AbortSignal.timeout(6000),
       });
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json.translations) && json.translations.length === texts.length) {
-          return json.translations;
-        }
+        if (Array.isArray(json.translations) && json.translations.length === texts.length) return json.translations;
       }
     } catch (_) { }
-
     if (isNative) {
       try {
         const capRes = await CapacitorHttp.post({
-          url: `${host}/api/translate`,
-          headers: { 'Content-Type': 'application/json' },
-          data: { texts, mode },
-          connectTimeout: 5000,
-          readTimeout: 8000,
+          url: `${host}/api/translate`, headers: { 'Content-Type': 'application/json' },
+          data: { texts, mode }, connectTimeout: 5000, readTimeout: 8000,
         });
         if (capRes.status === 200 && capRes.data) {
           const resData = typeof capRes.data === 'string' ? JSON.parse(capRes.data) : capRes.data;
-          if (Array.isArray(resData.translations) && resData.translations.length === texts.length) {
-            return resData.translations;
-          }
+          if (Array.isArray(resData.translations) && resData.translations.length === texts.length) return resData.translations;
         }
       } catch (_) { }
     }
@@ -175,8 +155,17 @@ class LocalTranslatorEngine {
       } catch (_) {}
     }
 
-    // 2. Thử WASM In-RAM
+    // 2. Thử Multi-Mode Engine In-RAM (Hỗ trợ Mode 1-4, Anime, Tiên Hiệp, Âu Mỹ)
     if (!isNativeCoreWasmReady()) await this.loadDictionaries();
+    await modeTranslator.ensureModeLoaded(modeNum);
+    const modeResult = modeTranslator.translateWithMode(trimmed, modeNum, (t) => wasmTranslate(t));
+    if (modeResult && modeResult !== trimmed) {
+      this.lastUsedEngine = 'Native In-RAM Multi-Mode Engine';
+      this.saveCache(cacheKey, modeResult);
+      return modeResult;
+    }
+
+    // 3. Fallback sang WASM In-RAM
     const translated = wasmTranslate(trimmed);
     if (translated && translated !== trimmed) {
       this.lastUsedEngine = 'Native Wasm In-RAM';
@@ -184,7 +173,7 @@ class LocalTranslatorEngine {
       return translated;
     }
 
-    // 3. Fallback sang Server API theo URL người dùng
+    // 4. Fallback sang Server API theo URL người dùng
     const serverRes = await fetchServerTranslation(trimmed, String(modeNum));
     if (serverRes.result) {
       this.lastUsedEngine = `Máy Chủ (${serverRes.host})`;
@@ -221,6 +210,7 @@ class LocalTranslatorEngine {
     }
 
     if (unhitTexts.length === 0) return results;
+    await modeTranslator.ensureModeLoaded(modeNum);
 
     // Dịch các câu chưa cache qua Native Core hoặc Wasm
     for (let k = 0; k < unhitIndices.length; k++) {
@@ -233,8 +223,12 @@ class LocalTranslatorEngine {
         } catch (_) {}
       }
       if (!res && isNativeCoreWasmReady()) {
-        const wr = wasmTranslate(text);
-        if (wr && wr !== text) res = wr;
+        const mr = modeTranslator.translateWithMode(text, modeNum, (t) => wasmTranslate(t));
+        if (mr && mr !== text) res = mr;
+        else {
+          const wr = wasmTranslate(text);
+          if (wr && wr !== text) res = wr;
+        }
       }
       if (res) {
         this.saveCache(`${modeNum}:${text}`, res);

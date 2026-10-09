@@ -162,6 +162,23 @@ export async function fetchAudioBlob(
   if (cleanText && !/[.!?…:;]$/.test(cleanText)) cleanText += '.';
   if (!cleanText) return '';
 
+  // 1. Thử gọi Native Core TTS qua C++ Plugin (Matcha ONNX + Vocos trên iOS/Android)
+  const cap = typeof window !== 'undefined' && (window as any).Capacitor;
+  if (cap?.Plugins?.NativeCore?.synthesizeTTS) {
+    try {
+      const res = await cap.Plugins.NativeCore.synthesizeTTS({ text: cleanText, speed: rate || 1.0 });
+      if (res?.audioBase64) {
+        const binStr = atob(res.audioBase64);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'audio/wav' });
+        return URL.createObjectURL(blob);
+      }
+    } catch (_) {}
+  }
+
   let settingsServer = '';
   let manualServer = '';
   if (typeof localStorage !== 'undefined') {

@@ -60,10 +60,14 @@ export const OS_PROFILES: Record<OSType, { endpoint: string; defaultPort: number
   },
 };
 
-/**
- * Lấy danh sách máy chủ ứng cử viên: 100% Độc lập On-Device (Zero Remote / Zero LAN)
- */
-export const getCandidateServers = (_isCapacitor: boolean = false): string[] => {
+export const getCandidateServers = (isCapacitor: boolean = false): string[] => {
+  if (isCapacitor) {
+    return [
+      'http://192.168.1.11:5051',
+      'http://192.168.1.55:5051',
+      SERVER_CONFIG.LOCAL_HOST,
+    ];
+  }
   return [
     SERVER_CONFIG.LOCAL_HOST,
   ];

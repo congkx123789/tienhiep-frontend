@@ -12,6 +12,7 @@ public class NativeCorePlugin: CAPPlugin, CAPBridgedPlugin, AVAudioPlayerDelegat
         CAPPluginMethod(name: "translate", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "normalizeTTS", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "splitSentences", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "synthesizeTTS", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playAudioWav", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopAudio", returnType: CAPPluginReturnPromise)
     ]
@@ -56,6 +57,20 @@ public class NativeCorePlugin: CAPPlugin, CAPBridgedPlugin, AVAudioPlayerDelegat
         }
         let arr = bridge.splitSentences(text)
         call.resolve(["sentences": arr])
+    }
+
+    @objc func synthesizeTTS(_ call: CAPPluginCall) {
+        guard let text = call.getString("text"), !text.isEmpty else {
+            call.reject("Văn bản rỗng")
+            return
+        }
+        let speed = call.getFloat("speed") ?? 1.0
+        if let data = bridge.synthesizeTTS(text, speed: speed) {
+            let base64 = data.base64EncodedString()
+            call.resolve(["audioBase64": base64])
+        } else {
+            call.reject("Lỗi tổng hợp âm thanh từ Native Core")
+        }
     }
 
     @objc func playAudioWav(_ call: CAPPluginCall) {

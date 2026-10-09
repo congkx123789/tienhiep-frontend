@@ -72,6 +72,22 @@ export async function runFunctionalTests(): Promise<{ passed: number; failed: nu
     assert(result[1] === rawInput[1], 'Văn bản gốc không được bị biến đổi');
   });
 
+  // 5. Kiểm tra Multi-Mode Engine (Mode 1, 2, 3)
+  await testCase('Mode 2 (Anime) ánh xạ chính xác 鸣人 -> Naruto', async () => {
+    const narutoTrans = await localTranslator.translate('鸣人', '2');
+    assert(narutoTrans.toLowerCase().includes('naruto'), `Mode 2 dịch 鸣人 phải ra Naruto, thực tế: ${narutoTrans}`);
+  });
+
+  await testCase('Mode 3 (Âu Mỹ) ánh xạ chính xác 哈利波特 -> Harry Potter', async () => {
+    const harryTrans = await localTranslator.translate('哈利波特', '3');
+    assert(harryTrans.toLowerCase().includes('harry potter'), `Mode 3 dịch 哈利波特 phải ra Harry Potter, thực tế: ${harryTrans}`);
+  });
+
+  await testCase('Mode 1 (Cổ Trang) ánh xạ chính xác 李七夜 -> Lý Thất Dạ', async () => {
+    const xianxiaTrans = await localTranslator.translate('李七夜', '1');
+    assert(xianxiaTrans.includes('Lý Thất Dạ'), `Mode 1 dịch 李七夜 phải ra Lý Thất Dạ, thực tế: ${xianxiaTrans}`);
+  });
+
   console.log(`\n==================================================`);
   console.log(`  📊 KẾT QUẢ FRONTEND CORE TESTS: ${passed} passed | ${failed} failed`);
   console.log(`==================================================\n`);

@@ -161,10 +161,16 @@ export async function fetchAudioBlob(
   if (cleanText && !/[.!?…:;]$/.test(cleanText)) cleanText += '.';
   if (!cleanText) return '';
 
-  // Chế độ 100% Local On-Device: Chỉ kết nối daemon nếu ở Electron desktop nội bộ
-  if (typeof window !== 'undefined' && (window as any).electron) {
+  const hosts = Array.from(new Set([
+    getLocalTtsHost(),
+    BasePointManager.getBaseUrl(),
+    'http://127.0.0.1:5051',
+    'http://localhost:5051'
+  ].filter(Boolean)));
+
+  for (const host of hosts) {
     try {
-      const res = await fetch('http://127.0.0.1:5051/api/tts/speak', {
+      const res = await fetch(`${host}/api/tts/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: cleanText, speed: rate || 1.0 }),

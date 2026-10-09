@@ -13,13 +13,15 @@ import {
   GaugeCircle,
   Copy,
   Smartphone,
-  Monitor
+  Monitor,
+  Cpu
 } from 'lucide-react';
 import { TranslationSettingsModalProps, ToolItem } from './TranslationSettings.types';
 import { useTranslationSettings } from './useTranslationSettings';
 import { ToolsTab } from './components/ToolsTab';
 import { AdvancedTab } from './components/AdvancedTab';
 import { HistoryTab } from './components/HistoryTab';
+import { TranslationAndTtsTester } from './components/TranslationAndTtsTester';
 
 export default function TranslationSettingsModal(props: TranslationSettingsModalProps) {
   const {
@@ -80,6 +82,7 @@ export default function TranslationSettingsModal(props: TranslationSettingsModal
             {[
               { id: 'tools', icon: <BrainCircuit className="w-3.5 h-3.5" />, label: 'Tiện Ích' },
               { id: 'advanced', icon: <Settings className="w-3.5 h-3.5" />, label: 'Nâng Cao' },
+              { id: 'test', icon: <Cpu className="w-3.5 h-3.5" />, label: 'Test Dịch/TTS' },
               { id: 'history', icon: <History className="w-3.5 h-3.5" />, label: 'Lịch Sử' },
             ].map(tab => (
               <button
@@ -163,6 +166,12 @@ export default function TranslationSettingsModal(props: TranslationSettingsModal
               onToolAction={onToolAction}
               onNavigate={onNavigate}
             />
+          )}
+
+          {activeTab === 'test' && (
+            <div className="animate-fade-in">
+              <TranslationAndTtsTester compact />
+            </div>
           )}
         </div>
       </div>

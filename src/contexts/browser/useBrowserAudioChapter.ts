@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { ActiveAudioBook } from './BrowserContext.types';
 import { ensureVietnameseText } from './browserHelpers';
 import api from '../../services';
-import { getLocalBooksFromDB, saveLocalBookToDB } from '../../pages/reader/local-reader/localDb';
+import { getLocalBooksFromDB, saveLocalBookToDB } from '../../services/reader/localDb';
 import { getAccountItem, setAccountItem } from '../../utils/accountStorage';
 
 export function useBrowserAudioChapter(
@@ -125,6 +125,9 @@ export function useBrowserAudioChapter(
 
     if (targetTabId && (playType === 'webview' || targetTabId)) {
       try { sessionStorage.setItem('__tienhiep_tts_active_' + targetTabId, 'true'); } catch(e) {}
+      if (typeof window !== 'undefined' && (window as any).__tienhiep_active_audio) {
+        try { (window as any).__tienhiep_active_audio.pause(); } catch {}
+      }
       sendWebviewMessage(targetTabId, { action: 'TRIGGER_NEXT', delay: 0 });
     }
   }, [activeAudioObjRef, setActiveAudioObj, sendWebviewMessage]);

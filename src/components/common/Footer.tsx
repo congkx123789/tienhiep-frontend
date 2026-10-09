@@ -66,7 +66,7 @@ export default function Footer() {
           <div className="space-y-1.5 pt-1 text-[11px] text-slate-400">
             <div className="flex items-center gap-2">
               <Mail className="w-3.5 h-3.5 text-purple-400" />
-              <span>Liên hệ: <a href="mailto:havucong@lyvuha.com" className="text-purple-400 hover:underline">havucong@lyvuha.com</a></span>
+              <span>Liên hệ: <a href="mailto:support@tienhiep.ai" className="text-purple-400 hover:underline">support@tienhiep.ai</a></span>
             </div>
             <div className="flex items-center gap-2">
               <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Send, Sparkles, CheckCircle2, AlertTriangle, BookOpen } from 'lucide-react';
+import api from '../../../services/core/api';
 
 interface TranslationReportModalProps {
   isOpen: boolean;
@@ -39,25 +40,17 @@ export const TranslationReportModal: React.FC<TranslationReportModalProps> = ({
     setSuccessMessage(null);
 
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/reports/translation', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          book_id: bookId,
-          chapter_id: chapterId,
-          original_text: originalText,
-          current_translation: currentTranslation,
-          suggested_fix: suggestedFix.trim(),
-          engine_used: engineUsed,
-        }),
+      const res = await api.post('/api/reports/translation', {
+        book_id: bookId,
+        chapter_id: chapterId,
+        original_text: originalText,
+        current_translation: currentTranslation,
+        suggested_fix: suggestedFix.trim(),
+        engine_used: engineUsed,
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.status === 'success') {
+      const data = res.data || {};
+      if (data.status === 'success' || res.status === 200 || res.status === 201) {
         setSuccessMessage(data.message || 'Đã ghi nhận đóng góp sửa lỗi dịch thành công!');
         setTimeout(() => {
           onClose();
@@ -67,8 +60,8 @@ export const TranslationReportModal: React.FC<TranslationReportModalProps> = ({
       } else {
         setErrorMessage(data.error || 'Có lỗi xảy ra khi gửi báo cáo. Vui lòng thử lại!');
       }
-    } catch {
-      setErrorMessage('Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng!');
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.error || 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng!');
     } finally {
       setIsSubmitting(false);
     }

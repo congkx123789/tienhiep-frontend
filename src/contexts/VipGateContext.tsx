@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './AuthContext';
+import { getStoredUser } from '../utils/accountStorage';
 import {
   SystemEventInfo,
   UserQuotaInfo,
@@ -16,7 +16,20 @@ const VipGateContext = createContext<VipGateContextValue | null>(null);
 const STORAGE_KEY = 'tienhiep_unlocked_tools_v1';
 
 export function VipGateProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const [user, setUser] = useState<any>(() => getStoredUser());
+
+  useEffect(() => {
+    const handleAuthSync = () => {
+      setUser(getStoredUser());
+    };
+    window.addEventListener('sync-auth-event', handleAuthSync);
+    window.addEventListener('storage', handleAuthSync);
+    return () => {
+      window.removeEventListener('sync-auth-event', handleAuthSync);
+      window.removeEventListener('storage', handleAuthSync);
+    };
+  }, []);
+
   const { systemEvent, refreshSystemEvent } = useSystemEvent();
   const { quotaInfo, refreshQuota } = useUserQuota(user);
 

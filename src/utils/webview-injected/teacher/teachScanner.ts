@@ -177,15 +177,15 @@ export function getTeachScannerScript(): string {
         }
       }
 
-      // 3. Kiểm tra đoạn văn / vùng đọc
+      // 3. Kiểm tra đoạn văn / vùng đọc: Luôn neo vào thẻ <p> hoặc [data-tts-idx] cha gần nhất, không lấy thẻ con vụn vặt
       const pEl = (rawEl.tagName === 'P' || rawEl.hasAttribute('data-tts-idx') || rawEl.classList?.contains('tienhiep-tts-paragraph'))
         ? rawEl
-        : (rawEl.closest ? (rawEl.closest('[data-tts-idx], .tienhiep-tts-paragraph') || rawEl.closest('p')) : null);
+        : (rawEl.closest ? (rawEl.closest('p, [data-tts-idx], .tienhiep-tts-paragraph') || (rawEl.parentElement?.tagName === 'P' ? rawEl.parentElement : null)) : null);
       if (pEl && !isSpamOrAd(pEl)) return pEl;
 
       const pCountInRaw = rawEl.querySelectorAll ? rawEl.querySelectorAll('p, [data-tts-idx], .tienhiep-tts-paragraph').length : 0;
       if (pCountInRaw > 0 && cy !== undefined) {
-        const chunks = Array.from(rawEl.querySelectorAll('[data-tts-idx], .tienhiep-tts-paragraph, p')).filter(c => !isSpamOrAd(c));
+        const chunks = Array.from(rawEl.querySelectorAll('p, [data-tts-idx], .tienhiep-tts-paragraph')).filter(c => !isSpamOrAd(c));
         let hit = chunks.find(c => {
           const r = c.getBoundingClientRect();
           return cy >= r.top - 6 && cy <= r.bottom + 6;

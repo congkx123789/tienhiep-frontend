@@ -14,6 +14,7 @@ import { runButtonAndActionTests } from './test_buttons_and_actions';
 import { runAuthGoogleAndRbacTests } from './test_auth_google_and_rbac';
 import { runCrossPlatformMockingTests } from './test_cross_platform_mocking';
 import { runFormFactorUXTests } from './test_form_factor_physical_ux';
+import { runSettingsAndDiagnosticsTests } from './settings/test_settings_and_diagnostics';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,9 +35,9 @@ async function ensureBackend(): Promise<() => void> {
     return () => {};
   }
 
-  const serverBin = path.resolve(__dirname, '../../../../backend_go/server');
+  const serverBin = path.resolve(__dirname, '../../../../server/server');
   const serverProc = spawn(serverBin, ['-port', '5051'], {
-    cwd: path.resolve(__dirname, '../../../../backend_go'),
+    cwd: path.resolve(__dirname, '../../../../server'),
     stdio: 'ignore',
   });
 
@@ -85,6 +86,11 @@ async function main() {
     const uxRes = await runFormFactorUXTests();
     totalPassed += uxRes.passed;
     totalFailed += uxRes.failed;
+
+    // 6. Settings & Native Diagnostics Tests
+    const setRes = await runSettingsAndDiagnosticsTests();
+    totalPassed += setRes.passed;
+    totalFailed += setRes.failed;
   } finally {
     cleanup();
   }

@@ -89,8 +89,8 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({
                 : 'bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]'
             }`}
           >
-            <span className="font-bold text-sm">Cloud AI</span>
-            <span className="text-[10px] opacity-60 text-left leading-relaxed">Dịch siêu mượt qua Server mạnh mẽ. Yêu cầu VIP.</span>
+            <span className="font-bold text-sm">Native Core (LAN)</span>
+            <span className="text-[10px] opacity-60 text-left leading-relaxed">Dịch C++ CMLM NAT & Flat Trie qua server nội bộ (3ms).</span>
           </button>
         </div>
       </div>
@@ -111,7 +111,7 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({
               type="text"
               value={settings.serverUrl}
               onChange={(e) => updateSetting('serverUrl', e.target.value)}
-              placeholder="https://cong123779-tienhiep-api.hf.space"
+              placeholder="http://127.0.0.1:5051"
               className="w-full bg-black/40 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all"
             />
           </div>

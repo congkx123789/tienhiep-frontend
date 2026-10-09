@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LocalBook, StorageInfo } from './LocalReader.types';
-import { getLocalBooksFromDB, saveLocalBookToDB, deleteLocalBookFromDB } from './localDb';
+import { getLocalBooksFromDB, saveLocalBookToDB, deleteLocalBookFromDB } from '../../../services/reader/localDb';
 import { appConfirm } from '../../../services/dialogService';
 
 export function useLocalBooks(lang: string) {

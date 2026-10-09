@@ -8,6 +8,7 @@
 import {
   setMockPlatform,
   detectPlatform,
+  detectOS,
   getPlatformCapabilities,
   isAndroid,
   isIOS,
@@ -16,6 +17,7 @@ import {
   isNativeApp,
   PlatformCapabilities,
 } from '../../core/platform/detector';
+import BasePointManager from '../../core/platform/basePoint';
 
 export interface TestResult {
   passed: number;
@@ -71,15 +73,29 @@ export async function runCrossPlatformMockingTests(): Promise<TestResult> {
     assert(caps.supportsNativeShareIntent === true, 'iOS: Kích hoạt UIActivityViewController Share');
     assert(caps.requiresNotchSafeArea === true, 'iOS: Bắt buộc đệm Dynamic Island / Notch');
 
-    // ─── 4. TEST MÔI TRƯỜNG ELECTRON DESKTOP ───
-    setMockPlatform('electron');
+    // ─── 4. TEST MÔI TRƯỜNG ELECTRON DESKTOP (WINDOWS & LINUX) ───
+    setMockPlatform('electron', 'windows');
     assert(isElectron() === true && isNativeApp() === true, 'Giả lập nền tảng Electron Desktop thành công');
+    assert(detectOS() === 'windows', 'Desktop Windows: Phân định chính xác OS Windows');
     
+    setMockPlatform('electron', 'linux');
+    assert(detectOS() === 'linux', 'Desktop Linux: Phân định chính xác OS Linux');
+
     caps = getPlatformCapabilities();
     assert(caps.supportsOfflineEpub === true, 'Desktop: Cho phép ghi trực tiếp vào ổ cứng qua Node.js fs');
     assert(caps.preferredAudioEngine === 'cpp_native_daemon', 'Desktop: Chạy daemon C++ TTS 100% native offline');
     assert(caps.hasVirtualKeyboard === false, 'Desktop: Không có bàn phím ảo đẩy khung nhìn');
     assert(caps.allowsGoogleAdSense === false, 'Desktop: Chặn quảng cáo web rác trong ứng dụng Desktop');
+
+    // ─── 5. TEST CẤU HÌNH ĐIỂM KẾT NỐI THEO TỪNG OS (100% LOCAL ON-DEVICE 127.0.0.1) ───
+    setMockPlatform('ios', 'ios');
+    assert(BasePointManager.getBaseUrl() === 'http://127.0.0.1:5051', 'iOS: Kết nối chuẩn 100% Local In-RAM Engine (127.0.0.1:5051)');
+    setMockPlatform('android', 'android');
+    assert(BasePointManager.getBaseUrl() === 'http://127.0.0.1:5051', 'Android: Kết nối chuẩn 100% Local In-RAM Engine (127.0.0.1:5051)');
+    setMockPlatform('electron', 'windows');
+    assert(BasePointManager.getBaseUrl() === 'http://127.0.0.1:5051', 'Windows Desktop: Kết nối chuẩn 100% Local C++ Daemon (127.0.0.1:5051)');
+    setMockPlatform('electron', 'linux');
+    assert(BasePointManager.getBaseUrl() === 'http://127.0.0.1:5051', 'Linux Desktop: Kết nối chuẩn 100% Local UNIX/Go Daemon (127.0.0.1:5051)');
 
   } finally {
     // Reset mock platform về trạng thái ban đầu sau khi kiểm thử

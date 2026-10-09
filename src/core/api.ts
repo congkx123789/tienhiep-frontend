@@ -53,35 +53,30 @@ async function pingServer(url: string, timeoutMs: number = HEALTH_TIMEOUT): Prom
 }
 
 function isSafeLocalUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  const lower = url.toLowerCase();
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.trim().toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    return true;
+  }
   return (
     lower.includes('127.0.0.1') ||
     lower.includes('localhost')
   );
 }
 
-// Tìm server tốt nhất với cơ chế ưu tiên 100% Local On-Device / In-RAM Engine
+// Tìm server tốt nhất với cơ chế ưu tiên cấu hình người dùng và Local On-Device
 export async function getBestServer(): Promise<string> {
   const isCapacitorNative =
     typeof window !== 'undefined' &&
     Boolean((window as any).Capacitor?.isNativePlatform?.());
 
-  // 1. Dọn dẹp triệt để bất kỳ URL remote/không hợp lệ nào trong localStorage
+  // 1. Dọn dẹp chỉ các URL bị lỗi định dạng nghiêm trọng trong localStorage
   if (typeof localStorage !== 'undefined') {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached && !isSafeLocalUrl(cached)) {
         localStorage.removeItem(CACHE_KEY);
         localStorage.removeItem(`${CACHE_KEY}_expiry`);
-      }
-      const customStr = localStorage.getItem('translationSettings');
-      if (customStr) {
-        const parsed = JSON.parse(customStr);
-        if (parsed.serverUrl && !isSafeLocalUrl(parsed.serverUrl)) {
-          parsed.serverUrl = SERVER_CONFIG.LOCAL_HOST;
-          localStorage.setItem('translationSettings', JSON.stringify(parsed));
-        }
       }
       const manualBase = localStorage.getItem('manual_api_base_url');
       if (manualBase && !isSafeLocalUrl(manualBase)) {
@@ -90,15 +85,37 @@ export async function getBestServer(): Promise<string> {
     } catch (_) { }
   }
 
-  // 2. Kiểm tra custom server nội bộ an toàn (chỉ cho phép localhost / 127.0.0.1)
+  // 2. Kiểm tra custom server người dùng chủ động cấu hình trong Settings (ƯU TIÊN SỐ 1)
   try {
     const custom = JSON.parse(localStorage.getItem('translationSettings') || '{}')?.serverUrl;
-    if (custom && isSafeLocalUrl(custom) && (await pingServer(custom, 1000))) {
-      return custom;
+    if (custom && isSafeLocalUrl(custom)) {
+      const cleanCustom = custom.trim().replace(/\/+$/, '');
+      if (await pingServer(cleanCustom, 1200)) {
+        return cleanCustom;
+      }
+      // Trên Mobile Native (iPhone/Android), 127.0.0.1 không chạy web server,
+      // nên nếu user đã nhập URL tùy chỉnh thì ưu tiên tuyệt đối URL này!
+      if (isCapacitorNative) {
+        return cleanCustom;
+      }
     }
   } catch { }
 
-  // 3. Luôn ưu tiên Local Engine 127.0.0.1:5051 nếu không phải di động native
+  // 3. Kiểm tra manual_api_base_url
+  try {
+    const manual = localStorage.getItem('manual_api_base_url');
+    if (manual && isSafeLocalUrl(manual)) {
+      const cleanManual = manual.trim().replace(/\/+$/, '');
+      if (await pingServer(cleanManual, 1200)) {
+        return cleanManual;
+      }
+      if (isCapacitorNative) {
+        return cleanManual;
+      }
+    }
+  } catch { }
+
+  // 4. Luôn ưu tiên Local Engine 127.0.0.1:5051 nếu không phải di động native
   if (!isCapacitorNative && (await pingServer(SERVER_CONFIG.LOCAL_HOST, 800))) {
     return SERVER_CONFIG.LOCAL_HOST;
   }
@@ -117,7 +134,7 @@ export async function getBestServer(): Promise<string> {
     }
   }
 
-  // 4. Kiểm tra cache trong localStorage
+  // 5. Kiểm tra cache trong localStorage
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached && isSafeLocalUrl(cached)) {
@@ -128,7 +145,7 @@ export async function getBestServer(): Promise<string> {
     }
   } catch (e) { }
 
-  // 5. Ping danh sách ứng cử viên nội bộ
+  // 6. Ping danh sách ứng cử viên nội bộ
   const candidates = getCandidateServers(isCapacitorNative);
   for (const srv of candidates) {
     if (isSafeLocalUrl(srv) && (await pingServer(srv, 1000))) {
@@ -140,7 +157,7 @@ export async function getBestServer(): Promise<string> {
     }
   }
 
-  // 6. Luôn mặc định về LOCAL_HOST (127.0.0.1:5051) On-Device
+  // 7. Mặc định về LOCAL_HOST (127.0.0.1:5051)
   return SERVER_CONFIG.LOCAL_HOST;
 }
 

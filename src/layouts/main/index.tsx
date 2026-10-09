@@ -85,9 +85,11 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
     { key: 'settings', icon: SettingsIcon, label: t.tabSettings },
   ], [lang, t, isNativeApp]);
 
+  const shouldShowHeader = !hideHeader && !isVisible;
+
   return (
     <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#0b0b14] text-slate-100">
-      {!hideHeader && (
+      {shouldShowHeader && (
         <MainHeader
           desktopNavItems={desktopNavItems}
           activeTab={activeTab}
@@ -129,9 +131,9 @@ export default function MainLayout({ children, hideHeader = false, stats = { tot
         />
       )}
 
-      {!hideHeader && <SystemTicker />}
+      {!hideHeader && !isVisible && <SystemTicker />}
 
-      {!hideHeader && (
+      {!hideHeader && !isVisible && (
         <SystemBanners
           isElectron={isElectron}
           missingEngine={missingEngine}

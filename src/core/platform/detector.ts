@@ -10,16 +10,57 @@
  * ═════════════════════════════════════════════════════════════════════════════
  */
 
-import { PlatformType } from '../../types';
+import { PlatformType, OSType } from '../../types';
 
 let mockPlatform: PlatformType | null = null;
+let mockOS: OSType | null = null;
 
 /**
  * Giả lập môi trường thực thi dùng cho Unit Test và E2E Test
  * @param platform 'web' | 'android' | 'ios' | 'electron' hoặc null để reset
+ * @param os Tùy chọn giả lập hệ điều hành cụ thể
  */
-export const setMockPlatform = (platform: PlatformType | null): void => {
+export const setMockPlatform = (platform: PlatformType | null, os: OSType | null = null): void => {
   mockPlatform = platform;
+  mockOS = os;
+};
+
+/**
+ * Nhận diện chính xác hệ điều hành thực thi (iOS, Android, Windows, Linux, macOS, Web)
+ */
+export const detectOS = (): OSType => {
+  if (mockOS) return mockOS;
+  if (mockPlatform === 'ios') return 'ios';
+  if (mockPlatform === 'android') return 'android';
+
+  // 1. Kiểm tra Electron process.platform
+  if (typeof window !== 'undefined') {
+    const procPlatform = (window as any).process?.platform;
+    if (procPlatform === 'win32') return 'windows';
+    if (procPlatform === 'linux') return 'linux';
+    if (procPlatform === 'darwin') return 'macos';
+  }
+
+  // 2. Kiểm tra Capacitor Native
+  const cap = typeof window !== 'undefined' ? (window as any).Capacitor : undefined;
+  if (cap && typeof cap.getPlatform === 'function') {
+    const p = cap.getPlatform();
+    if (p === 'ios') return 'ios';
+    if (p === 'android') return 'android';
+  }
+
+  // 3. Kiểm tra User Agent / Navigator Platform
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent.toLowerCase();
+    const np = (navigator.platform || '').toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua) || np.includes('iphone') || np.includes('ipad')) return 'ios';
+    if (ua.includes('android') || np.includes('android')) return 'android';
+    if (ua.includes('windows') || np.includes('win')) return 'windows';
+    if (ua.includes('macintosh') || np.includes('mac')) return 'macos';
+    if (ua.includes('linux') || np.includes('linux')) return 'linux';
+  }
+
+  return mockPlatform === 'electron' ? 'linux' : 'web';
 };
 
 /**
@@ -60,9 +101,13 @@ export const detectPlatform = (): PlatformType => {
 };
 
 export const getPlatform = (): PlatformType => detectPlatform();
+export const getOS = (): OSType => detectOS();
 export const isElectron = (): boolean => detectPlatform() === 'electron';
 export const isAndroid = (): boolean => detectPlatform() === 'android';
 export const isIOS = (): boolean => detectPlatform() === 'ios';
+export const isWindows = (): boolean => detectOS() === 'windows';
+export const isLinux = (): boolean => detectOS() === 'linux';
+export const isMacOS = (): boolean => detectOS() === 'macos';
 export const isMobile = (): boolean => isAndroid() || isIOS();
 export const isWeb = (): boolean => detectPlatform() === 'web';
 export const isNativeApp = (): boolean => isElectron() || isAndroid() || isIOS();
@@ -102,11 +147,15 @@ export const getPlatformCapabilities = (): PlatformCapabilities => {
   };
 };
 
-// Cung cấp các biến tương thích ngược (legacy export)
+// Cung cấp các biến tương thích ngược & trạng thái tĩnh
 export const CURRENT_PLATFORM: PlatformType = detectPlatform();
+export const CURRENT_OS: OSType = detectOS();
 export const IS_ELECTRON: boolean = CURRENT_PLATFORM === 'electron';
 export const IS_ANDROID: boolean = CURRENT_PLATFORM === 'android';
 export const IS_IOS: boolean = CURRENT_PLATFORM === 'ios';
+export const IS_WINDOWS: boolean = CURRENT_OS === 'windows';
+export const IS_LINUX: boolean = CURRENT_OS === 'linux';
+export const IS_MACOS: boolean = CURRENT_OS === 'macos';
 export const IS_MOBILE: boolean = IS_ANDROID || IS_IOS;
 export const IS_WEB: boolean = CURRENT_PLATFORM === 'web';
 export const IS_PRODUCTION: boolean = (import.meta as any).env?.PROD ?? false;

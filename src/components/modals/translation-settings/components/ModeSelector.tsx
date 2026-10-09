@@ -39,10 +39,10 @@ export const BASE_MODE_GROUPS: ModeGroup[] = [
 ];
 
 export const SERVER_MODE_GROUP: ModeGroup = {
-  category: '👑 Cloud Server Python Fallback',
+  category: '⚡ Native Core Server (Local LAN)',
   items: [
-    { id: 'fast', name: '👑 Dịch Nhanh (Server AI)', desc: 'Tốc độ cao qua API Server' },
-    { id: 'advanced', name: '👑 Nâng Cao (Server AI)', desc: 'Dịch ngữ cảnh chuyên sâu qua Cloud' },
+    { id: 'fast', name: '⚡ Dịch Nhanh (Native Engine)', desc: 'Tốc độ cao qua Native Core C++' },
+    { id: 'advanced', name: '⚡ CMLM NAT (Local AI Engine)', desc: 'Dịch ngữ cảnh chuyên sâu trên máy' },
   ]
 };
 

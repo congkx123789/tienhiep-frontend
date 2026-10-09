@@ -1,4 +1,4 @@
-import api from '../core/api';
+import api from '../../core/api';
 import { API_ENDPOINTS } from '../../constants/endpoints';
 import { Book, BooksSearchResponse } from '../../types';
 

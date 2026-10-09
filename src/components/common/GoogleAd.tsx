@@ -22,8 +22,8 @@ export default function GoogleAd({
   responsive = 'true', 
   className = '', 
   onUpgradeClick,
-  sponsorUrl = 'https://tienhiep.lyvuha.com/',
-  sponsorTitle = 'Tiên Hiệp AI Cloud & Neural TTS Engine',
+  sponsorUrl = '#',
+  sponsorTitle = 'Tiên Hiệp AI Native & Neural TTS Engine',
   sponsorDesc = 'Nền tảng dịch truyện chữ siêu tốc & giọng đọc AI tự nhiên hàng đầu.'
 }: GoogleAdProps) {
   const { user, loading } = useAuth();

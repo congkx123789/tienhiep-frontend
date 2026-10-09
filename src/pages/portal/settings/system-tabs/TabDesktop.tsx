@@ -151,8 +151,8 @@ export const TabDesktop: React.FC<TabDesktopProps> = ({
                 type="button"
                 onClick={() => {
                   const api = getElectronAPI();
-                  if (api && api.openExternal) api.openExternal('https://tienhiep.lyvuha.com/');
-                  else window.open('https://tienhiep.lyvuha.com/', '_blank');
+                  if (api && api.openExternal) api.openExternal('http://127.0.0.1:5051/');
+                  else window.open('http://127.0.0.1:5051/', '_blank');
                 }}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 transition-colors"
               >

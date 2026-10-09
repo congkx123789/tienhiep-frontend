@@ -6,6 +6,7 @@ import {
 import { Capacitor } from '@capacitor/core';
 import { localTranslator } from '../../../../utils/localTranslator';
 import { fetchAudioBlob } from '../../../audio/player/ttsEngineHelper';
+import BasePointManager from '../../../../core/platform/basePoint';
 
 const TEST_MODES = [
   { id: '4', label: 'Mode 4 (Hybrid)' },
@@ -73,12 +74,13 @@ export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compa
       const translated = await localTranslator.translate(transInput.trim(), activeMode);
 
       setTransLatency(Math.max(1, Math.round((performance.now() - start) * 10) / 10));
-      if (translated) {
+      if (translated && translated !== transInput.trim()) {
         setTransResult(translated);
         const modeLabel = TEST_MODES.find(m => m.id === activeMode)?.label || `Mode ${activeMode}`;
-        setTransEngineName(`Native Wasm In-RAM (${modeLabel})`);
+        setTransEngineName(`${localTranslator.lastUsedEngine || 'Lõi Dịch'} (${modeLabel})`);
       } else {
-        setTransError('Không thể nạp bộ từ điển Native Core.');
+        const activeHost = BasePointManager.getBaseUrl();
+        setTransError(`Chưa nhận được kết quả dịch. Vui lòng kiểm tra Server API URL (${activeHost}) hoặc nạp từ điển.`);
       }
     } catch (err: any) {
       setTransError(err?.message || 'Lỗi dịch thuật.');
@@ -120,7 +122,8 @@ export const TranslationAndTtsTester: React.FC<{ compact?: boolean }> = ({ compa
         await audio.play();
         setIsPlaying(true);
       } else {
-        setTtsError('Không kết nối được Matcha C++ Native TTS (127.0.0.1:5051). Chặn hoàn toàn Apple Siri fallback.');
+        const activeHost = BasePointManager.getBaseUrl();
+        setTtsError(`Không thể kết nối máy chủ TTS (${activeHost}). Hãy kiểm tra Server API URL trong Cài đặt.`);
         setIsPlaying(false);
       }
     } catch (err: any) {

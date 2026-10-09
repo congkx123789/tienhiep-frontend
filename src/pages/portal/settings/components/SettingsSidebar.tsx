@@ -1,8 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  User, Shield, Sliders, Coins, BarChart3, Laptop, Tv, BrainCircuit,
-  Crown, MessageSquare, Terminal, MessageSquarePlus
+  User, Shield, Sliders, Coins, BarChart3, Laptop, BrainCircuit,
+  MessageSquarePlus
 } from 'lucide-react';
 import { SettingsTabId } from '../Settings.types';
 
@@ -33,8 +32,6 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   isCapacitor,
   getFrameStyle,
 }) => {
-  const navigate = useNavigate();
-
   return (
     <div className="lg:col-span-1 space-y-6">
       {/* Profile Card Summary */}
@@ -151,49 +148,19 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
           <Laptop className="w-4 h-4" /> {isElectron ? 'Cấu hình Desktop' : (isCapacitor ? 'Cấu hình Android' : 'Tải Bản Desktop')}
         </button>
         <button
-          onClick={() => onSelectTab('tts_models')}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'tts_models'
-              ? 'bg-purple-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-            }`}
-        >
-          <Tv className="w-4 h-4" /> Quản lý Giọng AI
-        </button>
-        <button
           onClick={() => onSelectTab('ai_translation')}
           className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left ${activeTab === 'ai_translation'
               ? 'bg-purple-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
             }`}
         >
-          <BrainCircuit className="w-4 h-4" /> Cấu hình Dịch & AI
+          <BrainCircuit className="w-4 h-4" /> Lõi AI & Dịch Thuật C++
         </button>
         <button
           onClick={onOpenFeedback}
           className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
         >
           <MessageSquarePlus className="w-4 h-4 text-emerald-400" /> Báo lỗi & Góp ý
-        </button>
-
-        <div className="hidden lg:block w-full border-t border-white/5 my-1" />
-
-        <button
-          onClick={() => navigate('/sects')}
-          className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
-        >
-          <Crown className="w-4 h-4 text-amber-400" /> Tông Môn (Sects)
-        </button>
-        <button
-          onClick={() => navigate('/messages')}
-          className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
-        >
-          <MessageSquare className="w-4 h-4 text-purple-400" /> Hộp thư đàm đạo
-        </button>
-        <button
-          onClick={() => navigate('/developer')}
-          className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 lg:w-full text-left text-slate-400 hover:text-white hover:bg-white/[0.03]"
-        >
-          <Terminal className="w-4 h-4 text-blue-400" /> API Keys & Developer
         </button>
       </div>
     </div>

@@ -1,12 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../services';
-import { useAuth } from '../contexts/AuthContext';
-import { getAccountItem, setAccountItem, removeAccountItem } from '../utils/accountStorage';
+import { getStoredUser, getAccountItem, setAccountItem, removeAccountItem } from '../utils/accountStorage';
 
 export function useUsageTracker(source = 'web', action = 'read') {
-  const { user } = useAuth();
+  const [user, setUser] = useState<any>(() => getStoredUser());
   const activeSeconds = useRef(0);
   const userRef = useRef(user);
+
+  useEffect(() => {
+    const handleAuthSync = () => setUser(getStoredUser());
+    window.addEventListener('sync-auth-event', handleAuthSync);
+    window.addEventListener('storage', handleAuthSync);
+    return () => {
+      window.removeEventListener('sync-auth-event', handleAuthSync);
+      window.removeEventListener('storage', handleAuthSync);
+    };
+  }, []);
 
   useEffect(() => {
     userRef.current = user;

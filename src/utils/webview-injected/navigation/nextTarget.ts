@@ -34,10 +34,10 @@ export function getNextTargetScript(): string {
           const candidateTxt = candidateEl ? (candidateEl.textContent || "").trim() : "";
           const isExplicitNextBtn = nextKeywordRegex.test(candidateTxt);
 
-          const pathTrimmed = resolved.pathname.replace(new RegExp('/+$'), '');
-          const currentPathTrimmed = currentPath.replace(new RegExp('/+$'), '');
+          const pathTrimmed = resolved.pathname.replace(/[\\/]+$/, '');
+          const currentPathTrimmed = currentPath.replace(/[\\/]+$/, '');
           const isParentBookDir = currentPathTrimmed.startsWith(pathTrimmed) && currentPathTrimmed.length > pathTrimmed.length;
-          const isBookInfoPage = new RegExp('/book/\\\\d+(\\\\.[a-zA-Z]+)?$', 'i').test(resolved.pathname);
+          const isBookInfoPage = /[\\/]book[\\/]\\d+(\\.[a-zA-Z]+)?$/i.test(resolved.pathname);
 
           if (isParentBookDir || isBookInfoPage) {
             if (isExplicitNextBtn) nextButtonPointsToBookInfo = true;

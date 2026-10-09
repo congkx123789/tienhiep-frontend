@@ -1,204 +1,283 @@
 /**
  * ═════════════════════════════════════════════════════════════════════════════
- *  localTranslator.ts — BỘ ĐIỀU PHỐI DỊCH THUẬT HYBRID LOCAL OFFLINE SIÊU TỐC
+ *  localTranslator.ts — BỘ ĐIỀU PHỐI DỊCH THUẬT NATIVE CORE & SERVER (CROSS-PLATFORM)
  * ═════════════════════════════════════════════════════════════════════════════
- *  1. Ưu tiên Backend Go & C++ CMLM / HanLP nếu có kết nối (6ms).
- *  2. 100% Fallback Local Offline: Nạp Trie & Hán Việt CharDict trực tiếp (20ms, 3MB RAM).
- *  3. Hoạt động trên mọi nền tảng: Android APK, iOS IPA, Electron, Browser.
+ *  - 100% In-Process Native C++ Plugin / Wasm In-RAM khi chạy offline.
+ *  - Tự động fallback sang Máy Chủ API (/api/translate) theo Server URL người dùng.
+ *  - Hỗ trợ đầy đủ Mode 0-7, Vietphrase, Hán Việt và Raw.
  * ═════════════════════════════════════════════════════════════════════════════
  */
 
-import { api } from '../services';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { initNativeCoreWasm, isNativeCoreWasmReady, wasmTranslate } from '../core/wasm';
+import BasePointManager from '../core/platform/basePoint';
 
-class TrieNode {
-  children = new Map<string, TrieNode>();
-  translation: string | null = null;
-  priority = 0;
-}
-
-class Trie {
-  root = new TrieNode();
-
-  insert(word: string, translation: string, priority = 1): void {
-    let node = this.root;
-    for (const char of word) {
-      let next = node.children.get(char);
-      if (!next) {
-        next = new TrieNode();
-        node.children.set(char, next);
-      }
-      node = next;
-    }
-    if (priority >= node.priority) {
-      node.translation = translation;
-      node.priority = priority;
-    }
+function getCandidateHosts(): string[] {
+  let settingsUrl = '';
+  let manualUrl = '';
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const s = JSON.parse(localStorage.getItem('translationSettings') || '{}');
+      if (s?.serverUrl) settingsUrl = s.serverUrl.trim().replace(/\/+$/, '');
+    } catch { }
+    try {
+      const m = localStorage.getItem('manual_api_base_url');
+      if (m) manualUrl = m.trim().replace(/\/+$/, '');
+    } catch { }
   }
 
-  searchLongest(text: string, startIdx: number): { len: number; trans: string | null } {
-    let node = this.root;
-    let longestLen = 0;
-    let bestTrans: string | null = null;
-
-    for (let i = startIdx; i < text.length; i++) {
-      const next = node.children.get(text[i]);
-      if (!next) break;
-      node = next;
-      if (node.translation !== null) {
-        longestLen = i - startIdx + 1;
-        bestTrans = node.translation;
-      }
-    }
-    return { len: longestLen, trans: bestTrans };
-  }
+  return Array.from(new Set([
+    settingsUrl,
+    manualUrl,
+    BasePointManager.getBaseUrl(),
+    'http://127.0.0.1:5051',
+    'http://localhost:5051',
+  ].filter(Boolean)));
 }
 
-const PUNCT_MAP: Record<string, string> = {
-  '，': ', ', '。': '. ', '、': ', ', '？': '? ', '！': '! ', '：': ': ', '；': '; ',
-  '「': '', '」': '', '“': '"', '”': '"', '（': ' (', '）': ') ', '『': '', '』': '',
-  '【': ' [', '】': '] '
-};
+async function fetchServerTranslation(text: string, mode: string): Promise<{ result: string; host: string }> {
+  const hosts = getCandidateHosts();
+  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
 
-const NUM_MAP: Record<string, string> = {
-  '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
-  '一': 'nhất', '二': 'nhị', '三': 'tam', '四': 'tứ', '五': 'ngũ', '六': 'lục', '七': 'thất', '八': 'bát', '九': 'cửu', '十': 'thập',
-  '百': 'bách', '千': 'thiên', '万': 'vạn'
-};
+  for (const host of hosts) {
+    try {
+      const res = await fetch(`${host}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, mode }),
+        signal: AbortSignal.timeout(3500),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const trans = json.translation || (Array.isArray(json.translations) ? json.translations[0] : '');
+        if (trans && trans !== text) return { result: trans, host };
+      }
+    } catch (_) { }
+
+    if (isNative) {
+      try {
+        const capRes = await CapacitorHttp.post({
+          url: `${host}/api/translate`,
+          headers: { 'Content-Type': 'application/json' },
+          data: { text, mode },
+          connectTimeout: 3500,
+          readTimeout: 5000,
+        });
+        if (capRes.status === 200 && capRes.data) {
+          const resData = typeof capRes.data === 'string' ? JSON.parse(capRes.data) : capRes.data;
+          const trans = resData.translation || (Array.isArray(resData.translations) ? resData.translations[0] : '');
+          if (trans && trans !== text) return { result: trans, host };
+        }
+      } catch (_) { }
+    }
+  }
+  return { result: '', host: '' };
+}
+
+async function fetchServerTranslationBatch(texts: string[], mode: string): Promise<string[]> {
+  const hosts = getCandidateHosts();
+  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
+
+  for (const host of hosts) {
+    try {
+      const res = await fetch(`${host}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts, mode }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.translations) && json.translations.length === texts.length) {
+          return json.translations;
+        }
+      }
+    } catch (_) { }
+
+    if (isNative) {
+      try {
+        const capRes = await CapacitorHttp.post({
+          url: `${host}/api/translate`,
+          headers: { 'Content-Type': 'application/json' },
+          data: { texts, mode },
+          connectTimeout: 5000,
+          readTimeout: 8000,
+        });
+        if (capRes.status === 200 && capRes.data) {
+          const resData = typeof capRes.data === 'string' ? JSON.parse(capRes.data) : capRes.data;
+          if (Array.isArray(resData.translations) && resData.translations.length === texts.length) {
+            return resData.translations;
+          }
+        }
+      } catch (_) { }
+    }
+  }
+  return [];
+}
 
 class LocalTranslatorEngine {
   private cache = new Map<string, string>();
-  private trie = new Trie();
-  private charMap = new Map<string, string>();
   public isLoaded = false;
   public isLoading = false;
+  public lastUsedEngine = 'Native Core';
 
   constructor() {
     if (typeof window !== 'undefined') {
-      setTimeout(() => this.loadDictionaries(), 100);
+      this.loadDictionaries().catch(() => {});
     }
   }
 
   async loadDictionaries(): Promise<void> {
-    if (this.isLoaded || this.isLoading) return;
+    if (this.isLoaded && isNativeCoreWasmReady()) return;
     this.isLoading = true;
-
     try {
-      const basePath = typeof window !== 'undefined' ? '' : '';
-      const [res1, res2] = await Promise.all([
-        fetch(`${basePath}/dictionaries/Aligned_HanViet.txt`).then((r) => (r.ok ? r.text() : '')),
-        fetch(`${basePath}/dictionaries/HanViet_CharDict.txt`).then((r) => (r.ok ? r.text() : ''))
-      ]);
-
-      if (res1) {
-        for (const line of res1.split('\n')) {
-          const l = line.trim();
-          if (!l || l.startsWith('#') || !l.includes('=')) continue;
-          const idx = l.indexOf('=');
-          const k = l.slice(0, idx).trim();
-          let v = l.slice(idx + 1).trim();
-          if (v.includes('/')) v = v.split('/')[0].trim();
-          if (k && v) this.trie.insert(k, v, 2);
-        }
-      }
-
-      if (res2) {
-        for (const line of res2.split('\n')) {
-          const l = line.trim();
-          if (!l || l.startsWith('#') || !l.includes('=')) continue;
-          const idx = l.indexOf('=');
-          const k = l.slice(0, idx).trim();
-          let v = l.slice(idx + 1).trim();
-          if (v.startsWith('~')) v = v.slice(1);
-          if (v.includes('/')) v = v.split('/')[0].trim();
-          if (k && v) this.charMap.set(k, v);
-        }
-      }
+      await initNativeCoreWasm();
       this.isLoaded = true;
-    } catch (e) {
-      console.warn('[LocalTranslator] Lỗi tải từ điển offline:', e);
     } finally {
       this.isLoading = false;
     }
   }
 
   translateOffline(text: string): string {
-    if (!text || !text.trim()) return '';
-    if (!/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(text)) return text;
-
-    let i = 0;
-    const len = text.length;
-    const words: string[] = [];
-
-    while (i < len) {
-      const match = this.trie.searchLongest(text, i);
-      if (match.len > 0 && match.trans) {
-        words.push(match.trans);
-        i += match.len;
-        continue;
-      }
-      const ch = text[i];
-      if (PUNCT_MAP[ch] !== undefined) {
-        words.push(PUNCT_MAP[ch]);
-      } else if (NUM_MAP[ch] !== undefined) {
-        words.push(NUM_MAP[ch]);
-      } else if (this.charMap.has(ch)) {
-        words.push(this.charMap.get(ch)!);
-      } else {
-        words.push(ch);
-      }
-      i++;
-    }
-
-    const joined = words.join(' ')
-      .replace(/\s+([,.:;?!])/g, '$1')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-
-    return joined ? joined.charAt(0).toUpperCase() + joined.slice(1) : text;
+    return wasmTranslate(text) || text;
   }
 
-  async translate(text: string, mode: string = 'cmlm'): Promise<string> {
+  async translate(text: string, mode: string = '4'): Promise<string> {
     if (!text || !text.trim()) return '';
+    if (mode === 'raw' || mode === 'none' || mode === 'original') return text;
 
-    const cacheKey = `${mode}:${text.trim()}`;
+    const trimmed = text.trim();
+    const cacheKey = `${mode}:${trimmed}`;
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
     }
 
-    // 1. Thử gọi Backend API trước (Local Go Server hoặc Cloud AI)
-    try {
-      const res = await api.post('/api/translate/cmlm', { text, mode }, { timeout: 2500 });
-      const result = res.data?.result || res.data?.translation || res.data?.text;
-      if (result && result.trim()) {
-        this.saveCache(cacheKey, result);
-        return result;
-      }
-    } catch {}
+    // 1. Thử Native C++ Plugin trên iOS/Android
+    const cap = (typeof window !== 'undefined' && (window as any).Capacitor);
+    if (cap?.Plugins?.NativeCore?.translate) {
+      try {
+        const modeNum = parseInt(mode, 10) || 4;
+        const res = await cap.Plugins.NativeCore.translate({ text: trimmed, mode: modeNum });
+        if (res?.result && res.result !== trimmed) {
+          this.lastUsedEngine = 'Native C++ Plugin (XCFramework)';
+          this.saveCache(cacheKey, res.result);
+          return res.result;
+        }
+      } catch (_) {}
+    }
 
-    // 2. Fallback sang Local Trie Offline Engine ngay lập tức (100% không cần mạng)
-    if (!this.isLoaded) {
+    // 2. Thử WASM In-RAM
+    if (!isNativeCoreWasmReady()) {
       await this.loadDictionaries();
     }
-    const localResult = this.translateOffline(text);
-    const finalResult = localResult || text;
-    this.saveCache(cacheKey, finalResult);
-    return finalResult;
-  }
-
-  async translateBatch(sentences: string[], mode: string = 'cmlm'): Promise<string[]> {
-    if (!sentences || sentences.length === 0) return [];
-    return Promise.all(sentences.map((s) => this.translate(s, mode)));
-  }
-
-  translateSentence(text: string, mode: string = 'cmlm'): string {
-    if (!text || !text.trim()) return '';
-    const cacheKey = `${mode}:${text.trim()}`;
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
+    const translated = wasmTranslate(trimmed);
+    if (translated && translated !== trimmed) {
+      this.lastUsedEngine = 'Native Wasm In-RAM';
+      this.saveCache(cacheKey, translated);
+      return translated;
     }
-    const res = this.isLoaded ? this.translateOffline(text) : text;
-    this.translate(text, mode).catch(() => {});
-    return res || text;
+
+    // 3. Fallback sang Máy Chủ API (/api/translate) theo cấu hình người dùng
+    const serverRes = await fetchServerTranslation(trimmed, mode);
+    if (serverRes.result) {
+      this.lastUsedEngine = `Máy Chủ (${serverRes.host})`;
+      this.saveCache(cacheKey, serverRes.result);
+      return serverRes.result;
+    }
+
+    return trimmed;
+  }
+
+  async translateBatch(sentences: string[], mode: string = '4'): Promise<string[]> {
+    if (!sentences || sentences.length === 0) return [];
+    if (mode === 'raw' || mode === 'none' || mode === 'original') return sentences;
+
+    const cap = (typeof window !== 'undefined' && (window as any).Capacitor);
+    const hasNative = Boolean(cap?.Plugins?.NativeCore?.translate);
+    const modeNum = parseInt(mode, 10) || 4;
+
+    const results: string[] = new Array(sentences.length);
+    const unhitIndices: number[] = [];
+    const unhitTexts: string[] = [];
+
+    for (let i = 0; i < sentences.length; i++) {
+      const s = sentences[i];
+      if (!s || !s.trim()) {
+        results[i] = s;
+        continue;
+      }
+      const trimmed = s.trim();
+      const cacheKey = `${mode}:${trimmed}`;
+      if (this.cache.has(cacheKey)) {
+        results[i] = this.cache.get(cacheKey)!;
+      } else {
+        unhitIndices.push(i);
+        unhitTexts.push(trimmed);
+      }
+    }
+
+    if (unhitTexts.length === 0) return results;
+
+    // 1. Thử dịch các câu chưa cache qua Native Core hoặc Wasm
+    for (let k = 0; k < unhitIndices.length; k++) {
+      const idx = unhitIndices[k];
+      const text = unhitTexts[k];
+      let res = '';
+
+      if (hasNative) {
+        try {
+          const nativeRes = await cap.Plugins.NativeCore.translate({ text, mode: modeNum });
+          if (nativeRes?.result && nativeRes.result !== text) res = nativeRes.result;
+        } catch (_) {}
+      }
+
+      if (!res && isNativeCoreWasmReady()) {
+        const wTrans = wasmTranslate(text);
+        if (wTrans && wTrans !== text) res = wTrans;
+      }
+
+      if (res) {
+        this.saveCache(`${mode}:${text}`, res);
+        results[idx] = res;
+      }
+    }
+
+    // 2. Với các câu Native/Wasm chưa xử lý, gửi batch lên server API
+    const remainingIndices = unhitIndices.filter(idx => !results[idx]);
+    if (remainingIndices.length > 0) {
+      const remTexts = remainingIndices.map(idx => sentences[idx].trim());
+      const serverTranslations = await fetchServerTranslationBatch(remTexts, mode);
+      if (serverTranslations.length === remTexts.length) {
+        for (let m = 0; m < remainingIndices.length; m++) {
+          const idx = remainingIndices[m];
+          const trans = serverTranslations[m];
+          this.saveCache(`${mode}:${sentences[idx].trim()}`, trans);
+          results[idx] = trans;
+        }
+      }
+    }
+
+    // 3. Điền fallback cuối cùng
+    for (let n = 0; n < sentences.length; n++) {
+      if (!results[n]) results[n] = sentences[n];
+    }
+
+    return results;
+  }
+
+  translateSentence(text: string, mode: string = '4'): string {
+    if (!text || !text.trim() || mode === 'raw') return text || '';
+    const trimmed = text.trim();
+    const cacheKey = `${mode}:${trimmed}`;
+    if (this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
+    if (isNativeCoreWasmReady()) {
+      const w = wasmTranslate(trimmed);
+      if (w && w !== trimmed) {
+        this.saveCache(cacheKey, w);
+        return w;
+      }
+    }
+    return trimmed;
   }
 
   private saveCache(key: string, val: string): void {

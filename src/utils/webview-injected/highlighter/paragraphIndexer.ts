@@ -3,6 +3,7 @@ export function getParagraphIndexerScript(): string {
   return `
     indexParagraphsForTTS: () => {
       const host = window.__TienHiepHelpers.getEffectiveUrl().hostname || '';
+      if (!host || host.includes('google.') || host.includes('youtube.')) return;
       let mainEl = null;
 
       document.querySelectorAll('[data-tts-idx]').forEach(el => {
@@ -30,10 +31,10 @@ export function getParagraphIndexerScript(): string {
                 candidates.forEach(el => {
                   if (el.closest('nav, header, footer, aside, .ad, .advertisement, [id*="google_ads"]')) return;
                   const txt = (el.innerText || el.textContent || '').trim();
-                  if (txt && hasWord.test(txt) && !isNav.test(txt) && txt.length >= 6) {
+                  if (txt && hasWord.test(txt) && !isNav.test(txt)) {
                     let linkLen = 0;
                     el.querySelectorAll('a').forEach(a => linkLen += (a.textContent || '').length);
-                    if (linkLen / (txt.length || 1) <= 0.25) {
+                    if (linkLen / (txt.length || 1) <= 0.4) {
                       el.setAttribute('data-tts-idx', String(idx));
                       el.style.cursor = 'pointer';
                       indexedEls.push(el);
@@ -73,15 +74,40 @@ export function getParagraphIndexerScript(): string {
         }
         if (!mainEl) mainEl = document.querySelector('article, main, #content, .content, .read-content') || document.body;
 
-        let pTags = Array.from(mainEl.querySelectorAll("p"));
+        let units = Array.from(mainEl.querySelectorAll("p"));
+        if (units.length === 0) {
+          const directKids = Array.from(mainEl.children).filter(el => {
+            if (el.closest('nav, header, footer, aside, .ad, script, style')) return false;
+            const t = (el.innerText || el.textContent || '').trim();
+            return t.length > 0 && hasWord.test(t) && !isNav.test(t);
+          });
+          if (directKids.length >= 2) {
+            units = directKids;
+          } else {
+            units = Array.from(mainEl.querySelectorAll("div, li")).filter(el => {
+              if (el.closest('nav, header, footer, aside, .ad, script, style')) return false;
+              const t = (el.innerText || el.textContent || '').trim();
+              return t.length > 0 && hasWord.test(t) && !isNav.test(t) && el.querySelectorAll('div').length === 0;
+            });
+          }
+          if (units.length === 0 && mainEl && /<br\b/i.test(mainEl.innerHTML)) {
+            try {
+              const pieces = mainEl.innerHTML.split(/<br[^>]*>/i).map(s => s.trim()).filter(s => s.length > 0 && hasWord.test(s));
+              if (pieces.length >= 2) {
+                mainEl.innerHTML = pieces.map(p => '<p class="tienhiep-tts-paragraph">' + p + '</p>').join('\\n');
+                units = Array.from(mainEl.querySelectorAll("p"));
+              }
+            } catch(e) {}
+          }
+        }
 
-        if (pTags.length > 0) {
-          pTags.forEach(p => {
-            const txt = (p.innerText || p.textContent || "").trim();
+        if (units.length > 0) {
+          units.forEach(u => {
+            const txt = (u.innerText || u.textContent || "").trim();
             if (txt && hasWord.test(txt) && !isNav.test(txt)) {
-              p.setAttribute('data-tts-idx', String(idx));
-              p.style.cursor = 'pointer';
-              indexedEls.push(p);
+              u.setAttribute('data-tts-idx', String(idx));
+              u.style.cursor = 'pointer';
+              indexedEls.push(u);
               idx++;
             }
           });
@@ -105,27 +131,33 @@ export function getParagraphIndexerScript(): string {
           pointerDownPos = { x: e.clientX, y: e.clientY, time: Date.now() };
         }, true);
 
-        // Double click kích hoạt phát TTS từ đoạn đó
+        // Double click kích hoạt phát TTS từ đoạn/câu đó
         document.addEventListener('dblclick', (e) => {
           if (window.__isTeachingNext) return;
           if (e.target && e.target.closest && e.target.closest('a, button, input, select, textarea, [onclick], [role="button"]')) return;
+          const sentEl = e.target && e.target.closest ? e.target.closest('.tts-sentence') : null;
           const el = e.target && e.target.closest ? e.target.closest('[data-tts-idx]') : null;
-          if (!el) return;
-          const paraIdx = parseInt(el.getAttribute('data-tts-idx'), 10);
-          if (isNaN(paraIdx)) return;
+          if (!el && !sentEl) return;
+          const paraIdx = el ? parseInt(el.getAttribute('data-tts-idx'), 10) : 0;
+          const sentenceIdx = sentEl ? parseInt(sentEl.getAttribute('data-sid') || '0', 10) : 0;
+          const tocLevel = sentEl ? parseInt(sentEl.getAttribute('data-toc-level') || '4', 10) : 4;
+          const granularity = window.__tienhiep_reading_granularity || 1;
 
-          const translatedText = (el.innerText || el.textContent || '').trim();
+          const translatedText = (sentEl?.textContent || el?.innerText || el?.textContent || '').trim();
           try {
             window.parent.postMessage({
               type: 'START_TTS_FROM_PARAGRAPH',
               paraIdx,
+              sentenceIdx,
+              tocLevel,
+              granularity,
               text: translatedText
             }, '*');
           } catch(err) {}
 
           window.__TienHiepHelpers.clearAllTtsHighlights();
-          el.setAttribute('data-tts-active', 'true');
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (el) el.setAttribute('data-tts-active', 'true');
+          (sentEl || el)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, true);
       }
 
@@ -144,6 +176,7 @@ export function getParagraphIndexerScript(): string {
             const span = document.createElement('span');
             span.id = 's-0';
             span.setAttribute('data-sid', '0');
+            span.setAttribute('data-toc-level', '2');
             span.className = 'tts-sentence';
             span.textContent = hText;
             heading.innerHTML = '';
@@ -202,6 +235,8 @@ export function getParagraphIndexerScript(): string {
               const span = document.createElement('span');
               span.id = 's-' + sentenceCounter;
               span.setAttribute('data-sid', String(sentenceCounter));
+              span.setAttribute('data-toc-level', '4');
+              span.setAttribute('data-para-idx', pEl.getAttribute('data-tts-idx') || '0');
               span.className = 'tts-sentence';
               span.textContent = sText + ' ';
               if (/[一-龥]/.test(sText) && !/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(sText)) {

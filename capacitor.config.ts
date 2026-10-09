@@ -6,7 +6,20 @@ const config: CapacitorConfig = {
   webDir: 'dist-web',
   server: {
     androidScheme: 'http'
+  },
+  ios: {
+    contentInset: 'never',
+    allowsLinkPreview: false,
+    scrollEnabled: true,
+    limitsNavigationsToAppBoundDomains: false,
+    preferredContentMode: 'mobile'
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true
+    }
   }
 };
 
 export default config;
+

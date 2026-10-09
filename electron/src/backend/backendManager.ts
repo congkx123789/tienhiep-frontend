@@ -95,8 +95,11 @@ export async function startBackend(): Promise<boolean> {
   const resourcesPath = (process as any).resourcesPath || '';
 
   const possibleGoBins = [
+    path.join(resourcesPath, 'server/bin', binName),
     path.join(resourcesPath, 'backend_go/bin', binName),
     path.join(resourcesPath, 'bin', binName),
+    path.join(__dirname, '../../server/bin', binName),
+    path.join(app.getAppPath(), '../server/bin', binName),
     path.join(__dirname, '../../backend_go/bin', binName),
     path.join(app.getAppPath(), '../backend_go/bin', binName),
   ];

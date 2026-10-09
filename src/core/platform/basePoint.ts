@@ -47,11 +47,14 @@ const DEV_ENDPOINTS: Record<PlatformType, string> = {
 };
 
 /**
- * Kiểm tra địa chỉ server có thuộc danh sách an toàn hợp lệ (Chỉ chấp nhận Local/In-RAM)
+ * Kiểm tra địa chỉ server có thuộc danh sách an toàn hợp lệ (Chấp nhận http/https URL, LAN IP và Localhost)
  */
 export function isAcceptableServerUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  const lower = url.toLowerCase();
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.trim().toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    return true;
+  }
   return (
     lower.includes('127.0.0.1') ||
     lower.includes('localhost')
@@ -73,35 +76,46 @@ export class BasePointManager {
   }
 
   public static getBaseUrl(): string {
-    // 1. Kiểm tra override thủ công
+    // 1. Kiểm tra override thủ công trong memory
     if (this.overrideHost) {
-      return this.overrideHost;
-    }
-    if (typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem('manual_api_base_url');
-      if (stored && isAcceptableServerUrl(stored)) {
-        return stored;
-      } else if (stored) {
-        localStorage.removeItem('manual_api_base_url');
-      }
+      return this.overrideHost.replace(/\/+$/, '');
     }
 
-    // 2. Kiểm tra server tốt nhất đã được khám phá
+    // 2. Kiểm tra serverUrl trong cài đặt translationSettings (người dùng chủ động đặt trong Settings)
     if (typeof localStorage !== 'undefined') {
+      try {
+        const storedSettings = localStorage.getItem('translationSettings');
+        if (storedSettings) {
+          const parsed = JSON.parse(storedSettings);
+          if (parsed?.serverUrl && isAcceptableServerUrl(parsed.serverUrl)) {
+            return parsed.serverUrl.trim().replace(/\/+$/, '');
+          }
+        }
+      } catch (_) {}
+
+      // 3. Kiểm tra manual_api_base_url
+      const stored = localStorage.getItem('manual_api_base_url');
+      if (stored && isAcceptableServerUrl(stored)) {
+        return stored.trim().replace(/\/+$/, '');
+      } else if (stored && !stored.startsWith('http')) {
+        localStorage.removeItem('manual_api_base_url');
+      }
+
+      // 4. Kiểm tra server tốt nhất đã được khám phá
       const best = localStorage.getItem(BASE_POINT_CONFIG.CACHE_KEY);
       if (best && isAcceptableServerUrl(best)) {
-        return best;
-      } else if (best) {
+        return best.trim().replace(/\/+$/, '');
+      } else if (best && !best.startsWith('http')) {
         localStorage.removeItem(BASE_POINT_CONFIG.CACHE_KEY);
       }
     }
 
-    // 3. Chế độ Production Cloud
+    // 5. Chế độ Production Cloud
     if (IS_PRODUCTION && CURRENT_PLATFORM === 'web' && typeof window !== 'undefined' && !window.location.origin.includes('localhost')) {
       return window.location.origin;
     }
 
-    // 4. Phân bổ theo Hệ điều hành runtime (100% On-Device Local 127.0.0.1)
+    // 6. Phân bổ theo Hệ điều hành runtime (100% On-Device Local 127.0.0.1)
     const activeOs = detectOS();
     return OS_ENDPOINTS[activeOs] || DEV_ENDPOINTS[CURRENT_PLATFORM] || BASE_POINT_CONFIG.LOCAL_HOST;
   }

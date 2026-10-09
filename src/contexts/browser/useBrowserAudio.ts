@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { ActiveAudioBook, BrowserTab } from './BrowserContext.types';
 import { ensureVietnameseText } from './browserHelpers';
 import { useBrowserAudioChapter } from './useBrowserAudioChapter';
-import { splitAndMergeSentences } from '../../components/audio/player/ttsEngineHelper';
+import { splitAndMergeSentences } from '../../utils/sentenceSplitter';
 
 export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<React.SetStateAction<BrowserTab[]>>) {
   const [activeAudioObj, setActiveAudioObj] = useState<ActiveAudioBook | null>(null);
@@ -32,7 +32,7 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
           if (frame.contentWindow) {
             frame.contentWindow.postMessage(payload, '*');
           }
-        } catch(e) {}
+        } catch (e) { }
       });
     }
   }, []);
@@ -63,9 +63,89 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
     let text = rawText || '';
 
     if (hasChinese) {
-      const res = await ensureVietnameseText(rawTitle, rawText);
-      title = res.title || title;
-      text = res.text || text;
+      const paras = text.split('\n');
+      const startP = Math.max(0, initialParaIdx || 0);
+      const endP = Math.min(paras.length, startP + 3);
+
+      // Fast-path: Dịch nhanh tiêu đề và 3 đoạn ưu tiên đầu tiên (< 30ms) để phát âm thanh tức thì!
+      const priorityBatch: string[] = [];
+      const priorityMapping: Array<{ type: 'title' | 'para'; idx?: number }> = [];
+      if (/[\u4e00-\u9fa5]/.test(title)) {
+        priorityBatch.push(title);
+        priorityMapping.push({ type: 'title' });
+      }
+      for (let pi = startP; pi < endP; pi++) {
+        if (/[\u4e00-\u9fa5]/.test(paras[pi])) {
+          priorityBatch.push(paras[pi]);
+          priorityMapping.push({ type: 'para', idx: pi });
+        }
+      }
+
+      if (priorityBatch.length > 0) {
+        const transPriority = await ensureVietnameseText(title, priorityBatch.join('\n'));
+        if (transPriority.title) title = transPriority.title;
+        if (transPriority.text) {
+          const transPList = transPriority.text.split('\n');
+          priorityMapping.forEach((m, idx) => {
+            if (m.type === 'para' && m.idx !== undefined && transPList[idx]) {
+              paras[m.idx] = transPList[idx];
+            }
+          });
+        }
+        text = paras.join('\n');
+      }
+
+      if (!autoAudioStatesRef.current[tabId]) return;
+
+      let startSentenceIdx = 0;
+      let startSnippet = '';
+      if (initialParaIdx && initialParaIdx > 0 && text) {
+        let count = 0;
+        for (let pi = 0; pi < initialParaIdx && pi < paras.length; pi++) {
+          const p = paras[pi].trim();
+          if (!p) continue;
+          count += splitAndMergeSentences(p).length;
+        }
+        startSentenceIdx = count;
+        if (paras[initialParaIdx]) {
+          startSnippet = paras[initialParaIdx].trim().slice(0, 40);
+        }
+      }
+
+      setActiveAudioObj({
+        title: title || tab?.title || 'Chương đọc',
+        title_vietphrase: title || tab?.title || 'Chương đọc',
+        author: 'Trình đọc Web',
+        author_hanviet: 'Trình đọc Web',
+        sourceUrl: tab?.url,
+        tabId,
+        currentChapterTitle: title,
+        currentChapterContent: text,
+        initialParaIdx,
+        startSentenceIdx,
+        startSnippet,
+        isChapter: true,
+        playType: 'online' as any
+      });
+
+      // Dịch ngầm phần còn lại của toàn chương trong background mà không chặn luồng âm thanh
+      ensureVietnameseText(rawTitle, rawText).then(fullRes => {
+        if (!autoAudioStatesRef.current[tabId]) return;
+        if (fullRes && fullRes.text && fullRes.text !== text) {
+          setActiveAudioObj(prev => {
+            if (!prev || prev.tabId !== tabId) return prev;
+            return {
+              ...prev,
+              title: fullRes.title || prev.title,
+              title_vietphrase: fullRes.title || prev.title_vietphrase,
+              currentChapterTitle: fullRes.title || prev.currentChapterTitle,
+              currentChapterContent: fullRes.text
+            };
+          });
+        }
+      }).catch(() => {});
+
+      return;
     }
 
     if (!autoAudioStatesRef.current[tabId]) return;
@@ -107,7 +187,7 @@ export function useBrowserAudio(tabs: BrowserTab[], setTabs: React.Dispatch<Reac
     const targetTabId = tabId || activeAudioObjRef.current?.tabId;
     if (targetTabId) {
       autoAudioStatesRef.current[targetTabId] = false;
-      try { sessionStorage.removeItem('__tienhiep_tts_active_' + targetTabId); } catch(e) {}
+      try { sessionStorage.removeItem('__tienhiep_tts_active_' + targetTabId); } catch (e) { }
       sendWebviewMessage(targetTabId, { action: 'SET_TTS_PLAYING', playing: false });
       sendWebviewMessage(targetTabId, { action: 'CLEAR_TTS_HIGHLIGHTS' });
     }

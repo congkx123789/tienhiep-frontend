@@ -1,4 +1,5 @@
 // Dịch vụ gửi Báo cáo & Lỗi với mạng Chuyển tiếp Dự phòng Serverless (Zero-Trust & Fault-Tolerant)
+import api from '../core/api';
 export interface ReportData {
   type?: string;
   department?: string;
@@ -41,39 +42,18 @@ export async function submitReportWithFallback(report: ReportData): Promise<Repo
 
   // 1. Thử gửi qua Máy Chủ Chính Golang (Giới hạn timeout 5s để không làm nghẽn client)
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const token = typeof localStorage !== 'undefined'
-      ? (localStorage.getItem('access_token') || localStorage.getItem('token') || '')
-      : '';
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const res = await fetch(PRIMARY_REPORT_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
+    const res = await api.post(PRIMARY_REPORT_URL, payload, { timeout: 5000 });
+    if (res && (res.status === 200 || res.status === 201 || res.data)) {
       return {
         success: true,
-        message: data.message || 'Đã ghi nhận báo cáo qua máy chủ chính.',
+        message: res.data?.message || 'Đã ghi nhận báo cáo qua máy chủ chính.',
         via: 'primary_server',
       };
     }
-
-    if (res.status < 500 && res.status !== 404) {
-      // Lỗi do client gửi sai format (400, 422...), không phải do server sập
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `Yêu cầu không hợp lệ (${res.status})`);
-    }
-    // Server phản hồi 500, 502, 503, 504 -> kích hoạt fallback bên dưới
   } catch (err: any) {
+    if (err?.response && err.response.status < 500 && err.response.status !== 404) {
+      throw new Error(err.response.data?.error || `Yêu cầu không hợp lệ (${err.response.status})`);
+    }
     console.warn('[Report Fallback] ⚠️ Máy chủ chính không phản hồi hoặc gặp lỗi. Kích hoạt mạng chuyển tiếp Serverless...', err?.message);
   }
 

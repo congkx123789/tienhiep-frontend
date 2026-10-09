@@ -20,16 +20,10 @@ export function useTabManager() {
       if (Array.isArray(saved) && saved.length > 0) {
         return saved.map(t => {
           let u = (t.url || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051').replace('/#/', '/');
-          if (u.includes('localhost:3532') || u.includes('127.0.0.1:3532') || u.startsWith('http://localhost') || u === 'about:blank') {
-            u = 'about:newtab';
-          }
-          return {
-            ...t,
-            url: u,
-            initialUrl: u,
-            title: u === 'about:newtab' ? 'Tab mới' : t.title,
-            isDirectMode: false
-          };
+          if (u.includes('localhost:3532') || u.includes('127.0.0.1:3532') || u.startsWith('http://localhost') || u === 'about:blank') u = 'about:newtab';
+          const stack = Array.isArray(t.historyStack) && t.historyStack.length > 0 ? t.historyStack : [u];
+          const idx = typeof t.historyIndex === 'number' ? Math.min(Math.max(0, t.historyIndex), stack.length - 1) : stack.length - 1;
+          return { ...t, url: u, initialUrl: u, title: u === 'about:newtab' ? 'Tab mới' : t.title, isDirectMode: false, historyStack: stack, historyIndex: idx, canGoBack: idx > 0, canGoForward: idx < stack.length - 1 };
         });
       }
     } catch (e) {}
@@ -42,15 +36,9 @@ export function useTabManager() {
   const [isTabConfigOpen, setIsTabConfigOpen] = useState(false);
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
 
-  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
-    return getAccountItem<BookmarkItem[]>(BOOKMARKS_KEY, []);
-  });
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => getAccountItem<BookmarkItem[]>(BOOKMARKS_KEY, []));
+  const [history, setHistory] = useState<HistoryItem[]>(() => getAccountItem<HistoryItem[]>(HISTORY_KEY, []));
 
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    return getAccountItem<HistoryItem[]>(HISTORY_KEY, []);
-  });
-
-  // Tự động nạp lại tabs, bookmarks và history khi chuyển đổi tài khoản (đăng nhập / đăng xuất)
   const reloadAccountData = useCallback(() => {
     const loadedTabs = getAccountItem<BrowserTab[]>(INITIAL_TABS_KEY, DEFAULT_TABS);
     const validTabs = Array.isArray(loadedTabs) && loadedTabs.length > 0 ? loadedTabs : DEFAULT_TABS;
@@ -67,19 +55,10 @@ export function useTabManager() {
   }, [reloadAccountData]);
 
   useEffect(() => {
-    try {
-      const regularTabs = tabs.filter(t => !t.isPrivate);
-      setAccountItem(INITIAL_TABS_KEY, regularTabs);
-    } catch (e) {}
+    try { setAccountItem(INITIAL_TABS_KEY, tabs.filter(t => !t.isPrivate)); } catch (e) {}
   }, [tabs]);
-
-  useEffect(() => {
-    setAccountItem(BOOKMARKS_KEY, bookmarks);
-  }, [bookmarks]);
-
-  useEffect(() => {
-    setAccountItem(HISTORY_KEY, history.slice(0, 500));
-  }, [history]);
+  useEffect(() => { setAccountItem(BOOKMARKS_KEY, bookmarks); }, [bookmarks]);
+  useEffect(() => { setAccountItem(HISTORY_KEY, history.slice(0, 500)); }, [history]);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
@@ -122,41 +101,114 @@ export function useTabManager() {
     setTabs(prev => prev.map(t => t.id === targetId ? { ...t, isDirectMode: t.isDirectMode === false ? true : false } : t));
   }, [activeTabId]);
 
-  const openInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
-    let cleanUrl = (targetUrl || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051');
+  const navigateTab = useCallback((tabId: string, targetUrl: string) => {
+    if (!targetUrl) return;
+    let cleanUrl = targetUrl.replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051');
     if (cleanUrl.includes('localhost:3532') || cleanUrl.includes('127.0.0.1:3532') || cleanUrl.startsWith('http://localhost/') || cleanUrl === 'http://localhost') {
       cleanUrl = 'about:newtab';
     }
-    if (inNewTab || !activeTabId) {
-      openNewTab(isPrivate, cleanUrl);
-    } else {
-      setTabs(prev => prev.map(t => {
-        if (t.id !== activeTabId) return t;
-        let stack = t.historyStack && t.historyStack.length > 0 ? [...t.historyStack] : [t.url || cleanUrl];
-        let idx = typeof t.historyIndex === 'number' ? t.historyIndex : stack.length - 1;
 
-        // Tránh nhân bản nếu URL mới trùng khớp với URL hiện tại ở đỉnh con trỏ
-        if (cleanUrl !== t.url && stack[idx] !== cleanUrl) {
-          // THUẬT TOÁN CẮT TƯƠNG LAI (Chrome-like History Truncation)
-          stack = stack.slice(0, idx + 1);
-          stack.push(cleanUrl);
-          idx = stack.length - 1;
-        }
+    setTabs(prev => prev.map(t => {
+      if (t.id !== tabId) return t;
+      const stack = Array.isArray(t.historyStack) && t.historyStack.length > 0 ? [...t.historyStack] : [t.url || cleanUrl];
+      let idx = typeof t.historyIndex === 'number' ? t.historyIndex : stack.length - 1;
 
+      // THUẬT TOÁN CẮT TƯƠNG LAI: A - B - C, lùi về B, đi D => Cắt C, trở thành [A, B, D]
+      if (cleanUrl !== stack[idx] || cleanUrl !== t.url) {
+        const truncated = stack.slice(0, idx + 1);
+        truncated.push(cleanUrl);
+        const newIdx = truncated.length - 1;
         return {
           ...t,
           url: cleanUrl,
           initialUrl: cleanUrl,
           title: cleanUrl === t.url ? t.title : 'Đang tải...',
-          isLoading: true,
-          historyStack: stack,
-          historyIndex: idx,
-          canGoBack: idx > 0,
-          canGoForward: idx < stack.length - 1
+          isLoading: cleanUrl !== 'about:newtab',
+          historyStack: truncated,
+          historyIndex: newIdx,
+          canGoBack: newIdx > 0,
+          canGoForward: false
         };
-      }));
+      }
+      return { ...t, isLoading: cleanUrl !== 'about:newtab' };
+    }));
+
+    if (tabId === activeTabId) {
+      const isInternal = !cleanUrl || cleanUrl === 'about:newtab' || cleanUrl.includes('localhost:3532') || cleanUrl.includes('127.0.0.1:3532');
+      setUrlInput(isInternal ? '' : cleanUrl);
     }
-  }, [activeTabId, openNewTab]);
+  }, [activeTabId]);
+
+  const navigateTabBack = useCallback((tabId: string) => {
+    let targetUrl = '';
+    setTabs(prev => prev.map(t => {
+      if (t.id !== tabId) return t;
+      const stack = t.historyStack || [];
+      const idx = t.historyIndex ?? 0;
+      if (idx <= 0 || stack.length <= 1) return t;
+      const newIdx = idx - 1;
+      targetUrl = stack[newIdx];
+      return {
+        ...t,
+        url: targetUrl,
+        initialUrl: targetUrl,
+        historyIndex: newIdx,
+        canGoBack: newIdx > 0,
+        canGoForward: true,
+        isLoading: true
+      };
+    }));
+
+    if (targetUrl && tabId === activeTabId) {
+      const isInternal = !targetUrl || targetUrl === 'about:newtab';
+      setUrlInput(isInternal ? '' : targetUrl);
+    }
+    return targetUrl;
+  }, [activeTabId]);
+
+  const navigateTabForward = useCallback((tabId: string) => {
+    let targetUrl = '';
+    setTabs(prev => prev.map(t => {
+      if (t.id !== tabId) return t;
+      const stack = t.historyStack || [];
+      const idx = t.historyIndex ?? 0;
+      if (idx >= stack.length - 1) return t;
+      const newIdx = idx + 1;
+      targetUrl = stack[newIdx];
+      return {
+        ...t,
+        url: targetUrl,
+        initialUrl: targetUrl,
+        historyIndex: newIdx,
+        canGoBack: true,
+        canGoForward: newIdx < stack.length - 1,
+        isLoading: true
+      };
+    }));
+
+    if (targetUrl && tabId === activeTabId) {
+      const isInternal = !targetUrl || targetUrl === 'about:newtab';
+      setUrlInput(isInternal ? '' : targetUrl);
+    }
+    return targetUrl;
+  }, [activeTabId]);
+
+  const reloadTab = useCallback((tabId: string) => {
+    setTabs(prev => prev.map(t => t.id === tabId ? {
+      ...t,
+      refreshKey: (t.refreshKey || 0) + 1,
+      isLoading: true
+    } : t));
+  }, []);
+
+  const openInBrowser = useCallback((targetUrl: string, inNewTab: boolean = false, isPrivate: boolean = false) => {
+    let cleanUrl = (targetUrl || '').replace(/^https:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost):5051/i, 'http://$1:5051');
+    if (cleanUrl.includes('localhost:3532') || cleanUrl.includes('127.0.0.1:3532') || cleanUrl.startsWith('http://localhost/') || cleanUrl === 'http://localhost') {
+      cleanUrl = 'about:newtab';
+    }
+    if (inNewTab || !activeTabId) openNewTab(isPrivate, cleanUrl);
+    else navigateTab(activeTabId, cleanUrl);
+  }, [activeTabId, openNewTab, navigateTab]);
 
   const closeTab = useCallback((tabId: string) => {
     setTabs(prev => {
@@ -166,9 +218,7 @@ export function useTabManager() {
         setActiveTabId(fallbackId);
         return [{ id: fallbackId, url: 'about:newtab', title: 'Tab mới', isLoading: false, canGoBack: false, canGoForward: false }];
       }
-      if (activeTabId === tabId) {
-        setActiveTabId(filtered[filtered.length - 1].id);
-      }
+      if (activeTabId === tabId) setActiveTabId(filtered[filtered.length - 1].id);
       return filtered;
     });
   }, [activeTabId]);
@@ -189,12 +239,22 @@ export function useTabManager() {
     setHistory(prev => [{ id: 'h-' + Date.now(), url, title: title || url, visitedAt: Date.now() }, ...prev.filter(h => h.url !== url)].slice(0, 500));
   }, [activeTab?.isPrivate]);
 
+  const clearBrowserHistory = useCallback(() => {
+    setHistory([]);
+    try { setAccountItem(HISTORY_KEY, []); } catch (e) {}
+  }, []);
+
+  const deleteBrowserHistoryItem = useCallback((id: string) => {
+    setHistory(prev => {
+      const next = prev.filter(h => h.id !== id && h.url !== id);
+      try { setAccountItem(HISTORY_KEY, next); } catch (e) {}
+      return next;
+    });
+  }, []);
+
   const addBookmark = useCallback((url: string, title: string) => {
     if (!url || url.startsWith('about:')) return;
-    setBookmarks(prev => {
-      if (prev.some(b => b.url === url)) return prev;
-      return [{ id: 'b-' + Date.now(), url, title: cleanNovelTabTitle(title) || url, createdAt: Date.now() }, ...prev];
-    });
+    setBookmarks(prev => prev.some(b => b.url === url) ? prev : [{ id: 'b-' + Date.now(), url, title: cleanNovelTabTitle(title) || url, createdAt: Date.now() }, ...prev]);
   }, []);
 
   const removeBookmark = useCallback((bookmarkId: string) => {
@@ -203,17 +263,13 @@ export function useTabManager() {
 
   const translateAllTabTitles = useCallback(async () => {
     const chineseRegex = /[\u4e00-\u9fa5]/;
-    const needTranslateTabs = tabs.filter(t => t.title && chineseRegex.test(t.title));
-    if (needTranslateTabs.length === 0) return;
+    const need = tabs.filter(t => t.title && chineseRegex.test(t.title));
+    if (need.length === 0) return;
     try {
-      const titles = needTranslateTabs.map(t => t.title);
-      const translated = await executeTranslate(titles);
+      const translated = await executeTranslate(need.map(t => t.title));
       setTabs(prev => prev.map(t => {
-        const idx = needTranslateTabs.findIndex(nt => nt.id === t.id);
-        if (idx !== -1 && translated[idx]) {
-          return { ...t, title: cleanNovelTabTitle(translated[idx]) };
-        }
-        return t;
+        const idx = need.findIndex(nt => nt.id === t.id);
+        return (idx !== -1 && translated[idx]) ? { ...t, title: cleanNovelTabTitle(translated[idx]) } : t;
       }));
     } catch (e) {}
   }, [tabs]);
@@ -229,7 +285,9 @@ export function useTabManager() {
     bookmarks, setBookmarks,
     history, setHistory,
     openNewTab, openInBrowser, closeTab, closeOtherTabs, closeAll,
-    addToHistory, addBookmark, removeBookmark, translateAllTabTitles,
+    navigateTab, navigateTabBack, navigateTabForward, reloadTab,
+    addToHistory, clearBrowserHistory, deleteBrowserHistoryItem,
+    addBookmark, removeBookmark, translateAllTabTitles,
     toggleDesktopMode, toggleDirectMode
   };
 }

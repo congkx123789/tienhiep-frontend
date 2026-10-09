@@ -38,14 +38,15 @@ export function getTeachEventsScript(): string {
       e.preventDefault(); e.stopPropagation(); startDrag(e.clientX, e.clientY, e.pointerType === 'touch');
       try { crosshair.setPointerCapture(e.pointerId); } catch(err) {}
     });
-    crosshair.addEventListener("pointermove", (e) => {
+    const onGlobalPointerMove = (e) => {
       if (isDraggingCrosshair) { e.preventDefault(); e.stopPropagation(); onDragMove(e.clientX, e.clientY); }
-    });
+    };
+    window.addEventListener("pointermove", onGlobalPointerMove, { passive: false, capture: true });
     const onPointerEnd = (e) => {
       if (isDraggingCrosshair) { endDrag(); try { crosshair.releasePointerCapture(e.pointerId); } catch(err) {} }
     };
-    crosshair.addEventListener("pointerup", onPointerEnd);
-    crosshair.addEventListener("pointercancel", onPointerEnd);
+    window.addEventListener("pointerup", onPointerEnd, { capture: true });
+    window.addEventListener("pointercancel", onPointerEnd, { capture: true });
 
     crosshair.addEventListener("touchstart", (e) => {
       if (e.touches?.[0]) { e.preventDefault(); e.stopPropagation(); startDrag(e.touches[0].clientX, e.touches[0].clientY, true); }
@@ -129,9 +130,16 @@ export function getTeachEventsScript(): string {
       stopRafLoop();
       ["touchstart", "touchend", "click"].forEach(ev => window.removeEventListener(ev, ev === "touchstart" ? onDocTouchStart : (ev === "touchend" ? onDocTouchEnd : onDirectTap), true));
       ["touchmove", "touchend", "touchcancel"].forEach(ev => window.removeEventListener(ev, ev === "touchmove" ? onTouchMove : endDrag, true));
+      window.removeEventListener("pointermove", onGlobalPointerMove, true);
+      window.removeEventListener("pointerup", onPointerEnd, true);
+      window.removeEventListener("pointercancel", onPointerEnd, true);
       document.removeEventListener("mousemove", onMouseMove); document.removeEventListener("mouseup", endDrag);
       [highlightBox, floatingBadge, crosshair].forEach(el => el && el.remove());
     };
+
+    if (window.__TienHiepHelpers) {
+      window.__TienHiepHelpers.stopTeachNextMode = () => { cleanup(); if (banner) banner.remove(); };
+    }
 
     bindInstantAction(document.getElementById("__cancel_teach_next"), () => { cleanup(); banner.remove(); });
     bindInstantAction(document.getElementById("__reset_teach_next"), () => {
@@ -160,6 +168,9 @@ export function getTeachEventsScript(): string {
     [
       ["__add_region_btn", onAddRegionClick],
       ["__teach_badge_add_region", onAddRegionClick],
+      ["__descend_level_btn", () => descendOneLevel()],
+      ["__teach_badge_descend", () => descendOneLevel()],
+      ["__teach_badge_ascend", () => ascendOneLevel()],
       ["__confirm_teach_next", () => currentTarget && saveAndApplyRule(currentTarget)],
       ["__read_from_here", () => currentTarget && readFromTargetParagraph(currentTarget)],
       ["__scope_toggle_btn", () => applyTargetScope('container')],
@@ -173,15 +184,12 @@ export function getTeachEventsScript(): string {
       ["__teach_badge_next", () => shiftTargetSibling(1)]
     ].forEach(([id, handler]) => bindInstantAction(document.getElementById(id), handler));
 
-    let lastCrosshairTap = 0;
-    crosshair.addEventListener("touchend", () => {
+    bindInstantAction(crosshair, () => {
       if (isDraggingCrosshair) return;
-      const now = Date.now();
-      if (now - lastCrosshairTap < 350 && currentTarget) {
+      if (currentTarget) {
         if (currentScope === 'container' || isTargetParagraph) saveContentAreaRule(currentTarget);
         else saveAndApplyRule(currentTarget);
       }
-      lastCrosshairTap = now;
     });
   `;
 }

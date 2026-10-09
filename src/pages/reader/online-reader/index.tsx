@@ -6,10 +6,11 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useLang } from '../../../contexts/LangContext';
 import { useBrowser } from '../../../contexts/BrowserContext';
 import { useUsageTracker } from '../../../hooks/useUsageTracker';
+import { useReaderSwipeGesture } from '../../../hooks/useReaderSwipeGesture';
 import { Loader } from 'lucide-react';
 import { CircularProgress } from '../../../components/common/CircularProgress';
 import Footer from '../../../components/common/Footer';
-import { ParagraphContextMenu, ParagraphMenuState } from '../local-reader/components/ParagraphContextMenu';
+import { ParagraphContextMenu, ParagraphMenuState } from '../../../components/reader/paragraph-menu';
 import { useReaderChapter } from './useReaderChapter';
 import { useReaderTtsSync } from './useReaderTtsSync';
 import { ReaderSourcesBar } from './components/ReaderSourcesBar';
@@ -83,15 +84,9 @@ export default function Reader() {
   });
 
   const defaultSourceNames = useMemo(() => [
-    { name: 'Ixdzs', isChinese: true },
-    { name: 'Biquge', isChinese: true },
-    { name: '41nr', isChinese: true },
-    { name: 'Quanben', isChinese: true },
-    { name: 'Hjwzw', isChinese: true },
-    { name: 'Fanqie', isChinese: true },
-    { name: 'Metruyenchu', isChinese: false },
-    { name: 'TruyenFull', isChinese: false },
-    { name: 'Vcomi', isChinese: false }
+    { name: 'Ixdzs', isChinese: true }, { name: 'Biquge', isChinese: true }, { name: '41nr', isChinese: true },
+    { name: 'Quanben', isChinese: true }, { name: 'Hjwzw', isChinese: true }, { name: 'Fanqie', isChinese: true },
+    { name: 'Metruyenchu', isChinese: false }, { name: 'TruyenFull', isChinese: false }, { name: 'Vcomi', isChinese: false }
   ], []);
 
   const allSourcesToRender: SourceItem[] = useMemo(() => {
@@ -173,7 +168,24 @@ export default function Reader() {
   };
 
   const readingTime = getReadingTime();
-  const currChap = parseInt(chapterIdx || '1');
+  const currChap = parseInt(chapterIdx || '1', 10);
+  const maxChap = bookDetails?.chapters_max || chaptersList.length || 50;
+
+  useReaderSwipeGesture({
+    onNextChapter: () => {
+      if (currChap < maxChap) {
+        navigate(`/book/${bookId}/read/${currChap + 1}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    },
+    onPrevChapter: () => {
+      if (currChap > 1) {
+        navigate(`/book/${bookId}/read/${currChap - 1}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    },
+    enabled: !loading && !paragraphMenu
+  });
 
   if (loading) {
     return (

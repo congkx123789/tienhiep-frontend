@@ -11,9 +11,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LocalBook } from './LocalReader.types';
 import { localTranslator } from '../../../utils/localTranslator';
-import api from '../../../services/core/api';
 
-export type TranslateMode = 'raw' | 'vietphrase' | 'cmlm' | 'hanviet';
+export type TranslateMode = '1' | '2' | '3' | '4' | 'raw' | 'vietphrase' | 'hanviet' | 'cmlm' | 'fast' | 'advanced';
 
 /** Số đoạn tối đa gửi trong 1 API call */
 const CHUNK_SIZE = 12;
@@ -23,10 +22,10 @@ const SMALL_BATCH_SIZE = 20;
 function getInitialMode(): TranslateMode {
   try {
     const stored = JSON.parse(localStorage.getItem('translationSettings') || '{}');
-    const m = stored.mode as string;
-    if (m === 'raw' || m === 'vietphrase' || m === 'cmlm' || m === 'hanviet') return m;
+    const m = stored.mode as TranslateMode;
+    if (m) return m;
   } catch { /* ignore */ }
-  return 'cmlm';
+  return '4';
 }
 
 /** Dịch 1 mảng đoạn văn qua backend API, fallback offline */
@@ -35,24 +34,8 @@ async function translateChunk(
   mode: string,
   signal: AbortSignal
 ): Promise<string[]> {
-  // Backend API — nhanh (C++ CMLM engine)
-  try {
-    const res = await api.post(
-      '/api/translate',
-      { texts: paragraphs, mode },
-      { headers: { 'X-VIP-Key': 'LYVUHA_ADMIN_2026' }, signal, timeout: 2500 }
-    );
-    if (res.data?.translations && Array.isArray(res.data.translations)) {
-      return res.data.translations;
-    }
-  } catch (err: any) {
-    if (err.name === 'CanceledError' || err.name === 'AbortError') throw err;
-    console.warn('[LocalTranslate] API unreachable, fallback offline local:', err.message);
-  }
-
-  // Offline fallback — localTranslator (100% Local Trie)
-  await localTranslator.loadDictionaries();
-  return localTranslator.translateBatch(paragraphs, mode);
+  if (signal?.aborted) return paragraphs;
+  return await localTranslator.translateBatch(paragraphs, mode);
 }
 
 export function useLocalTranslate(

@@ -26,8 +26,8 @@ export function useBookCardDesc(rawDesc: string) {
           setTranslatedDesc(res.data.translations[0]);
           setTranslateMode(targetLang);
         }
-      } catch (cloudErr) {
-        console.warn("[BookCard] Cloud translation failed, trying offline localTranslator:", cloudErr);
+      } catch (err) {
+        console.warn("[BookCard] Switching to offline localTranslator:", err);
         await localTranslator.loadDictionaries();
         const transText = localTranslator.translateSentence(rawDesc, 'advanced');
         setTranslatedDesc(transText);

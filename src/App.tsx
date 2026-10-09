@@ -7,6 +7,7 @@ import { BrowserProvider } from './contexts/BrowserContext';
 import { VipGateProvider } from './contexts/VipGateContext';
 import { isElectron } from './utils/electron';
 import { ErrorBoundary, VipGateModal, GlobalConfirmModal, VipUpsellModal, useVipListener } from './components';
+import { BrowserOverlay } from './layouts/browser';
 import FreeEventBanner from './components/common/FreeEventBanner';
 import { APP_ROUTES } from './config/routes';
 
@@ -56,6 +57,7 @@ export default function App() {
           <VipGateProvider>
             <ReaderSettingsProvider>
               <BrowserProvider>
+                <BrowserOverlay />
                 <Router>
                   <FreeEventBanner />
                   <VipGateModal />

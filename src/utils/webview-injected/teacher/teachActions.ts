@@ -9,7 +9,11 @@ export function getTeachActionsScript(): string {
         setTimeout(() => { banner.style.background = "linear-gradient(135deg,#0f172a,#1e1b4b)"; updateTargetUI(); }, 2000);
         return;
       }
-      window.__TienHiepHelpers.saveNextRule(generateSmartRule(target));
+      const smartRule = generateSmartRule(target);
+      window.__TienHiepHelpers.saveNextRule(smartRule);
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'NEXT_RULE_SAVED', rule: smartRule }, '*');
+      }
       cleanup();
       banner.style.background = "linear-gradient(135deg,#10b981,#059669)";
       banner.innerHTML = "<span>✅ Đã lưu cấu hình nút Chuyển Trang thành công!</span>";

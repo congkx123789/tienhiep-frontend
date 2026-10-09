@@ -16,7 +16,6 @@ export type SettingsTabId =
   | 'wallet'
   | 'stats'
   | 'desktop'
-  | 'tts_models'
   | 'ai_translation';
 
 export interface TabItem {

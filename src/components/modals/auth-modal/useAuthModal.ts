@@ -82,16 +82,16 @@ export function useAuthModal(isOpen: boolean, onClose: () => void) {
     setLoading(true);
     try {
       const clientId = '107953505478-0gielhlbbif11eu77rb29sq7ie7dqbmn.apps.googleusercontent.com';
-      const redirectUri = 'https://tienhiep.lyvuha.com/api/auth/google/callback';
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tienhiep.lyvuha.com';
+      const base = await getBestServer();
+      const redirectUri = `${base}/api/auth/google/callback`;
+      const origin = typeof window !== 'undefined' ? window.location.origin : base;
       const isElectron = Boolean((window as any).electron);
-      const statePrefix = isElectron ? 'desktop' : 'web';
+      const isNative = Boolean((window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform());
+      const statePrefix = (isElectron || isNative) ? 'desktop' : 'web';
       const state = encodeURIComponent(`${statePrefix}|${origin}`);
       const nonce = Math.random().toString(36).substring(2);
 
       const loginUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token&scope=email%20profile&nonce=${nonce}&prompt=select_account&state=${state}`;
-
-      const isNative = (window as any).Capacitor?.isNativePlatform && (window as any).Capacitor.isNativePlatform();
 
       if (isElectron && (window as any).electron.openExternal) {
         (window as any).electron.openExternal(loginUrl);

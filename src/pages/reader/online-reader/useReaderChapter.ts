@@ -109,7 +109,7 @@ export function useReaderChapter({
       
       const storedSettings = JSON.parse(localStorage.getItem('translationSettings') || '{}');
       const activeMode = String(storedSettings.mode || '4');
-      const isRawMode = activeMode === 'raw' || activeMode === 'none' || activeMode === '0';
+      const isRawMode = activeMode === 'raw' || activeMode === 'none' || activeMode === 'original';
 
       let finalContent = chineseText;
 
@@ -117,32 +117,14 @@ export function useReaderChapter({
         setTranslating(true);
         setLoadingProgress(50);
         try {
-          const transRes = await api.post('/api/translate', {
-            texts: chineseText.split('\n\n'),
-            mode: activeMode
-          }, {
-            headers: {
-              'X-VIP-Key': 'LYVUHA_ADMIN_2026'
-            }
-          });
-          setLoadingProgress(85);
-          if (transRes.data?.translations) {
-            finalContent = transRes.data.translations.join('\n\n');
-          }
-        } catch (err) {
-          console.warn("[Reader] Cloud translation failed, trying offline localTranslator:", err);
-          try {
-            setLoadingProgress(60);
-            await localTranslator.loadDictionaries();
-            setLoadingProgress(75);
-            const fallbackTranslations = await Promise.all(
-              chineseText.split('\n\n').map(text => localTranslator.translate(text, 'cmlm'))
-            );
-            finalContent = fallbackTranslations.join('\n\n');
-          } catch (localErr) {
-            console.error("[Reader] Offline translation failed as well:", localErr);
-            finalContent = preTranslated || chineseText;
-          }
+          await localTranslator.loadDictionaries();
+          setLoadingProgress(75);
+          const paras = chineseText.split('\n\n');
+          const translatedList = await localTranslator.translateBatch(paras, activeMode);
+          finalContent = translatedList.join('\n\n');
+        } catch (localErr) {
+          console.error("[Reader] Local translation error:", localErr);
+          finalContent = preTranslated || chineseText;
         }
       }
       setLoadingProgress(95);

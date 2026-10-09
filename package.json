@@ -46,6 +46,7 @@
     "release:hf": "python3 ../scripts/auto_release_to_hf.py"
   },
   "dependencies": {
+    "@awesome-cordova-plugins/in-app-browser": "^9.6.0",
     "@capacitor/android": "^8.4.1",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
@@ -53,8 +54,10 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
     "axios": "^1.17.0",
+    "cordova-plugin-inappbrowser": "^7.0.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.17.0",
+    "onnxruntime-web": "^1.30.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.17.0"
@@ -103,15 +106,15 @@
       ],
       "extraResources": [
         {
-          "from": "../backend_go/bin",
-          "to": "backend_go/bin",
+          "from": "../server/bin",
+          "to": "server/bin",
           "filter": [
             "server.exe"
           ]
         },
         {
-          "from": "../backend_go/engines",
-          "to": "backend_go/engines",
+          "from": "../native-core",
+          "to": "native-core",
           "filter": [
             "**/models/*.onnx",
             "**/models/*.bin",
@@ -145,15 +148,15 @@
       ],
       "extraResources": [
         {
-          "from": "../backend_go/bin",
-          "to": "backend_go/bin",
+          "from": "../server/bin",
+          "to": "server/bin",
           "filter": [
             "server"
           ]
         },
         {
-          "from": "../backend_go/engines",
-          "to": "backend_go/engines",
+          "from": "../native-core",
+          "to": "native-core",
           "filter": [
             "**/bin/*",
             "**/models/*.onnx",

@@ -3,51 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <script>
-      // Auto-detect new app deployments and flush stale browser cache immediately
+      // Lưu phiên bản ứng dụng vào localStorage (chỉ ghi nhận, không bao giờ tự động F5)
       (function() {
         var CURRENT_BUILD = '1.0.18-b' + '20261002_1600';
-        var stored = localStorage.getItem('app_build_version');
-        if (stored && stored !== CURRENT_BUILD) {
-          console.warn('[Cache Buster] New deployment detected: ' + CURRENT_BUILD + ' (was: ' + stored + '). Purging caches...');
-          localStorage.setItem('app_build_version', CURRENT_BUILD);
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              return Promise.all(names.map(function(n) { return caches.delete(n); }));
-            }).then(function() {
-              window.location.reload(true);
-            }).catch(function() {
-              window.location.reload(true);
-            });
-            return;
-          }
-          window.location.reload(true);
-          return;
-        }
         localStorage.setItem('app_build_version', CURRENT_BUILD);
       })();
 
-      // Automatically handle Vite dynamic chunk load errors by doing a hard reload
+      // Ghi log cảnh báo khi có lỗi chunk, TUYỆT ĐỐI KHÔNG tự động reload trang
       window.addEventListener('error', function(e) {
-        if (e.message && (e.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.message.indexOf('chunk') !== -1)) {
-          console.warn('Chunk load error detected, reloading page to fetch latest version...', e);
-          const lastReload = localStorage.getItem('last_chunk_reload');
-          const now = Date.now();
-          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-            localStorage.setItem('last_chunk_reload', now.toString());
-            window.location.reload();
-          }
+        if (e && e.message && (e.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.message.indexOf('chunk') !== -1)) {
+          console.warn('[Vite Warning] Chunk load error captured, keeping page stable without reload:', e);
         }
       }, true);
       
       window.addEventListener('unhandledrejection', function(e) {
-        if (e.reason && e.reason.message && (e.reason.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.reason.message.indexOf('chunk') !== -1)) {
-          console.warn('Unhandled promise rejection (chunk error), reloading page...', e);
-          const lastReload = localStorage.getItem('last_chunk_reload');
-          const now = Date.now();
-          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-            localStorage.setItem('last_chunk_reload', now.toString());
-            window.location.reload();
-          }
+        if (e && e.reason && e.reason.message && (e.reason.message.indexOf('Failed to fetch dynamically imported module') !== -1 || e.reason.message.indexOf('chunk') !== -1)) {
+          console.warn('[Vite Warning] Unhandled rejection captured, keeping page stable without reload:', e);
         }
       });
     </script>
@@ -75,7 +46,7 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- SEO Meta Tags -->
     <title>Tiên Hiệp AI - Kho Truyện Dịch & Nghe Đọc AI Đỉnh Cao</title>
@@ -85,14 +56,14 @@
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://tienhiep.lyvuha.com/" />
+    <meta property="og:url" content="http://127.0.0.1:5051/" />
     <meta property="og:title" content="Tiên Hiệp AI - Kho Truyện Dịch & Nghe Đọc AI Đỉnh Cao" />
     <meta property="og:description" content="Nền tảng dịch truyện chữ Trung Quốc sang tiếng Việt siêu tốc bằng AI. Tích hợp giọng đọc AI thông minh, tự động chuyển chương." />
     <meta property="og:image" content="/og-image.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://tienhiep.lyvuha.com/" />
+    <meta property="twitter:url" content="http://127.0.0.1:5051/" />
     <meta property="twitter:title" content="Tiên Hiệp AI - Kho Truyện Dịch & Nghe Đọc AI Đỉnh Cao" />
     <meta property="twitter:description" content="Nền tảng dịch truyện chữ Trung Quốc sang tiếng Việt siêu tốc bằng AI. Tích hợp giọng đọc AI thông minh, tự động chuyển chương." />
     <meta property="twitter:image" content="/og-image.png" />
@@ -103,6 +74,7 @@
   </head>
   <body>
     <div id="root"></div>
+    <script src="/wasm_exec.js"></script>
     <script type="module" src="/src/main.tsx"></script>
     <!-- Cloudflare Web Analytics -->
     <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "8c6f444f31514590958c9beb0c059b3d"}'></script>

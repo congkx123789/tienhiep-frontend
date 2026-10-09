@@ -102,7 +102,7 @@ export function registerModelHandlers(): void {
       return path.dirname(foundInUserData);
     }
     if (isDev) {
-      return path.join(__dirname, '../../../backend_go/engines/tts/models_onnx');
+      return path.join(__dirname, '../../../native-core/tts/models_onnx');
     }
     const possiblePaths = [
       path.join(process.resourcesPath, binaryName),

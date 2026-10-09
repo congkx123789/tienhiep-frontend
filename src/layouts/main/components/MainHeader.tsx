@@ -70,13 +70,16 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
 
   return (
     <header 
-      className={`relative bg-[#1c183a] border-b border-indigo-950/30 shadow-lg sticky top-0 z-[100000] overflow-hidden ${isElectron ? 'select-none cursor-default' : ''}`}
-      style={isElectron ? { WebkitAppRegion: 'drag' } : {}}
+      className={`relative bg-[#1c183a]/95 backdrop-blur-md border-b border-indigo-950/30 shadow-lg sticky top-0 z-[100000] ${isElectron ? 'select-none cursor-default' : ''}`}
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
+        ...(isElectron ? { WebkitAppRegion: 'drag' } : {})
+      }}
       onMouseDown={handleHeaderMouseDown}
       onDoubleClick={handleHeaderDoubleClick}
     >
       <div 
-        className="max-w-[2200px] mx-auto px-3 sm:px-5 lg:px-8 h-14 flex items-center justify-between gap-2 sm:gap-3"
+        className="max-w-[2200px] mx-auto px-3 sm:px-5 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2 sm:gap-3"
         style={{ paddingRight: isElectron ? '175px' : undefined, WebkitAppRegion: isElectron ? 'drag' : undefined }}
       >
         {/* LEFT: Logo */}
@@ -198,7 +201,12 @@ export const MainHeader: React.FC<MainHeaderProps> = ({
                 className="text-slate-200 text-xs font-bold hover:text-purple-400 transition-colors flex items-center gap-1.5 bg-[#0f0f26]/40 p-1 2xl:px-2.5 2xl:py-1 rounded-full border border-white/5 hover:border-purple-500/30 transition-all shrink-0"
               >
                 {user.avatar ? (
-                  <img src={user.avatar} className="w-5 h-5 rounded-full object-cover shrink-0" alt="avatar" />
+                  <img
+                    src={user.avatar}
+                    className="w-5 h-5 rounded-full object-cover shrink-0"
+                    alt="avatar"
+                    onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                  />
                 ) : (
                   <span className="w-5 h-5 rounded-full bg-purple-600/50 flex items-center justify-center text-[9px] font-black shrink-0 text-white">
                     {user.username ? user.username[0].toUpperCase() : 'U'}

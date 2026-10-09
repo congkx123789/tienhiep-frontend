@@ -43,7 +43,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
       style={{ ...dragStyle, minWidth: 260, WebkitAppRegion: 'no-drag' as any }}
       onMouseDown={onMouseDown}
       onTouchStart={onTouchStart}
-      className={`fixed bottom-24 ${dragStyle.left ? '' : 'left-1/2 -translate-x-1/2'} z-[100050] bg-[#121225]/97 border border-purple-500/40 rounded-2xl px-3.5 py-2 shadow-2xl flex items-center gap-2.5 cursor-grab active:cursor-grabbing hover:border-purple-400 transition-colors duration-200 select-none max-w-[92vw]`}
+      className={`fixed bottom-24 ${dragStyle.left ? '' : 'left-1/2 -translate-x-1/2'} z-[210000] bg-[#121225]/97 border border-purple-500/40 rounded-2xl px-3.5 py-2 shadow-2xl flex items-center gap-2.5 cursor-grab active:cursor-grabbing hover:border-purple-400 transition-colors duration-200 select-none max-w-[92vw]`}
     >
       {/* Click background to expand */}
       <div 

@@ -75,7 +75,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       style={{ ...dragStyle, WebkitAppRegion: 'no-drag' as any }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
-      className={`fixed bottom-24 ${dragStyle.left ? '' : 'left-1/2 -translate-x-1/2'} z-[100050] bg-[#0d0e17]/95 border border-purple-500/40 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 shadow-[0_8px_32px_rgba(0,0,0,0.85)] flex flex-col gap-2 w-[340px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-3 duration-250 cursor-grab active:cursor-grabbing select-none`}
+      className={`fixed bottom-24 ${dragStyle.left ? '' : 'left-1/2 -translate-x-1/2'} z-[210000] bg-[#0d0e17]/95 border border-purple-500/40 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 shadow-[0_8px_32px_rgba(0,0,0,0.85)] flex flex-col gap-2 w-[340px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-3 duration-250 cursor-grab active:cursor-grabbing select-none`}
     >
       {/* Header Bar */}
       <div className="flex justify-between items-center select-none pb-1 border-b border-white/5">

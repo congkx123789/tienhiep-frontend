@@ -4,14 +4,27 @@
  * ═════════════════════════════════════════════════════════════════════════════
  */
 
-// ─── 1. NỀN TẢNG (PLATFORM) ───
+// ─── 1. NỀN TẢNG (PLATFORM & OS) ───
 export type PlatformType = 'web' | 'electron' | 'android' | 'ios';
+export type OSType = 'ios' | 'android' | 'windows' | 'linux' | 'macos' | 'web';
+
+export interface PlatformRuntimeProfile {
+  os: OSType;
+  platform: PlatformType;
+  endpoint: string;
+  defaultPort: number;
+  isLocalOnDevice: boolean;
+  engineType: 'cpp_native_daemon' | 'capacitor_media' | 'web_audio_api';
+  description: string;
+}
 
 export interface BasePointConfig {
   DEFAULT_PORT: number;
   LOCAL_HOST: string;
   EMULATOR_HOST: string;
+  HF_HOST: string;
   REMOTE_HOST: string;
+  WIFI_HOST: string;
   HEALTH_TIMEOUT_MS: number;
   CACHE_KEY: string;
   CACHE_DURATION_MS: number;
@@ -144,4 +157,48 @@ export interface ReaderPreferences {
   engine: TranslationEngine;
   voice: string;
   speed: number;
+}
+
+// ─── 6. SÁCH CỤC BỘ & OFFLINE (LOCAL NOVELS & STORAGE) ───
+export interface LocalChapter {
+  id?: number | string;
+  title: string;
+  content: string;
+}
+
+export interface LocalBook {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl?: string;
+  chapters: LocalChapter[];
+  totalChapters: number;
+  addedAt: number;
+  lastReadChapterIdx?: number;
+  lastReadAt?: number;
+  accountScope?: string;
+}
+
+export interface StorageInfo {
+  usage: string;
+  quota: string;
+}
+
+// ─── 7. TƯƠNG TÁC ĐOẠN VĂN & TỪ ĐIỂN (PARAGRAPH CONTEXT & WORD TOKENS) ───
+export interface ParagraphMenuState {
+  pIdx: number;
+  translatedText: string;
+  rawText: string;
+  x: number;
+  y: number;
+}
+
+export interface WordToken {
+  zh: string;
+  vi: string;
+  hanviet: string;
+  alternatives: string[];
+  source?: string;
+  confidence?: string;
+  candidates?: string;
 }

@@ -230,6 +230,14 @@ export function getInjectedExtractorScript(): string {
         });
       }
 
+      if (paragraphs.length === 0) {
+        const bodyLines = ((document.body ? document.body.innerText : "") || "").split(new RegExp('[\\\\r\\\\n]+'));
+        bodyLines.forEach(line => {
+          const txt = line.trim();
+          if (txt && hasWord.test(txt) && !isNav.test(txt) && txt.length > 10) paragraphs.push(txt);
+        });
+      }
+
       const contentHasVietnamese = paragraphs.some(p => /[a-zA-Z0-9\\u00C0-\\u1EF9]/.test(p) && !/[\\u4e00-\\u9fa5]/.test(p));
       const titleIsChinese = /[\\u4e00-\\u9fa5]/.test(chapterTitle);
 

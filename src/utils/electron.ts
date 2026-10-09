@@ -4,7 +4,9 @@ export const isElectron: boolean =
 
 export const isCapacitorNative: boolean =
   typeof window !== 'undefined' &&
-  Boolean((window as any).Capacitor?.isNativePlatform?.());
+  (Boolean((window as any).Capacitor?.isNativePlatform?.()) ||
+   (typeof (window as any).Capacitor?.getPlatform === 'function' && ['android', 'ios'].includes((window as any).Capacitor.getPlatform())) ||
+   Boolean((window as any).webkit?.messageHandlers?.cordova_iab));
 
 export const isNativeApp: boolean = isElectron || isCapacitorNative;
 export const isWebPlatform: boolean = !isNativeApp;

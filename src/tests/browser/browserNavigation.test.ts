@@ -126,40 +126,31 @@ export function runBrowserNavigationTests(): { passed: number; failed: number } 
     assert.strictEqual(historyIndex > 0, true, 'Có thể lùi');
   });
 
-  test('8. Thuật Toán Exponential Backoff (Giới Hạn Tối Đa 3 Lần Thử Lại, Chống Lặp Vô Tận)', () => {
-    const RETRY_INTERVALS = [2, 5, 10];
-    let retryCount = 0;
-    let countdowns: number[] = [];
+  test('8. Loại Bỏ Hoàn Toàn Auto F5 (Chống Reload Lặp Vô Hạn)', () => {
     let isAwSnap = false;
+    let autoReloadTriggered = false;
 
-    // Giả lập 3 lần nhận tín hiệu PROXY_LOAD_ERROR liên tiếp
-    for (let i = 0; i < 4; i++) {
-      if (retryCount < RETRY_INTERVALS.length) {
-        countdowns.push(RETRY_INTERVALS[retryCount]);
-        retryCount++;
-      } else {
-        isAwSnap = true; // Dừng hẳn việc tự động F5
-      }
-    }
+    // Khi gặp lỗi proxy load error: trực tiếp bật màn hình Aw Snap, KHÔNG tự động F5
+    const onError = () => {
+      isAwSnap = true;
+      // autoReloadTriggered giữ nguyên là false
+    };
+    onError();
 
-    assert.deepStrictEqual(countdowns, [2, 5, 10], 'Phải giãn cách 2s -> 5s -> 10s theo cấp số nhân');
-    assert.strictEqual(retryCount, 3, 'Số lần thử lại tối đa đúng 3 lần');
-    assert.strictEqual(isAwSnap, true, 'Lần thứ 4 phải kích hoạt Aw, Snap và dừng hẳn Auto-Reload');
+    assert.strictEqual(isAwSnap, true, 'Kích hoạt màn hình lỗi thân thiện');
+    assert.strictEqual(autoReloadTriggered, false, 'Tuyệt đối KHÔNG tự động F5 hay reload ngầm');
   });
 
   test('9. Dọn Sạch Trạng Thái Khi Đổi URL Hoặc Tải Lại Thành Công', () => {
-    let retryCount = 3;
     let isAwSnap = true;
 
     // Giả lập người dùng điều hướng sang URL mới
     const onUrlChange = () => {
-      retryCount = 0;
       isAwSnap = false;
     };
     onUrlChange();
 
-    assert.strictEqual(retryCount, 0, 'Phải reset bộ đếm khi đổi URL');
-    assert.strictEqual(isAwSnap, false, 'Màn hình Aw, Snap phải biến mất');
+    assert.strictEqual(isAwSnap, false, 'Màn hình Aw, Snap phải biến mất khi chuyển URL');
   });
 
   return { passed, failed };

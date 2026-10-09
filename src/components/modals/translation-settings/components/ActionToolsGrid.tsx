@@ -4,7 +4,7 @@ import { ToolItem } from '../TranslationSettings.types';
 
 interface ActionToolsGridProps {
   tools: ToolItem[];
-  pinnedTools: string[];
+  pinnedTools?: string[];
   isAutoTranslate: boolean;
   onToolAction: (actionId: string) => void;
   onTogglePin: (toolId: string) => void;
@@ -13,7 +13,7 @@ interface ActionToolsGridProps {
 
 export const ActionToolsGrid: React.FC<ActionToolsGridProps> = ({
   tools,
-  pinnedTools,
+  pinnedTools = [],
   isAutoTranslate,
   onToolAction,
   onTogglePin,
@@ -28,7 +28,7 @@ export const ActionToolsGrid: React.FC<ActionToolsGridProps> = ({
 
       <div className="grid grid-cols-2 gap-1.5">
         {tools.map(tool => {
-          const isPinned = pinnedTools.includes(tool.id);
+          const isPinned = Array.isArray(pinnedTools) && pinnedTools.includes(tool.id);
 
           const bgClasses: Record<string, string> = {
             fuchsia: isAutoTranslate

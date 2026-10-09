@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Upload, X, FileText, Check, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { LocalBook, LocalChapter } from '../LocalReader.types';
-import { saveLocalBookToDB } from '../localDb';
+import { saveLocalBookToDB } from '../../../../services/reader/localDb';
 
 interface LocalImportModalProps {
   isOpen: boolean;

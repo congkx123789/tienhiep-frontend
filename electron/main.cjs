@@ -384,8 +384,11 @@ async function startBackend() {
   const binName = isWin ? "server.exe" : "server";
   const resourcesPath = process.resourcesPath || "";
   const possibleGoBins = [
+    import_path3.default.join(resourcesPath, "server/bin", binName),
     import_path3.default.join(resourcesPath, "backend_go/bin", binName),
     import_path3.default.join(resourcesPath, "bin", binName),
+    import_path3.default.join(__dirname, "../../server/bin", binName),
+    import_path3.default.join(import_electron3.app.getAppPath(), "../server/bin", binName),
     import_path3.default.join(__dirname, "../../backend_go/bin", binName),
     import_path3.default.join(import_electron3.app.getAppPath(), "../backend_go/bin", binName)
   ];
@@ -750,7 +753,7 @@ function registerModelHandlers() {
       return import_path6.default.dirname(foundInUserData);
     }
     if (isDev) {
-      return import_path6.default.join(__dirname, "../../../backend_go/engines/tts/models_onnx");
+      return import_path6.default.join(__dirname, "../../../native-core/tts/models_onnx");
     }
     const possiblePaths = [
       import_path6.default.join(process.resourcesPath, binaryName),

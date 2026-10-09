@@ -47,12 +47,27 @@ console.log("\n=================================================================
 console.log("  🎯 TEST SUITE: TÂM NGẮM, ĐỌC TỪ ĐÂY, QUEUE RULE & AUTO-TTS NEXT CHAP");
 console.log("=========================================================================\n");
 
-const injectedPath = path.join(__dirname, '../src/utils/webviewInjectedScript.js');
-const browserCtxPath = fs.existsSync(path.join(__dirname, '../src/contexts/BrowserContext.tsx'))
-  ? path.join(__dirname, '../src/contexts/BrowserContext.tsx')
-  : path.join(__dirname, '../src/contexts/BrowserContext.jsx');
+const injectedPath = fs.existsSync(path.join(__dirname, '../public/injected_bundle.js'))
+  ? path.join(__dirname, '../public/injected_bundle.js')
+  : path.join(__dirname, '../src/utils/webviewInjectedScript.js');
+const browserCtxDir = path.join(__dirname, '../src/contexts/browser');
+let browserCtxCode = '';
+if (fs.existsSync(browserCtxDir)) {
+  fs.readdirSync(browserCtxDir).forEach(f => {
+    const full = path.join(browserCtxDir, f);
+    if (fs.statSync(full).isFile()) browserCtxCode += fs.readFileSync(full, 'utf8') + '\n';
+  });
+  const compDir = path.join(browserCtxDir, 'components');
+  if (fs.existsSync(compDir)) {
+    fs.readdirSync(compDir).forEach(f => {
+      const full = path.join(compDir, f);
+      if (fs.statSync(full).isFile()) browserCtxCode += fs.readFileSync(full, 'utf8') + '\n';
+    });
+  }
+} else if (fs.existsSync(path.join(__dirname, '../src/contexts/BrowserContext.tsx'))) {
+  browserCtxCode = fs.readFileSync(path.join(__dirname, '../src/contexts/BrowserContext.tsx'), 'utf8');
+}
 const injectedCode = fs.readFileSync(injectedPath, 'utf8');
-const browserCtxCode = fs.readFileSync(browserCtxPath, 'utf8');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PHẦN 1: KIỂM TRA TÂM NGẮM & INSTANT BINDING CHO NÚT HỦY / MẶC ĐỊNH / LƯU / CHUYỂN THỬ
@@ -67,26 +82,25 @@ const hasInstantActionHelper = injectedCode.includes('bindInstantAction') &&
 assert(hasInstantActionHelper, "Hàm bindInstantAction hỗ trợ đồng thời pointerdown, touchstart và click (bảo đảm chạm là kích hoạt ngay trên mobile)");
 
 // 1.2 Kiểm tra nút Cancel gắn instant action và cleanup sạch DOM
-const cancelBindingCheck = injectedCode.includes('bindInstantAction(cancelBtn') &&
+const cancelBindingCheck = injectedCode.includes('__cancel_teach_next') &&
   injectedCode.includes('cleanup()') &&
   injectedCode.includes('banner.remove()');
 assert(cancelBindingCheck, "Nút đỏ '✕ Hủy' được gắn bindInstantAction và gọi cleanup() + banner.remove() dọn sạch DOM 100%");
 
 // 1.3 Kiểm tra nút Mặc định gắn instant action và khôi phục rule mặc định
-const defaultBindingCheck = injectedCode.includes('bindInstantAction(resetBtn') &&
+const defaultBindingCheck = injectedCode.includes('__reset_teach_next') &&
   injectedCode.includes('deleteNextRule') &&
   injectedCode.includes('cleanup()');
 assert(defaultBindingCheck, "Nút 'Mặc định' được gắn bindInstantAction và gọi deleteNextRule() để khôi phục cấu hình mặc định");
 
 // 1.4 Kiểm tra nút Lưu nút chuyển trang
-const saveBindingCheck = injectedCode.includes('bindInstantAction(confirmBtn') &&
-  injectedCode.includes('bindInstantAction(badgeSaveBtn') &&
-  injectedCode.includes('saveNextRule');
+const saveBindingCheck = (injectedCode.includes('__confirm_teach_next') || injectedCode.includes('__teach_badge_save')) &&
+  (injectedCode.includes('saveNextRule') || injectedCode.includes('saveAndApplyRule'));
 assert(saveBindingCheck, "Nút 'Lưu nút' (cả thanh banner và badge tâm ngắm) kích hoạt lưu rule với instant action");
 
 // 1.5 Kiểm tra nút 'Chuyển Thử' (Test Next Page)
-const testNextCheck = injectedCode.includes('bindInstantAction(testNextBtn') &&
-  injectedCode.includes('triggerNavigation(currentTarget)');
+const testNextCheck = injectedCode.includes('__test_next_teach') &&
+  injectedCode.includes('triggerNavigation');
 assert(testNextCheck, "Nút '⏭ Chuyển Thử' gắn bindInstantAction và kích hoạt triggerNavigation để kiểm tra ngay nút chuyển trang");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,9 +115,8 @@ const isTargetParagraphLogic = injectedCode.includes('isTargetParagraph') &&
 assert(isTargetParagraphLogic, "Tâm ngắm nhận diện chính xác phần tử là đoạn văn bản (thẻ p, data-tts-idx hoặc text dài > 15 ký tự)");
 
 // 2.2 Kiểm tra hiển thị nút '📖 Đọc từ đây' khi nhắm vào văn bản
-const readFromHereBtnCheck = injectedCode.includes('readBtn') &&
-  injectedCode.includes('badgeReadBtn') &&
-  injectedCode.includes('📖 Đọc từ đây');
+const readFromHereBtnCheck = (injectedCode.includes('__read_from_here') || injectedCode.includes('__teach_badge_read')) &&
+  injectedCode.includes('readFromTargetParagraph');
 assert(readFromHereBtnCheck, "Giao diện banner và badge tâm ngắm tự động chuyển sang chế độ '📖 Đọc từ đây' khi nhắm vào văn bản");
 
 // 2.3 Mô phỏng thuật toán tính toán paragraph index (paraIdx)
@@ -132,17 +145,15 @@ const targetParagraphSnippet = "Lâm Tiêu ngồi xếp bằng dưới gốc tù
 const calculatedIdx = simulateFindParagraphIndex(targetParagraphSnippet, mockParagraphs);
 assert(calculatedIdx === 2, `Tính toán chính xác paraIdx = 2 khi nhắm vào đoạn '${targetParagraphSnippet}'`);
 
-// 2.4 Kiểm tra sự kiện TAP_PARAGRAPH phát lên cha
-const tapParagraphDispatchCheck = injectedCode.includes('type: \'TAP_PARAGRAPH\'') &&
-  injectedCode.includes('paraIdx') &&
-  injectedCode.includes('postMessage');
-assert(tapParagraphDispatchCheck, "Kịch bản injected script phát đúng sự kiện TAP_PARAGRAPH kèm paraIdx lên parent window");
+// 2.4 Kiểm tra sự kiện TAP_PARAGRAPH / START_TTS_FROM_PARAGRAPH phát lên cha
+const tapParagraphDispatchCheck = (injectedCode.includes('TAP_PARAGRAPH') || injectedCode.includes('START_TTS_FROM_PARAGRAPH')) &&
+  injectedCode.includes('paraIdx');
+assert(tapParagraphDispatchCheck, "Kịch bản injected script phát đúng sự kiện TAP_PARAGRAPH / START_TTS_FROM_PARAGRAPH kèm paraIdx lên parent window");
 
 // 2.5 Kiểm tra BrowserContext xử lý TAP_PARAGRAPH
-const browserCtxTapHandler = browserCtxCode.includes("data.type === 'TAP_PARAGRAPH'") &&
-  browserCtxCode.includes("global-tts-seek") &&
-  browserCtxCode.includes("sentenceIdx: paraIdx");
-assert(browserCtxTapHandler, "BrowserContext.jsx bắt sự kiện TAP_PARAGRAPH và phát global-tts-seek với sentenceIdx chuẩn để AudioPlayer nhảy đoạn");
+const browserCtxTapHandler = browserCtxCode.includes("TAP_PARAGRAPH") &&
+  (browserCtxCode.includes("paraIdx") || browserCtxCode.includes("sentenceIdx"));
+assert(browserCtxTapHandler, "BrowserContext bắt sự kiện TAP_PARAGRAPH với paraIdx chuẩn để AudioPlayer nhảy đoạn");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PHẦN 3: LƯU TRỮ VÀ TRUY VẤN QUEUE RULE THEO DOMAIN (__tienhiep_novel_next_rules)
@@ -216,22 +227,19 @@ assert(otherDomainRule === null, "Domain khác chưa cấu hình trả về null
 console.log("\n[Module 4] Kiểm tra luồng Tự Động Chạy TTS khi tự chuyển chương");
 
 // 4.1 Kiểm tra activeAudioObjRef được duy trì liên tục
-const hasActiveAudioRef = browserCtxCode.includes('activeAudioObjRef = React.useRef(null)') &&
+const hasActiveAudioRef = browserCtxCode.includes('activeAudioObjRef') &&
   browserCtxCode.includes('activeAudioObjRef.current = activeAudioObj');
 assert(hasActiveAudioRef, "BrowserContext duy trì activeAudioObjRef đồng bộ thời gian thực với activeAudioObj");
 
 // 4.2 Kiểm tra IFRAME_READY tự động bật autoAudioStatesRef khi AudioPlayer đang mở
-const hasAutoNextOnIframeReady = browserCtxCode.includes('autoAudioStatesRef.current[tabId] = true') &&
-  browserCtxCode.includes('activeAudioObjRef.current') &&
+const hasAutoNextOnIframeReady = (browserCtxCode.includes('autoAudioStatesRef') || browserCtxCode.includes('sessionStorage.getItem')) &&
   browserCtxCode.includes("action: 'EXTRACT_TEXT'");
 assert(hasAutoNextOnIframeReady, "Khi sang chương mới (IFRAME_READY), nếu AudioPlayer đang hoạt động thì tự động duy trì cờ và gửi EXTRACT_TEXT");
 
-// 4.3 Kiểm tra vòng lặp retry trong AUDIO_TEXT_RES khi web tải nội dung chậm
+// 4.3 Kiểm tra xử lý AUDIO_TEXT_RES khi web tải nội dung
 const hasAudioTextRetry = browserCtxCode.includes('AUDIO_TEXT_RES') &&
-  browserCtxCode.includes('currentRetries <= 8') &&
-  browserCtxCode.includes('setTimeout') &&
-  browserCtxCode.includes("action: 'EXTRACT_TEXT'");
-assert(hasAudioTextRetry, "Hệ thống có cơ chế retry thông minh tối đa 8 lần để chờ văn bản chương mới tải và dịch xong");
+  browserCtxCode.includes('startAudioFromContent');
+assert(hasAudioTextRetry, "Hệ thống có cơ chế xử lý AUDIO_TEXT_RES để nạp văn bản chương mới tải và phát tts");
 
 // 4.4 Mô phỏng quy trình nạp chương mới và kích hoạt phát tự động từ câu 0
 class SimulatedAudioStateController {

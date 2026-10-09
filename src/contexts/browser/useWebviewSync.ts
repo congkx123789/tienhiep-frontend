@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ToastInfo, BrowserTab } from './BrowserContext.types';
-import { executeTranslate, cleanNovelTabTitle } from './browserHelpers';
-import { ParagraphMenuState } from '../../pages/reader/local-reader/components/ParagraphContextMenu';
-import { createTranslateScript } from '../../utils/webview-injected';
+import { executeTranslate, cleanNovelTabTitle, injectTranslateScriptToTab } from './browserHelpers';
+import { ParagraphMenuState } from '../../types';
 
 export function useWebviewSync(
   tabs: BrowserTab[],
@@ -13,20 +12,31 @@ export function useWebviewSync(
   addToHistory: (url: string, title?: string) => void,
   stopAudio?: (tabId?: string) => void,
   activeAudioObj?: any,
-  openNewTab?: (isPrivate?: boolean, initialUrl?: string) => string
+  openNewTab?: (isPrivate?: boolean, initialUrl?: string) => string,
+  navigateTab?: (tabId: string, url: string) => void,
+  setUrlInput?: (url: string) => void
 ) {
+  const lastAudioStartRef = useRef<{ tabId: string; textPrefix: string; time: number }>({ tabId: '', textPrefix: '', time: 0 });
   const [autoStates, setAutoStates] = useState<Record<string, boolean>>({});
   const [toastInfo, setToastInfo] = useState<ToastInfo | null>(null);
   const [isTranslationSettingsOpen, setIsTranslationSettingsOpen] = useState(false);
   const [paragraphMenu, setParagraphMenu] = useState<ParagraphMenuState | null>(null);
   const [pinnedTools, setPinnedTools] = useState<string[]>(() => {
-    try { const s = localStorage.getItem('tienhiep_pinned_tools'); return s ? JSON.parse(s) : ['autoTranslate', 'audio', 'teachNext', 'cleanAds', 'darkMode']; } catch { return ['autoTranslate', 'audio', 'teachNext', 'cleanAds', 'darkMode']; }
+    try {
+      const raw = localStorage.getItem('tienhiep_pinned_tools');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return ['autoTranslate', 'audio', 'teachNext', 'cleanAds', 'darkMode'];
   });
 
   const togglePin = useCallback((toolId: string) => {
     setPinnedTools(prev => {
-      const next = prev.includes(toolId) ? prev.filter(id => id !== toolId) : [...prev, toolId];
-      try { localStorage.setItem('tienhiep_pinned_tools', JSON.stringify(next)); } catch (e) {}
+      const list = Array.isArray(prev) ? prev : ['autoTranslate', 'audio', 'teachNext', 'cleanAds', 'darkMode'];
+      const next = list.includes(toolId) ? list.filter(id => id !== toolId) : [...list, toolId];
+      try { localStorage.setItem('tienhiep_pinned_tools', JSON.stringify(next)); } catch (e) { }
       return next;
     });
   }, []);
@@ -50,46 +60,29 @@ export function useWebviewSync(
 
       if ((type === 'NAVIGATE_REQ' || type === 'INTERNAL_LINK_CLICKED') && url) {
         if (typeof url !== 'string' || !url.startsWith('http')) return;
+        if (typeof window !== 'undefined' && (window as any).__tienhiep_active_audio) {
+          try { (window as any).__tienhiep_active_audio.pause(); } catch {}
+        }
         if ((e.data.newTab || e.data.isNewTab) && openNewTab) {
           openNewTab(false, url);
           addToHistory(url);
           return;
         }
-        setTabs(prev => prev.map(t => {
-          if (t.id !== senderTabId) return t;
-          let stack = t.historyStack && t.historyStack.length > 0 ? [...t.historyStack] : [t.url || url];
-          let idx = typeof t.historyIndex === 'number' ? t.historyIndex : stack.length - 1;
-
-          if (t.url !== url && stack[idx] !== url) {
-            stack = stack.slice(0, idx + 1);
-            stack.push(url);
-            idx = stack.length - 1;
-          }
-          return {
-            ...t,
-            url,
-            initialUrl: url,
-            title: 'Đang tải...',
-            isLoading: true,
-            historyStack: stack,
-            historyIndex: idx,
-            canGoBack: idx > 0,
-            canGoForward: idx < stack.length - 1
-          };
-        }));
+        if (navigateTab) navigateTab(senderTabId, url);
         addToHistory(url);
       } else if (type === 'PAGE_LOADED') {
+        if (typeof window !== 'undefined' && (window as any).__tienhiep_active_audio) {
+          try { (window as any).__tienhiep_active_audio.pause(); } catch {}
+        }
         const loadedUrl = (url && typeof url === 'string' && url.startsWith('http')) ? url.trim() : '';
         setTabs(prev => prev.map(t => {
           if (t.id !== senderTabId) return t;
-
-          let currentStack = t.historyStack && t.historyStack.length > 0 ? [...t.historyStack] : [t.url];
+          let currentStack = Array.isArray(t.historyStack) && t.historyStack.length > 0 ? [...t.historyStack] : [t.url];
           let currentIdx = typeof t.historyIndex === 'number' ? t.historyIndex : currentStack.length - 1;
 
           if (loadedUrl) {
             const currentEntry = currentStack[currentIdx] || '';
             const isSame = currentEntry === loadedUrl || currentEntry.replace(/\/+$/, '') === loadedUrl.replace(/\/+$/, '');
-
             if (!isSame) {
               if (currentIdx > 0 && currentStack[currentIdx - 1]?.replace(/\/+$/, '') === loadedUrl.replace(/\/+$/, '')) {
                 currentIdx = currentIdx - 1;
@@ -102,7 +95,6 @@ export function useWebviewSync(
               }
             }
           }
-
           return {
             ...t,
             url: loadedUrl || t.url,
@@ -117,10 +109,12 @@ export function useWebviewSync(
         }));
 
         if (loadedUrl) {
+          if (senderTabId === activeTabId && setUrlInput) setUrlInput(loadedUrl);
           addToHistory(loadedUrl, title);
         }
+        const isExcludedUrl = loadedUrl?.includes('google.') || loadedUrl?.includes('youtube.');
         const isAutoTranslateGlobal = localStorage.getItem('__tienhiep_auto_translate_active') === 'true';
-        if (autoStates[senderTabId] || isAutoTranslateGlobal) {
+        if (!isExcludedUrl && (autoStates[senderTabId] || isAutoTranslateGlobal)) {
           if (!autoStates[senderTabId]) {
             setAutoStates(prev => ({ ...prev, [senderTabId]: true }));
           }
@@ -129,29 +123,54 @@ export function useWebviewSync(
             sendWebviewMessage(senderTabId, { action: 'FORCE_TRANSLATE' });
           }, 300);
         }
-        if (sessionStorage.getItem('__tienhiep_tts_active_' + senderTabId) === 'true') {
+        if (!isExcludedUrl && sessionStorage.getItem('__tienhiep_tts_active_' + senderTabId) === 'true') {
           if (!autoStates[senderTabId]) {
             setTimeout(() => {
               sendWebviewMessage(senderTabId, { action: 'EXTRACT_TEXT' });
             }, 500);
           }
         }
-      } else if (type === 'TRANSLATE_REQ' && id !== undefined && Array.isArray(texts)) {
-        const reqSession = (e.data && (e.data as any).pageSessionId) || '';
-        let translations = texts;
-        try { translations = await executeTranslate(texts); } catch (_) {}
-        const payload = { action: 'TRANSLATE_RES', id, pageSessionId: reqSession, translations };
-        if (e.source && typeof (e.source as any).postMessage === 'function') (e.source as any).postMessage(payload, '*');
-        else sendWebviewMessage(senderTabId, payload);
+      } else if (type === 'TRANSLATE_REQ') {
+        const reqData = e.data.payload || e.data;
+        const reqId = reqData.id ?? id;
+        const reqTexts = reqData.texts || texts;
+        const reqSession = reqData.pageSessionId || '';
+        if (reqId !== undefined && Array.isArray(reqTexts) && reqTexts.length > 0) {
+          let translations = reqTexts;
+          try { translations = await executeTranslate(reqTexts); } catch (_) { }
+          const payload = { action: 'TRANSLATE_RES', id: reqId, pageSessionId: reqSession, translations };
+          if (e.source && typeof (e.source as any).postMessage === 'function') {
+            (e.source as any).postMessage(payload, '*');
+          }
+          sendWebviewMessage(senderTabId, payload);
+        }
       } else if (type === 'TRANSLATION_COMPLETE') {
         if (text && sessionStorage.getItem('__tienhiep_tts_active_' + senderTabId) === 'true') {
-          startAudioFromContent(senderTabId, title || 'Chương đọc', text, 0);
+          const cleanPrefix = (text || '').trim().slice(0, 80);
+          const now = Date.now();
+          if (
+            lastAudioStartRef.current.tabId !== senderTabId ||
+            lastAudioStartRef.current.textPrefix !== cleanPrefix ||
+            now - lastAudioStartRef.current.time >= 1000
+          ) {
+            lastAudioStartRef.current = { tabId: senderTabId, textPrefix: cleanPrefix, time: now };
+            startAudioFromContent(senderTabId, title || 'Chương đọc', text, 0);
+          }
         }
       } else if (type === 'AUDIO_TEXT_RES') {
         if (text && text.trim().length > 0) {
           sessionStorage.setItem('__tienhiep_tts_active_' + senderTabId, 'true');
-          const startPIdx = typeof e.data.initialParaIdx === 'number' ? e.data.initialParaIdx : 0;
-          startAudioFromContent(senderTabId, title || 'Chương đọc', text, startPIdx);
+          const cleanPrefix = (text || '').trim().slice(0, 80);
+          const now = Date.now();
+          if (
+            lastAudioStartRef.current.tabId !== senderTabId ||
+            lastAudioStartRef.current.textPrefix !== cleanPrefix ||
+            now - lastAudioStartRef.current.time >= 1000
+          ) {
+            lastAudioStartRef.current = { tabId: senderTabId, textPrefix: cleanPrefix, time: now };
+            const startPIdx = typeof e.data.initialParaIdx === 'number' ? e.data.initialParaIdx : 0;
+            startAudioFromContent(senderTabId, title || 'Chương đọc', text, startPIdx);
+          }
         } else {
           setToastInfo({ message: 'Không trích xuất được nội dung để phát TTS!', type: 'warning' });
           setTimeout(() => setToastInfo(null), 4000);
@@ -171,8 +190,11 @@ export function useWebviewSync(
       } else if (type === 'SMART_CONTENT_RULE_SAVED') {
         const { rule: smartRule, selector: sel, host: siteHost } = e.data;
         const totalParas = smartRule?.regions?.reduce((sum: number, r: any) => sum + (r.count || 0), 0) || 0;
-        try { if (siteHost && smartRule) { localStorage.setItem('__tienhiep_smart_content_rule_' + siteHost, JSON.stringify(smartRule)); localStorage.setItem('__tienhiep_content_selector_' + siteHost, sel || ''); } } catch(err) {}
+        try { if (siteHost && smartRule) { localStorage.setItem('__tienhiep_smart_content_rule_' + siteHost, JSON.stringify(smartRule)); localStorage.setItem('__tienhiep_content_selector_' + siteHost, sel || ''); } } catch (err) { }
         setToastInfo({ message: `Đã lưu vùng đọc thông minh: ${totalParas} đoạn cho ${siteHost}`, type: 'success' });
+      } else if (type === 'NEXT_RULE_SAVED') {
+        const textSnippet = e.data.rule?.text || e.data.rule?.selector || 'nút chuyển';
+        setToastInfo({ message: `🎯 Đã ghi nhớ nút: "${textSnippet}"!`, type: 'success' });
       } else if (type === 'CONTENT_AREA_SAVED') {
         setToastInfo({ message: `Đã lưu vùng đọc: ${selector} cho ${host}`, type: 'success' });
       } else if (type === 'NEXT_CHAPTER_NOT_FOUND') {
@@ -212,17 +234,7 @@ export function useWebviewSync(
 
   const handleTool = useCallback((toolId: string, tabId: string, payload?: any) => {
     if (!tabId) return;
-    const ensureInjected = () => {
-      const wv = document.getElementById('global-wv-' + tabId) as HTMLIFrameElement | null;
-      if (wv?.contentDocument && !wv.contentDocument.getElementById('__tienhiep_injected_script')) {
-        try {
-          const script = wv.contentDocument.createElement('script');
-          script.id = '__tienhiep_injected_script';
-          script.textContent = `window.__TIENHIEP_TAB_ID__ = "${tabId}";\n` + createTranslateScript(false);
-          (wv.contentDocument.head || wv.contentDocument.documentElement || wv.contentDocument.body).appendChild(script);
-        } catch (e) {}
-      }
-    };
+    const ensureInjected = () => injectTranslateScriptToTab(tabId, sendWebviewMessage);
 
     if (toolId === 'settings') setIsTranslationSettingsOpen(true);
     else if (toolId === 'autoTranslate' || toolId === 'translate') {
@@ -240,6 +252,7 @@ export function useWebviewSync(
       }
       setTimeout(() => setToastInfo(null), 2500);
     } else if (toolId === 'audio') {
+      try { const s = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'); s.volume = 0.01; s.play().catch(() => {}); } catch (_) {}
       if (activeAudioObj) { if (stopAudio) stopAudio(tabId); }
       else { ensureInjected(); sendWebviewMessage(tabId, { action: 'EXTRACT_TEXT' }); }
     } else if (toolId === 'reload' || toolId === 'f5') {
@@ -263,8 +276,7 @@ export function useWebviewSync(
     else if (toolId === 'force_translate') sendWebviewMessage(tabId, { action: 'FORCE_TRANSLATE' });
     else if (toolId === 'home' || toolId === 'scroll_top') {
       sendWebviewMessage(tabId, { action: 'SCROLL_TOP' });
-      const wv = document.getElementById('global-wv-' + tabId) as HTMLIFrameElement | null;
-      try { wv?.contentWindow?.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) {}
+      try { (document.getElementById('global-wv-' + tabId) as any)?.contentWindow?.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { }
     } else if (toolId === 'end' || toolId === 'scroll_bottom') {
       sendWebviewMessage(tabId, { action: 'SCROLL_BOTTOM' });
       const wv = document.getElementById('global-wv-' + tabId) as HTMLIFrameElement | null;
@@ -272,7 +284,7 @@ export function useWebviewSync(
         const doc = wv?.contentDocument || wv?.contentWindow?.document;
         const maxH = Math.max(doc?.body?.scrollHeight || 0, doc?.documentElement?.scrollHeight || 0);
         wv?.contentWindow?.scrollTo({ top: maxH, behavior: 'auto' });
-      } catch (e) {}
+      } catch (e) { }
     }
   }, [autoStates, sendWebviewMessage, activeAudioObj, stopAudio]);
 

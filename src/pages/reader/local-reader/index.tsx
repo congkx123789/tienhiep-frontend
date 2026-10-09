@@ -4,6 +4,7 @@ import { useReaderSettings } from '../../../contexts/ReaderSettingsContext';
 import { useLang } from '../../../contexts/LangContext';
 import { useBrowser } from '../../../contexts/BrowserContext';
 import { useUsageTracker } from '../../../hooks/useUsageTracker';
+import { useReaderSwipeGesture } from '../../../hooks/useReaderSwipeGesture';
 import { useLocalBooks } from './useLocalBooks';
 import { useLocalTtsSync } from './useLocalTtsSync';
 import { useLocalTranslate } from './useLocalTranslate';
@@ -91,6 +92,18 @@ export default function LocalReader() {
   };
 
   const readingTime = getReadingTime();
+
+  useReaderSwipeGesture({
+    onNextChapter: () => {
+      handleNextChapter();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    onPrevChapter: () => {
+      handlePrevChapter();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    enabled: Boolean(activeBook)
+  });
 
   return (
     <MainLayout hideHeader={Boolean(activeBook)}>

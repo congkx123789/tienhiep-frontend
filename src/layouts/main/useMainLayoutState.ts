@@ -26,20 +26,26 @@ export function useMainLayoutState(user: any, lang: string) {
   const [missingEngine, setMissingEngine] = useState(false);
 
   useEffect(() => {
-    if (!isElectron) return;
-    win.electron.isMaximized().then(setIsWindowMaximized);
-    const unsubscribe = win.electron.onWindowStateChange(setIsWindowMaximized);
+    if (!isElectron || !win.electron) return;
+    if (typeof win.electron.isMaximized === 'function') {
+      win.electron.isMaximized().then(setIsWindowMaximized).catch(() => {});
+    }
+    const unsubscribe = typeof win.electron.onWindowStateChange === 'function'
+      ? win.electron.onWindowStateChange(setIsWindowMaximized)
+      : undefined;
 
-    if (win.electron.checkBackendStatus) {
+    if (typeof win.electron.checkBackendStatus === 'function') {
       win.electron.checkBackendStatus().then((status: any) => {
         if (status?.error === 'missing_engine') setMissingEngine(true);
-      });
+      }).catch(() => {});
     }
 
-    const unsubscribeBackend = win.electron.onBackendReady(({ ready, error }: any) => {
-      if (!ready && error === 'missing_engine') setMissingEngine(true);
-      else if (ready) setMissingEngine(false);
-    });
+    const unsubscribeBackend = typeof win.electron.onBackendReady === 'function'
+      ? win.electron.onBackendReady(({ ready, error }: any) => {
+          if (!ready && error === 'missing_engine') setMissingEngine(true);
+          else if (ready) setMissingEngine(false);
+        })
+      : undefined;
 
     return () => {
       unsubscribe?.();

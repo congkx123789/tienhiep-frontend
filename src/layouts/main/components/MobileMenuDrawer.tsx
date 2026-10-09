@@ -48,7 +48,12 @@ export const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({
           <div className="p-3.5 bg-gradient-to-r from-purple-900/30 to-indigo-900/20 rounded-2xl border border-purple-500/20 shadow-inner flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {user.avatar ? (
-                <img src={user.avatar} className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/50 shrink-0" alt="avatar" />
+                <img
+                  src={user.avatar}
+                  className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/50 shrink-0"
+                  alt="avatar"
+                  onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-md">
                   {user.username ? user.username[0].toUpperCase() : 'U'}

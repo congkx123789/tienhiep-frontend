@@ -59,7 +59,11 @@ export function getNavigatorTriggerScript(): string {
             }
           }
         } catch(e) {}
-        clickEl.click();
+        if (typeof window.__tienhiep_human_click === 'function') {
+          window.__tienhiep_human_click(clickEl);
+        } else {
+          clickEl.click();
+        }
         return true;
       }
       return false;

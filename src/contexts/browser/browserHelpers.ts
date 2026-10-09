@@ -1,7 +1,8 @@
-// Browser Helper Functions & Translation Utilities
 import { SERVER_CONFIG } from '../../constants/endpoints';
+import BasePointManager from '../../core/platform/basePoint';
 import { localTranslator } from '../../utils/localTranslator';
-import { Capacitor } from '@capacitor/core';
+import { createTranslateScript } from '../../utils/webview-injected';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 export const isCapacitor = Capacitor.isNativePlatform();
 
@@ -59,68 +60,33 @@ export function cleanNovelTabTitle(title?: string): string {
 
 import api from '../../services/core/api';
 
-let activeWorkingServer: string | null = (typeof localStorage !== 'undefined' && localStorage.getItem('best_tienhiep_server')) || null;
+let activeWorkingServer: string | null = null;
+try {
+  const c = typeof localStorage !== 'undefined' ? localStorage.getItem('best_tienhiep_server') : null;
+  if (c && (c.includes(':5051') || c.includes('127.0.0.1') || c.includes('localhost') || c.includes('10.0.2.2'))) {
+    activeWorkingServer = c;
+  }
+} catch (_) {}
 
 export async function executeTranslate(texts: string[], mode: string = '4', userVipKey: string = 'VIP2026'): Promise<string[]> {
+  if (!texts || texts.length === 0) return [];
+
   try {
     const stored = localStorage.getItem('translationSettings');
     if (stored) {
       const s = JSON.parse(stored);
-      mode = (s.mode && s.mode !== 'vietphrase') ? String(s.mode) : '4';
+      if (s.mode) {
+        mode = String(s.mode);
+      }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const mLower = String(mode).toLowerCase().trim();
-  if (mLower === 'raw' || mLower === 'none' || mLower === '0' || mLower === 'original') {
+  if (mLower === 'raw' || mLower === 'none' || mLower === 'original') {
     return texts;
   }
 
-  // 1. Thử qua Axios API trung tâm (tự động điều phối server tốt nhất, token và retry)
-  try {
-    const res = await api.post('/api/translate', {
-      texts,
-      mode: String(mode || '4'),
-      vip_key: userVipKey || 'VIP2026'
-    }, { timeout: 12000 });
-    if (res.data?.translations && Array.isArray(res.data.translations) && res.data.translations.length === texts.length) {
-      return res.data.translations;
-    }
-  } catch (apiErr) {
-    console.warn('[Translate API] Axios error, trying candidate fallbacks:', apiErr);
-  }
-
-  // 2. Dự phòng thủ công qua danh sách candidate servers
-  const candidateServers: string[] = [];
-  if (activeWorkingServer) candidateServers.push(activeWorkingServer);
-  if (!candidateServers.includes(SERVER_CONFIG.LOCAL_HOST)) candidateServers.push(SERVER_CONFIG.LOCAL_HOST);
-  if (isCapacitor && !candidateServers.includes(SERVER_CONFIG.EMULATOR_HOST)) candidateServers.push(SERVER_CONFIG.EMULATOR_HOST);
-  if (!candidateServers.includes(SERVER_CONFIG.REMOTE_HOST)) candidateServers.push(SERVER_CONFIG.REMOTE_HOST);
-
-  for (const srv of candidateServers) {
-    const endpoints = ['/api/translate', '/translate'];
-    for (const ep of endpoints) {
-      try {
-        const res = await fetch(`${srv}${ep}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-VIP-Key': userVipKey || 'VIP2026' },
-          body: JSON.stringify({ texts, mode: String(mode || '4'), vip_key: userVipKey || 'VIP2026' }),
-          signal: AbortSignal.timeout(6000)
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.translations && json.translations.length === texts.length) {
-            activeWorkingServer = srv;
-            try { localStorage.setItem('best_tienhiep_server', srv); } catch(e) {}
-            return json.translations;
-          }
-        }
-      } catch (err) {
-        console.warn(`[Translate Engine] Failed on ${srv}${ep}:`, err);
-      }
-    }
-  }
-
-  return texts;
+  return await localTranslator.translateBatch(texts, mode);
 }
 
 export const ensureVietnameseText = async (rawTitle: string, rawText: string) => {
@@ -132,11 +98,11 @@ export const ensureVietnameseText = async (rawTitle: string, rawText: string) =>
     if (stored) {
       const s = JSON.parse(stored);
       const m = String(s.mode || '').toLowerCase().trim();
-      if (m === 'raw' || m === 'none' || m === '0' || m === 'original') {
+      if (m === 'raw' || m === 'none' || m === 'original') {
         return { title, text };
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const chineseRegex = /[\u4e00-\u9fa5]/;
   if (!chineseRegex.test(title) && !chineseRegex.test(text)) return { title, text };
@@ -167,11 +133,11 @@ export const ensureVietnameseText = async (rawTitle: string, rawText: string) =>
       });
       text = paras.join('\n');
     }
-  } catch (err) {}
+  } catch (err) { }
   return { title, text };
 };
 
-export const normalizeUrlForIframe = (url?: string): string => {
+export const normalizeUrlForIframe = (url?: string, tabId?: string): string => {
   if (!url || url === 'http://localhost' || url === 'http://localhost/' || url.startsWith('http://localhost:5173') || url.startsWith('http://127.0.0.1:5173') || url.startsWith('http://localhost:3532') || url.startsWith('http://127.0.0.1:3532') || url.startsWith('chrome') || url.startsWith('chrome-error')) return 'about:newtab';
   if (url.startsWith('about:')) return url;
   if (!url.startsWith('http://') && !url.startsWith('https://')) return 'about:newtab';
@@ -183,42 +149,26 @@ export const normalizeUrlForIframe = (url?: string): string => {
       if (match && match[1]) {
         url = decodeURIComponent(match[1]);
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
+  // Tự động phân giải các domain tiểu thuyết đã chết hoặc bị DNS Poisoning sang mirror sống tốt
+  url = url.replace(/^https?:\/\/(www\.|m\.)?uukanshu\.com(\/|$)/i, 'https://uukanshu.cc$2');
+  url = url.replace(/^https?:\/\/(www\.|m\.)?biquge\.com(\/|$)/i, 'https://www.b520.cc$2');
+
   // Khắc phục đường dẫn tương đối vô tình bị resolve theo host backend
-  if (url.includes('cong123779-tienhiep-api.hf.space/n/')) {
-    url = url.replace('https://cong123779-tienhiep-api.hf.space/n/', 'https://www.quanben5.com/n/');
-  }
-  if (url.includes(':5051/n/')) {
+  if (url.includes('/n/')) {
     url = url.replace(/^https?:\/\/[^\/]+\/n\//, 'https://www.quanben5.com/n/');
   }
 
   let baseServer = '';
   const isElectronApp = typeof window !== 'undefined' && ((window as any).electron || (navigator && navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron')));
-  const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
 
   if (isElectronApp) {
     baseServer = SERVER_CONFIG.LOCAL_HOST;
-  } else if (isNative) {
-    baseServer = SERVER_CONFIG.LOCAL_HOST;
-  } else if (typeof localStorage !== 'undefined') {
-    const cached = localStorage.getItem('best_tienhiep_server');
-    if (cached) {
-      if (cached.includes(':5051') || cached.includes('10.0.2.2') || cached.includes('127.0.0.1')) {
-        baseServer = cached.replace(/^https:\/\//i, 'http://');
-      } else if (!cached.includes(':8001') && !cached.includes('lyvuha.com')) {
-        baseServer = cached;
-      }
-    }
+  } else {
+    baseServer = BasePointManager.getBaseUrl();
   }
-  if (!baseServer && activeWorkingServer) {
-    baseServer = activeWorkingServer;
-  }
-  if (!baseServer && typeof window !== 'undefined') {
-    baseServer = isNative ? SERVER_CONFIG.EMULATOR_HOST : window.location.origin;
-  }
-  if (!baseServer) baseServer = SERVER_CONFIG.LOCAL_HOST;
 
   // Đảm bảo tuyệt đối không dùng HTTPS cho cổng 5051 hoặc IP local
   if (baseServer.includes(':5051') || baseServer.includes('10.0.2.2') || baseServer.includes('127.0.0.1') || baseServer.includes('localhost')) {
@@ -237,10 +187,10 @@ export const normalizeUrlForIframe = (url?: string): string => {
       if (videoId) {
         return `https://www.youtube.com/embed/${videoId}`;
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
-  if (url.includes('google.') && url.includes('search')) {
+  if (url.includes('google.') && (url.includes('search') || url.includes('igu=1') || url.includes('google.com'))) {
     try {
       const parsed = new URL(url);
       if (!parsed.searchParams.has('igu')) parsed.searchParams.set('igu', '1');
@@ -250,6 +200,21 @@ export const normalizeUrlForIframe = (url?: string): string => {
     }
   }
 
-  return `${baseServer}/api/iframe_proxy?url=${encodeURIComponent(url)}`;
+  const tabParam = tabId ? `&tabId=${encodeURIComponent(tabId)}` : '';
+  return `${baseServer}/api/iframe_proxy?url=${encodeURIComponent(url)}${tabParam}`;
 };
+
+export function injectTranslateScriptToTab(tabId: string, sendWebviewMessage: (id: string, p: any) => void): void {
+  const scriptCode = `window.__TIENHIEP_TAB_ID__ = "${tabId}";\n` + createTranslateScript(false);
+  sendWebviewMessage(tabId, { action: 'INJECT_SCRIPT', script: scriptCode });
+  const wv = document.getElementById('global-wv-' + tabId) as HTMLIFrameElement | null;
+  if (wv?.contentDocument && !wv.contentDocument.getElementById('__tienhiep_injected_script')) {
+    try {
+      const script = wv.contentDocument.createElement('script');
+      script.id = '__tienhiep_injected_script';
+      script.textContent = scriptCode;
+      (wv.contentDocument.head || wv.contentDocument.documentElement || wv.contentDocument.body).appendChild(script);
+    } catch (_) { }
+  }
+}
 

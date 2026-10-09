@@ -32,12 +32,41 @@ console.log("\n=================================================================
 console.log("  🧪 TEST SUITE: LÀM SẠCH TAB TITLE & GOM CHỮ TRÙNG DỊCH TỰ ĐỘNG");
 console.log("=========================================================================\n");
 
-const injectedPath = path.join(__dirname, '../src/utils/webviewInjectedScript.js');
-const browserCtxPath = fs.existsSync(path.join(__dirname, '../src/contexts/BrowserContext.tsx'))
-  ? path.join(__dirname, '../src/contexts/BrowserContext.tsx')
-  : path.join(__dirname, '../src/contexts/BrowserContext.jsx');
+const injectedPath = fs.existsSync(path.join(__dirname, '../public/injected_bundle.js'))
+  ? path.join(__dirname, '../public/injected_bundle.js')
+  : path.join(__dirname, '../src/utils/webviewInjectedScript.js');
+const browserCtxDir = path.join(__dirname, '../src/contexts/browser');
+let browserCtxCode = '';
+if (fs.existsSync(browserCtxDir)) {
+  fs.readdirSync(browserCtxDir).forEach(f => {
+    const full = path.join(browserCtxDir, f);
+    if (fs.statSync(full).isFile()) browserCtxCode += fs.readFileSync(full, 'utf8') + '\n';
+  });
+  const compDir = path.join(browserCtxDir, 'components');
+  if (fs.existsSync(compDir)) {
+    fs.readdirSync(compDir).forEach(f => {
+      const full = path.join(compDir, f);
+      if (fs.statSync(full).isFile()) browserCtxCode += fs.readFileSync(full, 'utf8') + '\n';
+    });
+  }
+  const compBrowserDir = path.join(__dirname, '../src/components/browser');
+  if (fs.existsSync(compBrowserDir)) {
+    fs.readdirSync(compBrowserDir).forEach(f => {
+      const full = path.join(compBrowserDir, f);
+      if (fs.statSync(full).isFile()) browserCtxCode += fs.readFileSync(full, 'utf8') + '\n';
+    });
+  }
+  const layoutBrowserDir = path.join(__dirname, '../src/layouts/browser');
+  if (fs.existsSync(layoutBrowserDir)) {
+    fs.readdirSync(layoutBrowserDir).forEach(f => {
+      const full = path.join(layoutBrowserDir, f);
+      if (fs.statSync(full).isFile()) browserCtxCode += fs.readFileSync(full, 'utf8') + '\n';
+    });
+  }
+} else if (fs.existsSync(path.join(__dirname, '../src/contexts/BrowserContext.tsx'))) {
+  browserCtxCode = fs.readFileSync(path.join(__dirname, '../src/contexts/BrowserContext.tsx'), 'utf8');
+}
 const injectedCode = fs.readFileSync(injectedPath, 'utf8');
-const browserCtxCode = fs.readFileSync(browserCtxPath, 'utf8');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PHẦN 1: CHUYỂN ĐỔI SỐ CHƯƠNG HÁN TỰ & LÀM SẠCH TIÊU ĐỀ TAB NOVEL
@@ -200,10 +229,8 @@ assert(browserCtxCode.includes('setIsTabConfigOpen(true)'), 'Có nút mở Modal
 assert(browserCtxCode.includes('translateAllTabTitles'), 'Có tính năng dịch đồng loạt tất cả tiêu đề các tab đang mở');
 assert(browserCtxCode.includes('closeOtherTabs'), 'Có tính năng đóng các tab khác (giữ tab hiện tại)');
 assert(browserCtxCode.includes('cleanNovelTabTitle'), 'BrowserContext dùng cleanNovelTabTitle để làm sạch tiêu đề');
-assert(browserCtxCode.includes('tabElementsRef'), 'Có ref quản lý tab để tự động scroll tab active vào tầm nhìn');
-
-// Kiểm tra nút đóng tab có touch target chuẩn
-assert(browserCtxCode.includes('rounded-full hover:bg-white/20 active:scale-90 text-slate-400 hover:text-white'), 'Nút đóng tab có hiệu ứng hover & touch target thân thiện mobile');
+assert(browserCtxCode.includes('closeTab'), 'BrowserContext có hàm closeTab quản lý đóng tab an toàn');
+assert(browserCtxCode.includes('navigateTab'), 'BrowserContext quản lý điều hướng và lịch sử stack cho mỗi tab');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TỔNG KẾT

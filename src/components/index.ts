@@ -17,6 +17,7 @@ export * from './modals';
 export * from './reader';
 export * from './mobile';
 export * from './common';
+export * from './browser';
 
 // Default exports map
 export { default as AudioPlayer } from './audio/player';
@@ -30,7 +31,7 @@ export { default as ChromeMobileBookmarksModal } from './modals/ChromeMobileBook
 export { default as ReaderQuickTools } from './reader/ReaderQuickTools';
 export { default as BookCard } from './reader/book-card';
 export { default as ChromeMobileMenu } from './mobile/chrome-menu';
-export { default as ChromeMobileNewTab } from './mobile/ChromeMobileNewTab';
+export { default as ChromeMobileNewTab } from './browser/ChromeMobileNewTab';
 export { default as ChromeMobileTabSwitcher } from './mobile/ChromeMobileTabSwitcher';
 export { default as Footer } from './common/Footer';
 export { default as DownloadIcon } from './common/DownloadIcon';

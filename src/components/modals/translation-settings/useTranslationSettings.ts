@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { TranslationSettingsState } from './TranslationSettings.types';
 
 export function useTranslationSettings(isOpen: boolean) {
-  const [activeTab, setActiveTab] = useState<'tools' | 'advanced' | 'history'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'advanced' | 'test' | 'history'>('tools');
   const [settings, setSettings] = useState<TranslationSettingsState>({
     engineType: 'browser',
     mode: '4',
@@ -20,11 +20,8 @@ export function useTranslationSettings(isOpen: boolean) {
       if (stored) {
         try {
           let parsed = JSON.parse(stored);
-          if (!parsed.mode || parsed.mode === 'vietphrase') {
-            parsed.mode = '4';
-          }
-          const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'raw', 'none'];
-          if (parsed.engineType === 'browser' && !validModes.includes(parsed.mode)) {
+          const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'vietphrase', 'hanviet', 'raw', 'none', 'fast', 'advanced'];
+          if (!parsed.mode || !validModes.includes(parsed.mode)) {
             parsed.mode = '4';
           }
           setSettings(prev => ({ ...prev, ...parsed }));
@@ -48,11 +45,9 @@ export function useTranslationSettings(isOpen: boolean) {
 
   const updateSetting = (key: keyof TranslationSettingsState, value: any) => {
     let newSettings = { ...settings, [key]: value };
-    const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'vietphrase', 'hanviet', 'raw', 'none'];
-    if (key === 'engineType' && value === 'browser') {
-      if (!validModes.includes(newSettings.mode)) {
-        newSettings.mode = '4';
-      }
+    const validModes = ['1', '2', '3', '4', 1, 2, 3, 4, 'vietphrase', 'hanviet', 'raw', 'none', 'fast', 'advanced'];
+    if (key === 'mode' && !validModes.includes(value)) {
+      newSettings.mode = '4';
     }
     setSettings(newSettings);
     localStorage.setItem('translationSettings', JSON.stringify(newSettings));

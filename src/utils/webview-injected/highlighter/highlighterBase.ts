@@ -134,13 +134,21 @@ export function getHighlighterBaseScript(): string {
         }
       }
 
-      // 3. Fallback cuối cùng: Chỉ khi không khớp text mới dùng ID câu
+      // 3. Fallback theo ID câu hoặc chỉ mục đoạn văn
       const sId = typeof sentenceId === 'number' ? sentenceId : parseInt(sentenceId, 10);
       if (!targetEl && !isNaN(sId) && sId >= 0) {
         targetEl = document.getElementById('s-' + (sId - 1)) ||
                    document.querySelector('[data-sid="' + (sId - 1) + '"]') ||
                    document.getElementById('s-' + sId) || 
-                   document.querySelector('[data-sid="' + sId + '"]');
+                   document.querySelector('[data-sid="' + sId + '"]') ||
+                   document.querySelector('[data-tts-idx="' + (sId - 1) + '"]') ||
+                   document.querySelector('[data-tts-idx="' + sId + '"]');
+        if (!targetEl) {
+          const allIndexed = Array.from(document.querySelectorAll('[data-tts-idx], .tienhiep-tts-paragraph, p'));
+          if (allIndexed.length > 0) {
+            targetEl = allIndexed[Math.min(sId, allIndexed.length - 1)];
+          }
+        }
       }
 
       if (targetEl) {

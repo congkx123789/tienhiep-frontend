@@ -4,14 +4,20 @@
  * hoàn toàn độc lập, không bị rò rỉ sang tài khoản B hoặc Guest.
  */
 
-export function getAccountScope(): string {
+export function getStoredUser(): any {
   try {
     const raw = localStorage.getItem('user');
-    if (raw) {
-      const u = JSON.parse(raw);
-      if (u?.id) return `u_${u.id}`;
-      if (u?.username) return `u_${u.username}`;
-    }
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAccountScope(): string {
+  try {
+    const u = getStoredUser();
+    if (u?.id) return `u_${u.id}`;
+    if (u?.username) return `u_${u.username}`;
   } catch {}
   return 'guest';
 }

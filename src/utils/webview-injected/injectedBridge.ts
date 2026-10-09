@@ -40,11 +40,27 @@ export function getInjectedBridgeScript(): string {
 
       window.addEventListener('message', (e) => {
         if (!e.data) return;
-        const data = e.data;
+        let data = e.data;
+        if (typeof data === 'string') {
+          try { data = JSON.parse(data); } catch(_) {}
+        }
+        if (!data || typeof data !== 'object') return;
         const action = data.action;
 
-        if (action === 'TEACH_NEXT' || action === 'teach_next') {
-          if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.startTeachNextMode === 'function') {
+        if (action === 'INJECT_SCRIPT' && data.script) {
+          if (data.tabId) window.__TIENHIEP_TAB_ID__ = data.tabId;
+          try {
+            const s = document.createElement('script');
+            s.id = '__tienhiep_injected_script';
+            s.textContent = data.script;
+            (document.head || document.documentElement || document.body).appendChild(s);
+          } catch(e) {
+            try { (new Function(data.script))(); } catch(_) {}
+          }
+        } else if (action === 'TEACH_NEXT' || action === 'teach_next') {
+          if (window.__isTeachingNext && window.__TienHiepHelpers && typeof window.__TienHiepHelpers.stopTeachNextMode === 'function') {
+            window.__TienHiepHelpers.stopTeachNextMode();
+          } else if (window.__TienHiepHelpers && typeof window.__TienHiepHelpers.startTeachNextMode === 'function') {
             window.__TienHiepHelpers.startTeachNextMode();
           }
         } else if (action === 'TRIGGER_NEXT' || action === 'next') {

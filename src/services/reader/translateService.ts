@@ -1,21 +1,29 @@
-import api from '../core/api';
-import { API_ENDPOINTS } from '../../constants/endpoints';
+import { localTranslator } from '../../utils/localTranslator';
 import { TranslationResult } from '../../types';
 
 export const translateService = {
   translateText: async (text: string, mode: string = 'cmlm'): Promise<TranslationResult> => {
-    const res = await api.post(API_ENDPOINTS.TRANSLATE.CMLM, { text, mode });
-    return res.data;
+    const translation = await localTranslator.translate(text, mode);
+    return {
+      translation,
+      text,
+      engine: 'native_core_cmlm',
+      status: 'success'
+    };
   },
 
   translateVietphrase: async (text: string): Promise<TranslationResult> => {
-    const res = await api.post(API_ENDPOINTS.TRANSLATE.ROOT, { text });
-    return res.data;
+    const translation = await localTranslator.translate(text, 'vietphrase');
+    return {
+      translation,
+      text,
+      engine: 'native_core_vietphrase',
+      status: 'success'
+    };
   },
 
   getModels: async () => {
-    const res = await api.get(API_ENDPOINTS.TRANSLATE.MODELS);
-    return res.data;
+    return { models: ['cmlm_native_onnx', 'vietphrase_trie_native', 'hanviet_chardict'] };
   },
 };
 

@@ -1,5 +1,6 @@
 import { SERVER_CONFIG } from '../../../constants/endpoints';
 import BasePointManager from '../../../core/platform/basePoint';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 let currentWorkingTtsHost: string = BasePointManager.getBaseUrl() || SERVER_CONFIG.LOCAL_HOST;
 
@@ -161,12 +162,29 @@ export async function fetchAudioBlob(
   if (cleanText && !/[.!?…:;]$/.test(cleanText)) cleanText += '.';
   if (!cleanText) return '';
 
+  let settingsServer = '';
+  let manualServer = '';
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const s = JSON.parse(localStorage.getItem('translationSettings') || '{}');
+      if (s?.serverUrl) settingsServer = s.serverUrl.trim().replace(/\/+$/, '');
+    } catch { }
+    try {
+      const m = localStorage.getItem('manual_api_base_url');
+      if (m) manualServer = m.trim().replace(/\/+$/, '');
+    } catch { }
+  }
+
   const hosts = Array.from(new Set([
-    getLocalTtsHost(),
+    settingsServer,
+    manualServer,
     BasePointManager.getBaseUrl(),
+    getLocalTtsHost(),
     'http://127.0.0.1:5051',
     'http://localhost:5051'
   ].filter(Boolean)));
+
+  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
 
   for (const host of hosts) {
     try {
@@ -174,13 +192,37 @@ export async function fetchAudioBlob(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: cleanText, speed: rate || 1.0 }),
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(3500)
       });
       if (res.ok) {
         const blob = await res.blob();
         if (blob && blob.size > 100) return URL.createObjectURL(blob);
       }
     } catch { }
+
+    if (isNative) {
+      try {
+        const capRes = await CapacitorHttp.post({
+          url: `${host}/api/tts/speak`,
+          headers: { 'Content-Type': 'application/json' },
+          data: { text: cleanText, speed: rate || 1.0 },
+          responseType: 'blob',
+          connectTimeout: 4000,
+          readTimeout: 8000,
+        });
+        if (capRes.status === 200 && capRes.data) {
+          if (typeof capRes.data === 'string' && capRes.data.length > 50) {
+            const byteChars = atob(capRes.data);
+            const byteNums = new Uint8Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+              byteNums[i] = byteChars.charCodeAt(i);
+            }
+            const blob = new Blob([byteNums], { type: 'audio/wav' });
+            return URL.createObjectURL(blob);
+          }
+        }
+      } catch (_) { }
+    }
   }
 
   return '';

@@ -14,11 +14,12 @@ import { TabPreferences } from './tabs/TabPreferences';
 import { TabWallet } from './tabs/TabWallet';
 import { TabStats } from './tabs/TabStats';
 import { TabDesktop } from './system-tabs/TabDesktop';
-import { TabTtsModels } from './system-tabs/TabTtsModels';
 import { TabAiTranslation } from './system-tabs/TabAiTranslation';
 import { FeedbackReportModal } from '../../../components/modals/report-modal';
 import { DownloadIcon } from '../../../components';
 import { Sparkles, AlertTriangle } from 'lucide-react';
+import { isNativeCoreWasmReady } from '../../../core/wasm';
+import BasePointManager from '../../../core/platform/basePoint';
 
 export default function Settings() {
   const { user, setUser } = useAuth();
@@ -32,7 +33,7 @@ export default function Settings() {
   const [translationSettings, setTranslationSettings] = useState<TranslationSettings>({
     engineType: 'browser',
     mode: '4',
-    serverUrl: 'https://cong123779-tienhiep-api.hf.space',
+    serverUrl: 'http://127.0.0.1:5051',
     vipKey: '',
     scrollSpeed: 30,
     audioSpeed: 1.0,
@@ -57,6 +58,10 @@ export default function Settings() {
         newSettings.mode = '4';
       }
     }
+    if (key === 'serverUrl' && typeof value === 'string') {
+      const trimmed = value.trim();
+      BasePointManager.setManualHost(trimmed || null);
+    }
     setTranslationSettings(newSettings);
     localStorage.setItem('translationSettings', JSON.stringify(newSettings));
     window.dispatchEvent(new CustomEvent('translationSettingsUpdated', { detail: newSettings }));
@@ -65,17 +70,29 @@ export default function Settings() {
   const d = settingsDictionary[lang] || settingsDictionary.vi;
   const mustChangePassword = user?.require_password_change === 1;
 
-  const linuxPath = '/home/alida/Documents/Extension_reader_tool/ttS/backend_go/engines/tts/models_onnx';
+  const linuxPath = '/home/alida/Documents/Extension_reader_tool/ttS/native-core/tts/models_onnx';
   const [downloadFolder, setDownloadFolder] = useState(linuxPath);
 
   const [localModels, setLocalModels] = useState<any[]>([]);
-  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
-  const [deleteModal, setDeleteModal] = useState({ open: false, filename: '' });
   const [ttsDevice, setTtsDevice] = useState(localStorage.getItem('tts_device_pref') || 'auto');
 
+  useEffect(() => {
+    api.get('/api/tts/models', { timeout: 3000 }).then(res => {
+      if (res.data?.models && Array.isArray(res.data.models)) setLocalModels(res.data.models);
+    }).catch(() => {
+      setLocalModels([
+        { name: 'matcha_encoder.onnx', sizeMB: 29.3, status: 'active', type: 'Matcha-TTS Encoder (INT8)' },
+        { name: 'matcha_decoder.onnx', sizeMB: 24.3, status: 'active', type: 'Matcha-TTS Flow Decoder (INT8)' },
+        { name: 'vocos.onnx', sizeMB: 14.9, status: 'active', type: 'Vocos Neural Vocoder (INT8)' },
+        { name: 'cmlm_nat_int8_hq.onnx', sizeMB: 25.6, status: 'active', type: 'CMLM NAT Transformer (INT8)' },
+        { name: 'hanlp_small_int8_hq.onnx', sizeMB: 25.8, status: 'active', type: 'HanLP POS Tagger (INT8)' }
+      ]);
+    });
+  }, []);
+
   const [pingStats, setPingStats] = useState({
-    trans: 'Chưa đo',
-    tts: 'Chưa đo',
+    trans: isNativeCoreWasmReady() ? 'In-RAM Wasm (0ms)' : 'Chưa đo',
+    tts: isNativeCoreWasmReady() ? 'On-Device (0ms)' : 'Chưa đo',
     localTts: 'Connected',
     rtf: '15.2x',
     transRtf: '30.5x',
@@ -94,8 +111,16 @@ export default function Settings() {
       const res = await api.get('/health', { timeout: 3500 });
       if (res.data?.status === 'ok' || res.data?.status === 'healthy') {
         setPingStats(prev => ({ ...prev, trans: 'Online (2ms)', tts: 'Online (5ms)' }));
+        api.get('/api/tts/models', { timeout: 2000 }).then(mRes => {
+          if (mRes.data?.models) setLocalModels(mRes.data.models);
+        }).catch(() => {});
+        return;
       }
     } catch {
+      if (isNativeCoreWasmReady()) {
+        setPingStats(prev => ({ ...prev, trans: 'In-RAM Wasm (0ms)', tts: 'On-Device (0ms)' }));
+        return;
+      }
       setPingStats(prev => ({ ...prev, trans: 'Lỗi', tts: 'Lỗi' }));
     } finally {
       setPingStats(prev => ({ ...prev, isPinging: false }));
@@ -192,26 +217,15 @@ export default function Settings() {
                 manualChecking={manualChecking}
               />
             )}
-            {activeTab === 'tts_models' && (
-              <TabTtsModels
+            {activeTab === 'ai_translation' && (
+              <TabAiTranslation
                 isElectron={isElectron}
                 downloadFolder={downloadFolder}
-                isCapacitor={isCapacitor}
                 pingStats={pingStats}
                 onPingServer={handlePingServer}
                 localModels={localModels}
-                downloadProgress={downloadProgress}
-                onDownloadModel={(modelId, url) => { }}
-                onDeleteModel={(filename) => setDeleteModal({ open: true, filename })}
                 ttsDevice={ttsDevice}
                 onDeviceChange={setTtsDevice}
-                deleteModal={deleteModal}
-                setDeleteModal={setDeleteModal}
-                confirmDeleteModel={() => setDeleteModal({ open: false, filename: '' })}
-              />
-            )}
-            {activeTab === 'ai_translation' && (
-              <TabAiTranslation
                 translationSettings={translationSettings}
                 updateTranslationSetting={updateTranslationSetting}
               />

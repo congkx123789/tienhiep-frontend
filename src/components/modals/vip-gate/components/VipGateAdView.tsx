@@ -8,8 +8,6 @@ import {
   Crown, 
   ArrowRight 
 } from 'lucide-react';
-import GoogleAd from '../../../common/GoogleAd';
-
 interface VipGateAdViewProps {
   toolName?: string;
   description?: string;
@@ -20,6 +18,7 @@ interface VipGateAdViewProps {
   onStartWatchAd: () => void;
   onClaimAdReward: () => void;
   onGoToPlans: () => void;
+  adSlot?: React.ReactNode;
 }
 
 export const VipGateAdView: React.FC<VipGateAdViewProps> = ({
@@ -32,6 +31,7 @@ export const VipGateAdView: React.FC<VipGateAdViewProps> = ({
   onStartWatchAd,
   onClaimAdReward,
   onGoToPlans,
+  adSlot,
 }) => {
   return (
     <div className="space-y-4">
@@ -102,12 +102,16 @@ export const VipGateAdView: React.FC<VipGateAdViewProps> = ({
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-500 flex items-center justify-center text-white mb-2 shadow-lg shadow-indigo-500/30 animate-pulse">
                   <Tv className="w-5 h-5" />
                 </div>
-                <h5 className="text-xs font-bold text-white">Tiên Hiệp AI Neural Studio & Cloud Translation</h5>
+                <h5 className="text-xs font-bold text-white">Tiên Hiệp AI Neural Studio & Local Translation</h5>
                 <p className="text-[11px] text-slate-300 max-w-sm mt-0.5 leading-relaxed">
                   Công nghệ chuyển ngữ tiên hiệp & tổng hợp giọng đọc C++ siêu tốc 18x thời gian thực.
                 </p>
               </div>
-              <GoogleAd slot="reward-interstitial-slot" className="!my-0" />
+              {adSlot ? adSlot : (
+                <div className="py-2 px-3 rounded-lg bg-white/5 border border-white/10 text-center text-[10px] text-slate-400">
+                  ⚡ Đối tác tài trợ hệ sinh thái Tiên Hiệp AI
+                </div>
+              )}
               <p className="text-[10px] text-slate-400 italic">
                 {adFinished
                   ? '🎉 Bạn đã xem đủ thời lượng tài trợ! Bấm nút bên dưới để nhận 30 phút VIP miễn phí.'

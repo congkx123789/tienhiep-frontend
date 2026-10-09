@@ -31,9 +31,9 @@ async function ensureBackend(): Promise<() => void> {
     return () => {}; // Server đã chạy sẵn
   }
 
-  const serverBin = path.resolve(__dirname, '../../../backend_go/server');
+  const serverBin = path.resolve(__dirname, '../../../server/server');
   const serverProc = spawn(serverBin, ['-port', '5051'], {
-    cwd: path.resolve(__dirname, '../../../backend_go'),
+    cwd: path.resolve(__dirname, '../../../server'),
     stdio: 'ignore',
   });
 

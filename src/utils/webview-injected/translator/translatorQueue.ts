@@ -28,7 +28,7 @@ export function getTranslatorQueueScript(useTypewriter: boolean = false): string
     let sweepRetryCount = 0;
 
     const _tiViRegex = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
-    const _tiZhRegex = /[一-龥]/;
+    const _tiZhRegex = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
 
     function isGoodTranslation(orig, trans) {
       if (!trans || typeof trans !== 'string') return false;
@@ -69,14 +69,12 @@ export function getTranslatorQueueScript(useTypewriter: boolean = false): string
         if (target.type === "text") {
           const node = target.node;
           if (!node || !node.parentNode || !document.contains(node)) return;
-          if (isGoodTranslation(target.orig, transText) || _tiViRegex.test(transText)) {
-            node.__ti_translated__ = true;
-          }
+          const cleanTrans = transText.trim();
           if (target.orig && _tiZhRegex.test(target.orig)) {
             if (!node.__original_chinese__) node.__original_chinese__ = target.orig;
           }
           if (target.orig && _tiZhRegex.test(target.orig) && !_tiViRegex.test(target.orig)) {
-            const cleanOrig = target.orig.trim();
+            const cleanOrig = (target.segment || target.orig).trim();
             let pNode = node.parentElement;
             while (pNode && pNode !== document.body) {
               if (pNode.hasAttribute('data-tts-idx') || pNode.classList.contains('tienhiep-tts-paragraph') || pNode.tagName === 'P') {
@@ -91,15 +89,41 @@ export function getTranslatorQueueScript(useTypewriter: boolean = false): string
               pNode = pNode.parentElement;
             }
           }
-          enableStream ? streamTypewriterText(node, transText) : (node.nodeValue = transText);
+          let formattedTrans = '';
+          if (target.segment && node.nodeValue && node.nodeValue.includes(target.segment)) {
+            formattedTrans = node.nodeValue.replace(target.segment, cleanTrans);
+            node.nodeValue = formattedTrans;
+          } else if (target.orig && node.nodeValue && node.nodeValue.includes(target.orig.trim())) {
+            formattedTrans = node.nodeValue.replace(target.orig.trim(), cleanTrans);
+            node.nodeValue = formattedTrans;
+          } else {
+            const leadingWs = (target.orig && target.orig.match(/^\\s+/)) ? target.orig.match(/^\\s+/)[0] : '';
+            const trailingWs = (target.orig && target.orig.match(/\\s+$/)) ? target.orig.match(/\\s+$/)[0] : '';
+            formattedTrans = leadingWs + cleanTrans + trailingWs;
+            enableStream ? streamTypewriterText(node, formattedTrans) : (node.nodeValue = formattedTrans);
+          }
+          if (!_tiZhRegex.test(node.nodeValue)) {
+            node.__ti_translated__ = true;
+          }
         } else if (target.type === "attr") {
           const el = target.element;
           if (!el || !document.contains(el)) return;
-          el.setAttribute(target.attr, transText);
-          if (target.attr === "value" && "value" in el) el.value = transText;
+          const currentVal = el.getAttribute(target.attr) || '';
+          const cleanTrans = transText.trim();
+          let newVal = cleanTrans;
+          if (target.segment && currentVal.includes(target.segment)) {
+            newVal = currentVal.replace(target.segment, cleanTrans);
+          }
+          el.setAttribute(target.attr, newVal);
+          if (target.attr === "value" && "value" in el) el.value = newVal;
         } else if (target.type === "title") {
-          document.title = transText;
-          if (window.parent && window.parent !== window) window.parent.postMessage({ type: "TITLE_UPDATED", title: transText }, "*");
+          const cleanTrans = transText.trim();
+          if (target.segment && document.title.includes(target.segment)) {
+            document.title = document.title.replace(target.segment, cleanTrans);
+          } else {
+            document.title = cleanTrans;
+          }
+          if (window.parent && window.parent !== window) window.parent.postMessage({ type: "TITLE_UPDATED", title: document.title }, "*");
         }
       } catch(e) {}
     }

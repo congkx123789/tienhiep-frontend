@@ -223,6 +223,7 @@ export const API_ENDPOINTS = {
     IFRAME: '/api/iframe_proxy',
     IFRAME_OLD: '/iframe_proxy',
     IMAGE: '/api/image_proxy',
+    EXTRACT: '/extract',
   },
 
   // ─── 17. TÀI NGUYÊN TĨNH & FILE TẢI VỀ (DOWNLOADS & STATIC ASSETS) ───

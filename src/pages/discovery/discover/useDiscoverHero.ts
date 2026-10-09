@@ -98,8 +98,8 @@ export function useDiscoverHero() {
           setHeroTranslatedDesc(res.data.translations[0]);
           setHeroTranslateMode(targetLang);
         }
-      } catch (cloudErr) {
-        console.warn("[Discover] Cloud translation failed, trying offline localTranslator:", cloudErr);
+      } catch (err) {
+        console.warn("[Discover] Switching to offline localTranslator:", err);
         await localTranslator.loadDictionaries();
         const transText = await localTranslator.translate(activeHero.description, 'cmlm');
         setHeroTranslatedDesc(transText);

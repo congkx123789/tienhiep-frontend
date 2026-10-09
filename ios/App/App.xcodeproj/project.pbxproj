@@ -15,12 +15,15 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		68A1B2C300000004 /* NativeCoreBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 68A1B2C300000005 /* NativeCoreBridge.mm */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		68A1B2C300000001 /* NativeCorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCorePlugin.swift; sourceTree = "<group>"; };
 		68A1B2C300000002 /* App-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "App-Bridging-Header.h"; sourceTree = "<group>"; };
+		68A1B2C300000005 /* NativeCoreBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = NativeCoreBridge.mm; sourceTree = "<group>"; };
+		68A1B2C300000006 /* NativeCoreBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NativeCoreBridge.h; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -78,6 +81,8 @@
 			children = (
 				68A1B2C300000001 /* NativeCorePlugin.swift */,
 				68A1B2C300000002 /* App-Bridging-Header.h */,
+				68A1B2C300000006 /* NativeCoreBridge.h */,
+				68A1B2C300000005 /* NativeCoreBridge.mm */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -215,6 +220,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				68A1B2C300000003 /* NativeCorePlugin.swift in Sources */,
+				68A1B2C300000004 /* NativeCoreBridge.mm in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

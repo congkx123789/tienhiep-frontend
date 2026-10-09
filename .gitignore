@@ -45,3 +45,4 @@ dist_old_*
 .env*
 playwright-report/
 test-results/
+public/models/

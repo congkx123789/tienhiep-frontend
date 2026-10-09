@@ -1,11 +1,9 @@
 import { useState, useRef } from 'react';
-import { isSpeechSynthesisAvailable } from './ttsEngineHelper';
-
 export function useSpeechSettings() {
   const [ttsEngine, setTtsEngine] = useState(() => {
     const saved = localStorage.getItem('local_tts_engine');
-    if (saved === 'browser' && !isSpeechSynthesisAvailable()) return 'local';
-    return saved || 'local';
+    if (saved) return saved;
+    return 'local';
   });
 
   const [matchaApiKey, setMatchaApiKey] = useState(() => localStorage.getItem('local_tts_api_key') || '');

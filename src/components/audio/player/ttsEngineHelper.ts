@@ -1,56 +1,42 @@
 import { SERVER_CONFIG } from '../../../constants/endpoints';
+import BasePointManager from '../../../core/platform/basePoint';
 
-let currentWorkingTtsHost: string = (typeof window !== 'undefined' && (window as any).Capacitor && typeof (window as any).Capacitor.isNativePlatform === 'function' && (window as any).Capacitor.isNativePlatform())
-  ? SERVER_CONFIG.EMULATOR_HOST
-  : SERVER_CONFIG.LOCAL_HOST;
+let currentWorkingTtsHost: string = BasePointManager.getBaseUrl() || SERVER_CONFIG.LOCAL_HOST;
 
 export async function detectBestTtsHost(): Promise<string> {
-  if (typeof window !== 'undefined' && (window as any).electron) {
-    currentWorkingTtsHost = SERVER_CONFIG.LOCAL_HOST;
-    return currentWorkingTtsHost;
-  }
-  const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('best_tienhiep_server') : null;
-  if (cached && (cached.includes(':5051') || cached.includes('10.0.2.2') || cached.includes('127.0.0.1'))) {
-    currentWorkingTtsHost = cached.replace(/^https:\/\//i, 'http://');
-    return currentWorkingTtsHost;
-  }
-  if (typeof window !== 'undefined' && (window as any).Capacitor && typeof (window as any).Capacitor.isNativePlatform === 'function' && (window as any).Capacitor.isNativePlatform()) {
-    try {
-      const r = await fetch(`${SERVER_CONFIG.LOCAL_HOST}/health`, { signal: AbortSignal.timeout(600) });
-      if (r.ok) {
-        currentWorkingTtsHost = SERVER_CONFIG.LOCAL_HOST;
-        return currentWorkingTtsHost;
-      }
-    } catch {}
-
-    try {
-      const r = await fetch(`${SERVER_CONFIG.EMULATOR_HOST}/health`, { signal: AbortSignal.timeout(600) });
-      if (r.ok) {
-        currentWorkingTtsHost = SERVER_CONFIG.EMULATOR_HOST;
-        return currentWorkingTtsHost;
-      }
-    } catch {}
-
-    return currentWorkingTtsHost;
-  }
-  return SERVER_CONFIG.LOCAL_HOST;
+  const base = BasePointManager.getBaseUrl();
+  currentWorkingTtsHost = base || SERVER_CONFIG.LOCAL_HOST;
+  return currentWorkingTtsHost;
 }
 
-detectBestTtsHost().catch(() => {});
+detectBestTtsHost().catch(() => { });
 
 export function getLocalTtsHost(): string {
   if (typeof window !== 'undefined' && (window as any).electron) return SERVER_CONFIG.LOCAL_HOST;
-  if (typeof window !== 'undefined' && (window as any).Capacitor && typeof (window as any).Capacitor.isNativePlatform === 'function' && (window as any).Capacitor.isNativePlatform()) {
-    return currentWorkingTtsHost;
-  }
-  return SERVER_CONFIG.LOCAL_HOST;
+  return currentWorkingTtsHost || BasePointManager.getBaseUrl() || SERVER_CONFIG.LOCAL_HOST;
 }
 
 export const isSpeechSynthesisAvailable = (): boolean => {
-  return typeof window !== 'undefined' &&
-         typeof window.SpeechSynthesisUtterance !== 'undefined' &&
-         !!window.speechSynthesis;
+  // Chặn hoàn toàn Apple / System SpeechSynthesis theo yêu cầu
+  return false;
 };
+
+export function cancelSpeechSynthesis(): void {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch { }
+  }
+}
+
+export function speakWithSpeechSynthesis(
+  _text: string,
+  _rate: number = 1.0,
+  _volume: number = 1.0,
+  _onEnd?: () => void,
+  _onError?: () => void
+): boolean {
+  // CHẶN HOÀN TOÀN: Không sử dụng giọng đọc Apple/Siri của iPhone
+  return false;
+}
 
 export const logTrace = (msg: string) => {
   console.log(`[TTS Trace] ${msg}`);
@@ -94,10 +80,10 @@ export async function ensureLocalEngineRunning(ttsEngine: string): Promise<boole
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ device: pref })
-            }).catch(() => {});
+            }).catch(() => { });
             return true;
           }
-        } catch {}
+        } catch { }
       }
     } catch (err: any) {
       logTrace(`[ensureLocalEngineRunning] Lỗi khi gọi khởi chạy: ${err?.message}`);
@@ -110,107 +96,89 @@ export async function ensureLocalEngineRunning(ttsEngine: string): Promise<boole
   return false;
 }
 
+declare global {
+  interface Window {
+    __tienhiep_active_audio?: HTMLAudioElement | null;
+  }
+}
+
+export function stopAllGlobalAudio(): void {
+  cancelSpeechSynthesis();
+  if (typeof window !== 'undefined' && window.__tienhiep_active_audio) {
+    try {
+      const a = window.__tienhiep_active_audio;
+      a.onplay = null;
+      a.onplaying = null;
+      a.onpause = null;
+      a.onended = null;
+      a.ontimeupdate = null;
+      a.onerror = null;
+      a.pause();
+      a.src = '';
+    } catch { }
+    window.__tienhiep_active_audio = null;
+  }
+}
+
+export function cleanupAudioElement(aud: HTMLAudioElement | null): void {
+  if (!aud) return;
+  try {
+    aud.onplay = null;
+    aud.onplaying = null;
+    aud.onpause = null;
+    aud.onended = null;
+    aud.ontimeupdate = null;
+    aud.onerror = null;
+    aud.pause();
+    if (aud.src && aud.src.startsWith('blob:')) URL.revokeObjectURL(aud.src);
+    aud.src = '';
+  } catch { }
+  if (typeof window !== 'undefined' && window.__tienhiep_active_audio === aud) {
+    window.__tienhiep_active_audio = null;
+  }
+}
+
+export function findStartSentenceIndex(sentences: string[], book: any): number {
+  if (!sentences || sentences.length === 0) return 0;
+  const snippet = (book?.startSnippet || book?.startParagraphSnippet || '').trim();
+  if (snippet && snippet.length >= 4) {
+    const cleanSnip = snippet.replace(/^[“"'\s«『「]+|[”"'\s»』」]+$/gu, '').slice(0, 30).toLowerCase();
+    const foundIdx = sentences.findIndex(s => s.toLowerCase().includes(cleanSnip));
+    if (foundIdx !== -1) return foundIdx;
+  }
+  return Math.max(0, Math.min(book?.startSentenceIdx || 0, sentences.length - 1));
+}
+
 export async function fetchAudioBlob(
   textToSend: string,
-  ttsEngine: string,
-  matchaVoice: string,
-  matchaApiKey: string,
+  _ttsEngine: string,
+  _matchaVoice: string,
+  _matchaApiKey: string,
   rate: number,
-  api: any
+  _api: any
 ): Promise<string> {
   let cleanText = (textToSend || '').trim().replace(/^[“"'\s«『「]+|[”"'\s»』」]+$/gu, '').trim();
   if (cleanText && !/[.!?…:;]$/.test(cleanText)) cleanText += '.';
+  if (!cleanText) return '';
 
-  if (ttsEngine === 'local') {
+  // Chế độ 100% Local On-Device: Chỉ kết nối daemon nếu ở Electron desktop nội bộ
+  if (typeof window !== 'undefined' && (window as any).electron) {
     try {
-      const res = await api.post('/synthesize', { text: cleanText, speed: rate || 1.0 }, {
-        responseType: 'blob',
-        timeout: 8000
-      });
-      if (res.data && res.data.size > 100) return URL.createObjectURL(res.data);
-    } catch {}
-
-    const host = getLocalTtsHost();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    try {
-      const response = await fetch(`${host}/synthesize`, {
+      const res = await fetch('http://127.0.0.1:5051/api/tts/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: cleanText, speed: rate || 1.0 }),
-        signal: controller.signal
+        signal: AbortSignal.timeout(3000)
       });
-      clearTimeout(timeoutId);
-      if (response.ok) return URL.createObjectURL(await response.blob());
-    } catch {
-      clearTimeout(timeoutId);
-    }
-
-    const res = await api.get('/api/tts/speak', {
-      params: { text: cleanText.substring(0, 350), speed: rate || 1.0, voice: 'vi-VN-HoaiMyNeural' },
-      responseType: 'blob',
-      timeout: 8000
-    });
-    return URL.createObjectURL(res.data);
-  }
-
-  if (ttsEngine === 'matcha') {
-    try {
-      const res = await api.post('/v1/audio/speech', { input: cleanText, speed: 1.0, voice: matchaVoice }, {
-        responseType: 'blob',
-        headers: { 'Authorization': `Bearer ${matchaApiKey}` },
-        timeout: 8000
-      });
-      return URL.createObjectURL(res.data);
-    } catch {}
-  }
-
-  const res = await api.get('/api/tts/speak', {
-    params: { text: cleanText.substring(0, 350), speed: rate || 1.0, voice: 'vi-VN-HoaiMyNeural' },
-    responseType: 'blob',
-    timeout: 8000
-  });
-  return URL.createObjectURL(res.data);
-}
-
-/**
- * Tách câu chuẩn xác để nạp vào TTS engine và đồng bộ 100% với highlight DOM.
- * Không gộp bừa bãi các câu ngắn có dấu kết câu hoàn chỉnh để tránh lệch ID và lệch bôi đen.
- * Chỉ nối các dòng phân đoạn bị ngắt dở dang không có dấu kết câu.
- */
-export function splitAndMergeSentences(rawContent: string): string[] {
-  if (!rawContent || !rawContent.trim()) return [];
-  const parts = rawContent.split(/([.!?。！？…]+["”'’」]*\s*|\n+)/);
-  const rawList: string[] = [];
-  for (let i = 0; i < parts.length; i += 2) {
-    const full = (parts[i] + (parts[i + 1] || '')).trim();
-    if (full.length > 0 && /[a-zA-Z0-9\u4e00-\u9fa5\u00C0-\u1EF9]/u.test(full)) {
-      rawList.push(full);
-    }
-  }
-  if (rawList.length === 0) return [rawContent.trim()];
-
-  const isCompleteSentence = (s: string) => /[.!?。！？…]["”'’」]*$/.test(s.trim());
-  const result: string[] = [];
-  let buffer = '';
-
-  for (let i = 0; i < rawList.length; i++) {
-    const item = rawList[i];
-    if (!buffer) {
-      buffer = item;
-    } else {
-      if (!isCompleteSentence(buffer) && (buffer.length + item.length < 180)) {
-        buffer = buffer + ' ' + item;
-      } else {
-        result.push(buffer);
-        buffer = item;
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob && blob.size > 100) return URL.createObjectURL(blob);
       }
-    }
-  }
-  if (buffer) {
-    result.push(buffer);
+    } catch { }
   }
 
-  return result;
+  return '';
 }
+
+export { splitAndMergeSentences } from '../../../utils/sentenceSplitter';
 

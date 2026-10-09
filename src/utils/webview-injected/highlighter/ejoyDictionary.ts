@@ -23,7 +23,8 @@ export function getEjoyDictionaryScript(): string {
         '.__th_ejoy_alt_chip:hover { background: #ede9fe; border-color: #a78bfa; color: #6d28d9; }',
         '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }'
       ].join('\\n');
-      (document.head || document.documentElement).appendChild(style);
+      const hostEl = document.head || document.documentElement || document.body;
+      if (hostEl) hostEl.appendChild(style);
 
       ${getEjoyNotebookModalScript()}
       ${getEjoyPopupRendererScript()}
@@ -51,12 +52,18 @@ export function getEjoyDictionaryScript(): string {
       function speakWord(text) {
         if (!text) return;
         try {
-          if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utt = new SpeechSynthesisUtterance(text);
-            utt.lang = /[一-龥]/.test(text) ? 'zh-CN' : 'vi-VN';
-            window.speechSynthesis.speak(utt);
-          }
+          fetch('/api/tts/speak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, speed: 1.0 })
+          })
+          .then(res => res.blob())
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = new Audio(url);
+            a.play().catch(() => {});
+          })
+          .catch(() => {});
         } catch(e) {}
       }
 
@@ -142,8 +149,11 @@ export function getEjoyDictionaryScript(): string {
 
         const viContext = parentPara ? parentPara.innerText.slice(0, 160) : selectedText;
         const sendZh = (rawZh && /[一-龥]/.test(rawZh)) ? rawZh : validInitialZh;
+        const alignUrl = (window.location && window.location.origin && window.location.origin.includes(':5051'))
+          ? '/api/translate/align'
+          : 'http://127.0.0.1:5051/api/translate/align';
 
-        fetch('http://127.0.0.1:5051/api/translate/align', {
+        fetch(alignUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ zh: sendZh, vi: viContext, selected: selectedText, mode: 4 })
@@ -210,78 +220,16 @@ export function getEjoyDictionaryScript(): string {
         processWordLookup(selectedText, rect, parentPara);
       }
 
-      function handleWordClickLookup(e) {
-        if (e.target && e.target.closest && e.target.closest('#__th_ejoy_popup, #__th_ejoy_notebook_modal, a, button, input, select, textarea')) return;
-        const sel = window.getSelection();
-        if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
-        let range = null;
-        if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
-        else if (document.caretPositionFromPoint) {
-          const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-          if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
-        }
-        if (!range || !range.startContainer || range.startContainer.nodeType !== Node.TEXT_NODE) return;
-        const textNode = range.startContainer;
-        const text = textNode.nodeValue || '';
-        const offset = range.startOffset;
-        if (!text || offset < 0 || offset > text.length) return;
-        let start = offset, end = offset;
-        if (/[一-龥]/.test(text[offset] || '')) {
-          while (start > 0 && /[一-龥]/.test(text[start - 1])) start--;
-          while (end < text.length && /[一-龥]/.test(text[end])) end++;
-        } else {
-          const isWordChar = (c) => /[a-zA-Z0-9\\u00C0-\\u1EF9]/.test(c);
-          if (!isWordChar(text[offset] || '') && offset > 0 && isWordChar(text[offset - 1] || '')) { start = offset - 1; end = offset; }
-          else if (!isWordChar(text[offset] || '')) return;
-          while (start > 0 && isWordChar(text[start - 1])) start--;
-          while (end < text.length && isWordChar(text[end])) end++;
-        }
-        const word = text.slice(start, end).trim();
-        if (!word || word.length < 1 || word.length > 40) return;
-        const wordRange = document.createRange();
-        wordRange.setStart(textNode, start);
-        wordRange.setEnd(textNode, end);
-        const rect = wordRange.getBoundingClientRect();
-        if (rect.width === 0 && rect.height === 0) return;
-
-        // BÔI HIGHLIGHT VÙNG CHỌN TRỰC TIẾP TRÊN TRANG ĐỌC
-        const selObj = window.getSelection();
-        if (selObj) {
-          try {
-            selObj.removeAllRanges();
-            selObj.addRange(wordRange);
-          } catch(err) {}
-        }
-
-        const parentPara = (textNode.parentElement)?.closest('[data-tts-idx], .tienhiep-tts-paragraph, p');
-        processWordLookup(word, rect, parentPara);
-      }
-
-      let _lastClickTime = 0;
-      let _clickTimer = null;
-
+      // CHỈ KÍCH HOẠT TỪ ĐIỂN KHI NGƯỜI DÙNG CHỦ ĐỘNG BÔI ĐEN CHỮ (Selection)
+      // TUYỆT ĐỐI KHÔNG BẬT KHI CHỈ CLICK/CHẠM ĐƠN THUẦN
       document.addEventListener('mouseup', (e) => {
         if (e.target && e.target.closest && e.target.closest('#__th_ejoy_popup, #__th_ejoy_notebook_modal')) return;
         setTimeout(handleSelectionLookup, 50);
       });
+
       document.addEventListener('touchend', (e) => {
         if (e.target && e.target.closest && e.target.closest('#__th_ejoy_popup, #__th_ejoy_notebook_modal')) return;
         setTimeout(handleSelectionLookup, 100);
-      });
-
-      document.addEventListener('dblclick', (e) => {
-        if (_clickTimer) { clearTimeout(_clickTimer); _clickTimer = null; }
-        handleWordClickLookup(e);
-      });
-
-      document.addEventListener('click', (e) => {
-        if (e.target && e.target.closest && e.target.closest('#__th_ejoy_popup, #__th_ejoy_notebook_modal, a, button, input, select, textarea')) return;
-        const sel = window.getSelection();
-        if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
-        const now = Date.now();
-        if (now - _lastClickTime < 300) return;
-        _lastClickTime = now;
-        _clickTimer = setTimeout(() => { handleWordClickLookup(e); }, 220);
       });
 
       document.addEventListener('mousedown', (e) => {

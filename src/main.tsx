@@ -75,10 +75,27 @@ try {
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
+import App from './App'
+import { initNativeCoreWasm } from './core/wasm'
+
+// Chặn triệt để 100% Apple Siri / System SpeechSynthesis trên iOS và trình duyệt
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak = () => {
+      console.warn('[TTS] Đã chặn triệt để Apple Siri / System SpeechSynthesis. Chỉ sử dụng C++ Matcha TTS.');
+    };
+  } catch {}
+}
+
+// Khởi động trước lõi native-core WebAssembly trong RAM ngay khi mở app
+if (typeof window !== 'undefined') {
+  initNativeCoreWasm().catch((err) => console.warn('[App] NativeCore pre-warm:', err));
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
   </StrictMode>,
 )
+

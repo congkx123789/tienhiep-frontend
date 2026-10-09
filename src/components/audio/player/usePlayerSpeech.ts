@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../../services';
 import { AudioPlayerBook } from './AudioPlayer.types';
-import { fetchAudioBlob, splitAndMergeSentences } from './ttsEngineHelper';
+import {
+  fetchAudioBlob, splitAndMergeSentences, stopAllGlobalAudio,
+  cleanupAudioElement, findStartSentenceIndex
+} from './ttsEngineHelper';
 import { useSpeechSettings } from './useSpeechSettings';
 
 export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: () => void) {
@@ -10,14 +13,11 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
   const [progress, setProgress] = useState(0);
 
   const {
-    ttsEngine, matchaApiKey, matchaVoice,
-    rate, rateRef, volume, volumeRef,
-    voices, selectedVoiceName, setSelectedVoiceName,
-    handleSaveEngine, handleSaveVoice, handleSaveApiKey,
-    handleSaveRate, handleVolumeChange
+    ttsEngine, matchaApiKey, matchaVoice, rate, rateRef, volume, volumeRef,
+    voices, selectedVoiceName, setSelectedVoiceName, handleSaveEngine,
+    handleSaveVoice, handleSaveApiKey, handleSaveRate, handleVolumeChange
   } = useSpeechSettings();
 
-  const synthRef = useRef<any>(typeof window !== 'undefined' ? window.speechSynthesis : null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sentencesRef = useRef<string[]>([]);
   const currentSentenceIdxRef = useRef(0);
@@ -26,26 +26,17 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
   const playSessionIdRef = useRef(0);
   const triggeredIndicesRef = useRef(new Set<number>());
   const userPausedRef = useRef(false);
+  const toggleLockRef = useRef(false);
   const lastPlaybackProgressTimeRef = useRef(Date.now());
   const lastPlaybackPositionRef = useRef(0);
   const triggerNextRef = useRef<any>(null);
   const errCountRef = useRef(0);
 
-  const cleanupAudio = (aud: HTMLAudioElement | null) => {
-    if (!aud) return;
-    try {
-      aud.onplay = null; aud.onplaying = null; aud.onpause = null; aud.onended = null;
-      aud.ontimeupdate = null; aud.onerror = null; aud.pause();
-    } catch {}
-  };
-
   const clearAudioAndCache = () => {
-    if (audioRef.current) { cleanupAudio(audioRef.current); audioRef.current = null; }
-    if (synthRef.current) synthRef.current.cancel();
+    stopAllGlobalAudio();
+    if (audioRef.current) { cleanupAudioElement(audioRef.current); audioRef.current = null; }
     if (audioCacheRef.current) {
-      Object.values(audioCacheRef.current).forEach(a => {
-        try { if (a?.src?.startsWith('blob:')) URL.revokeObjectURL(a.src); } catch {}
-      });
+      Object.values(audioCacheRef.current).forEach(a => cleanupAudioElement(a));
       audioCacheRef.current = {};
     }
     prefetchQueueRef.current.clear();
@@ -57,7 +48,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     for (let i = 0; i < currentIdx; i++) estimatedCharIdx += (sentencesRef.current[i] || '').length + 1;
     const currentSentence = sentencesRef.current[currentIdx] || '';
     if (typeof book?.onBoundary === 'function') {
-      try { book.onBoundary(estimatedCharIdx, currentSentence, currentIdx); } catch {}
+      try { book.onBoundary(estimatedCharIdx, currentSentence, currentIdx); } catch { }
     }
     window.dispatchEvent(new CustomEvent('global-tts-boundary', {
       detail: { charIdx: estimatedCharIdx, sentenceText: currentSentence, sentenceId: currentIdx + 1, sentenceIdx: currentIdx }
@@ -75,20 +66,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     sentencesRef.current = finalSentences.length > 0 ? finalSentences : [rawContent.trim()];
     userPausedRef.current = false;
 
-    let startIdx = 0;
-    const snippet = (book.startSnippet || (book as any).startParagraphSnippet || '').trim();
-    if (snippet && snippet.length >= 4) {
-      const cleanSnip = snippet.replace(/^[“"'\s«『「]+|[”"'\s»』」]+$/gu, '').slice(0, 30).toLowerCase();
-      const foundIdx = sentencesRef.current.findIndex(s => s.toLowerCase().includes(cleanSnip));
-      if (foundIdx !== -1) {
-        startIdx = foundIdx;
-      } else {
-        startIdx = Math.max(0, Math.min(book.startSentenceIdx || 0, sentencesRef.current.length - 1));
-      }
-    } else {
-      startIdx = Math.max(0, Math.min(book.startSentenceIdx || 0, sentencesRef.current.length - 1));
-    }
-
+    const startIdx = findStartSentenceIndex(sentencesRef.current, book);
     currentSentenceIdxRef.current = startIdx;
     playSessionIdRef.current += 1;
     triggeredIndicesRef.current.clear();
@@ -105,8 +83,9 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     if (!textToSend) return null;
 
     const audioUrl = await fetchAudioBlob(textToSend, ttsEngine, matchaVoice, matchaApiKey, rateRef.current, api);
+    if (!audioUrl) return null;
     if (expectedSession !== playSessionIdRef.current) {
-      if (audioUrl?.startsWith('blob:')) URL.revokeObjectURL(audioUrl);
+      if (audioUrl.startsWith('blob:')) URL.revokeObjectURL(audioUrl);
       return null;
     }
 
@@ -114,6 +93,17 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     audio.preload = 'auto';
     audio.load();
     audioCacheRef.current[idx] = audio;
+
+    Object.keys(audioCacheRef.current).forEach((k) => {
+      const pastIdx = Number(k);
+      if (pastIdx < idx - 5 || pastIdx > idx + 10) {
+        const oldAudio = audioCacheRef.current[pastIdx];
+        if (oldAudio?.src?.startsWith('blob:')) URL.revokeObjectURL(oldAudio.src);
+        cleanupAudioElement(oldAudio);
+        delete audioCacheRef.current[pastIdx];
+      }
+    });
+
     return audio;
   };
 
@@ -151,7 +141,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     triggerNextRef.current = triggerNext;
 
     if (audioRef.current) {
-      cleanupAudio(audioRef.current);
+      cleanupAudioElement(audioRef.current);
       audioRef.current = null;
     }
 
@@ -159,51 +149,59 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     if (!audio) {
       setIsLoading(true);
       try {
-        audio = (await fetchMatchaAudio(idx)) || (undefined as any);
+        audio = (await fetchMatchaAudio(idx, mySessionId)) || (undefined as any);
         errCountRef.current = 0;
-      } catch {
-        setIsLoading(false);
-        errCountRef.current += 1;
-        if (errCountRef.current >= 3) {
-          setIsPlaying(false);
-          return;
-        }
-        if (idx === currentSentenceIdxRef.current) setTimeout(() => playSentence(idx + 1, mySessionId), 300);
-        return;
-      }
+      } catch { audio = undefined as any; }
     }
 
-    if (mySessionId !== playSessionIdRef.current || userPausedRef.current || !audio) {
+    if (mySessionId !== playSessionIdRef.current || userPausedRef.current) {
       setIsLoading(false);
       return;
     }
 
+    if (!audio) {
+      setIsLoading(false);
+      setIsPlaying(false);
+      return;
+    }
+
     setIsLoading(false);
+    stopAllGlobalAudio();
+    if (typeof window !== 'undefined') window.__tienhiep_active_audio = audio;
     audioRef.current = audio;
     audio.playbackRate = (ttsEngine === 'local') ? 1.0 : rateRef.current;
     audio.volume = Math.max(0, Math.min(1.0, volumeRef.current || 1.0));
 
     audio.onplay = () => {
-      if (mySessionId !== playSessionIdRef.current) return;
+      if (mySessionId !== playSessionIdRef.current || userPausedRef.current) {
+        audio.pause();
+        return;
+      }
       setIsLoading(false);
       setIsPlaying(true);
       emitBoundary(idx);
     };
-    audio.onended = () => triggerNext(idx);
+    audio.onended = () => {
+      if (typeof window !== 'undefined' && window.__tienhiep_active_audio === audio) {
+        window.__tienhiep_active_audio = null;
+      }
+      triggerNext(idx);
+    };
     audio.ontimeupdate = () => {
       lastPlaybackPositionRef.current = audio.currentTime;
       lastPlaybackProgressTimeRef.current = Date.now();
-      if (audio.duration && audio.duration > 0.3 && (audio.duration - audio.currentTime) <= 0.06) {
+      if (audio.duration && audio.duration > 0.5 && (audio.duration - audio.currentTime) <= 0.05) {
         triggerNext(idx);
       }
     };
-
     audio.play().then(() => {
+      if (mySessionId !== playSessionIdRef.current || userPausedRef.current) {
+        audio.pause();
+        return;
+      }
       setIsPlaying(true);
       setIsLoading(false);
-    }).catch(() => {
-      setIsLoading(false);
-    });
+    }).catch(() => setIsLoading(false));
 
     prefetchSentence(idx + 1, mySessionId);
     prefetchSentence(idx + 2, mySessionId);
@@ -213,6 +211,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     userPausedRef.current = true;
     playSessionIdRef.current += 1;
     triggeredIndicesRef.current.clear();
+    stopAllGlobalAudio();
     clearAudioAndCache();
     sentencesRef.current = [];
     currentSentenceIdxRef.current = 0;
@@ -228,8 +227,9 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     emitBoundary(clamped);
     setProgress(Math.round((clamped / sentencesRef.current.length) * 100));
 
+    stopAllGlobalAudio();
     if (audioRef.current) {
-      cleanupAudio(audioRef.current);
+      cleanupAudioElement(audioRef.current);
       audioRef.current = null;
     }
     playSessionIdRef.current += 1;
@@ -238,17 +238,27 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
   };
 
   const togglePlay = () => {
+    if (toggleLockRef.current) return;
+    toggleLockRef.current = true;
+    setTimeout(() => { toggleLockRef.current = false; }, 250);
+
+    // Mở khóa Audio trên iOS WebKit ngay khoảnh khắc chạm tay (User Gesture Unmute)
+    try {
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      silentAudio.volume = 0.01;
+      silentAudio.play().catch(() => {});
+    } catch (_) {}
+
     if (isPlaying) {
       userPausedRef.current = true;
       if (audioRef.current) audioRef.current.pause();
+      stopAllGlobalAudio();
       setIsPlaying(false);
     } else {
       userPausedRef.current = false;
-      if (audioRef.current && !audioRef.current.ended) {
-        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => playSentence(currentSentenceIdxRef.current));
-      } else {
-        playSentence(currentSentenceIdxRef.current);
-      }
+      const cur = audioRef.current;
+      if (cur && !cur.ended) cur.play().then(() => setIsPlaying(true)).catch(() => playSentence(currentSentenceIdxRef.current));
+      else playSentence(currentSentenceIdxRef.current);
     }
   };
 
@@ -260,8 +270,7 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     togglePlay, stopSpeaking, seekToSentence,
     skipForward: () => seekToSentence(currentSentenceIdxRef.current + 1),
     skipBackward: () => seekToSentence(currentSentenceIdxRef.current - 1),
-    handleSaveEngine, handleSaveVoice, handleSaveApiKey,
-    setSelectedVoiceName, handleSaveRate,
+    handleSaveEngine, handleSaveVoice, handleSaveApiKey, setSelectedVoiceName, handleSaveRate,
     handleVolumeChange: (vol: number) => handleVolumeChange(vol, audioRef.current),
     handleSeekBarClick: (e: React.MouseEvent<HTMLDivElement>) => {
       const r = e.currentTarget.getBoundingClientRect();
@@ -269,9 +278,10 @@ export function usePlayerSpeech(book: AudioPlayerBook | null, onNextChapter?: ()
     },
     handleSeekBarTouch: (e: React.TouchEvent<HTMLDivElement>) => {
       const t = e.touches[0] || e.changedTouches?.[0];
-      if (!t) return;
-      const r = e.currentTarget.getBoundingClientRect();
-      seekToSentence(Math.floor(Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)) * (sentencesRef.current?.length || 1)));
+      if (t) {
+        const r = e.currentTarget.getBoundingClientRect();
+        seekToSentence(Math.floor(Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)) * (sentencesRef.current?.length || 1)));
+      }
     }
   };
 }
